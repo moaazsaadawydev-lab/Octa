@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Terminal,
   ChevronDown,
@@ -26,6 +26,47 @@ export const QueryConsole: React.FC<QueryConsoleProps> = ({
   const [logs, setLogs] = useState<QueryLog[]>([]);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Resizable console height state (persisted in localStorage)
+  const [consoleHeight, setConsoleHeight] = useState<number>(() => {
+    const saved = localStorage.getItem('devcockpit_query_console_height');
+    const num = saved ? Number(saved) : 180;
+    return isNaN(num) ? 180 : Math.min(600, Math.max(100, num));
+  });
+
+  const resizingRef = useRef<{ startY: number; startHeight: number } | null>(null);
+
+  const handleResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isExpanded) {
+      onToggleExpand();
+    }
+    resizingRef.current = { startY: e.clientY, startHeight: consoleHeight };
+
+    document.body.style.cursor = 'row-resize';
+    document.body.style.userSelect = 'none';
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      if (!resizingRef.current) return;
+      // Moving mouse UP increases height
+      const deltaY = resizingRef.current.startY - moveEvent.clientY;
+      const nextHeight = Math.min(600, Math.max(100, resizingRef.current.startHeight + deltaY));
+      setConsoleHeight(nextHeight);
+      localStorage.setItem('devcockpit_query_console_height', String(nextHeight));
+    };
+
+    const onMouseUp = () => {
+      resizingRef.current = null;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  };
 
   // Initial load of query logs
   useEffect(() => {
@@ -123,7 +164,15 @@ export const QueryConsole: React.FC<QueryConsoleProps> = ({
   };
 
   return (
-    <div className="border-t border-border-subtle bg-surface-950 flex flex-col transition-all duration-200 z-10 select-none">
+    <div className="border-t border-border-subtle bg-surface-950 flex flex-col z-10 select-none relative flex-shrink-0 group/console">
+      {/* Horizontal Drag-to-Resize Splitter Handle */}
+      <div
+        onMouseDown={handleResizeStart}
+        className="absolute left-0 right-0 -top-1 h-2.5 cursor-row-resize select-none flex items-center justify-center group/resizer z-20 hover:bg-brand-500/10 active:bg-brand-500/20"
+      >
+        <div className="h-[2px] w-full group-hover/resizer:bg-brand-400 group-active/resizer:bg-brand-500 bg-transparent transition-colors" />
+      </div>
+
       {/* Console Header Bar */}
       <div
         onClick={onToggleExpand}
@@ -165,7 +214,8 @@ export const QueryConsole: React.FC<QueryConsoleProps> = ({
       {isExpanded && (
         <div
           ref={scrollRef}
-          className="h-44 overflow-y-auto p-3 font-mono text-[11px] leading-relaxed space-y-1.5 bg-[#0d0d0d] select-text"
+          style={{ height: consoleHeight }}
+          className="overflow-y-auto p-3 font-mono text-[11px] leading-relaxed space-y-1.5 bg-[#0d0d0d] select-text"
         >
           {logs.length === 0 ? (
             <div className="text-gray-600 italic py-4 text-center select-none">

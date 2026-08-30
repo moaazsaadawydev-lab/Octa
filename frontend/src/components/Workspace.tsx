@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Database,
   Table,
@@ -60,6 +60,43 @@ export const Workspace: React.FC<WorkspaceProps> = ({
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
   const [tableSearch, setTableSearch] = useState('');
   const [loadingTables, setLoadingTables] = useState(false);
+
+  // Resizable inner Tables sidebar width (persisted in localStorage)
+  const [tablesWidth, setTablesWidth] = useState<number>(() => {
+    const saved = localStorage.getItem('devcockpit_tables_sidebar_width');
+    const num = saved ? Number(saved) : 240;
+    return isNaN(num) ? 240 : Math.min(400, Math.max(180, num));
+  });
+
+  const tablesResizingRef = useRef<{ startX: number; startWidth: number } | null>(null);
+
+  const handleTablesResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    tablesResizingRef.current = { startX: e.clientX, startWidth: tablesWidth };
+
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      if (!tablesResizingRef.current) return;
+      const deltaX = moveEvent.clientX - tablesResizingRef.current.startX;
+      const nextWidth = Math.min(400, Math.max(180, tablesResizingRef.current.startWidth + deltaX));
+      setTablesWidth(nextWidth);
+      localStorage.setItem('devcockpit_tables_sidebar_width', String(nextWidth));
+    };
+
+    const onMouseUp = () => {
+      tablesResizingRef.current = null;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  };
 
   // Active table schema & data
   const [schema, setSchema] = useState<TableColumn[]>([]);
@@ -426,7 +463,10 @@ export const Workspace: React.FC<WorkspaceProps> = ({
       {/* 2. Main Middle Workspace Area (Inner Tables Sidebar + Data Grid) */}
       <div className="flex-1 flex overflow-hidden">
         {/* Inner Tables Sidebar */}
-        <div className="w-56 bg-surface-900 border-r border-border-subtle flex flex-col flex-shrink-0 select-none">
+        <div
+          style={{ width: tablesWidth, minWidth: tablesWidth, maxWidth: tablesWidth }}
+          className="bg-surface-900 border-r border-border-subtle flex flex-col flex-shrink-0 select-none relative group/tables-sidebar"
+        >
           {/* Tables Header */}
           <div className="px-3.5 py-2.5 border-b border-border-subtle flex items-center justify-between">
             <div className="flex items-center gap-1.5">
@@ -493,6 +533,14 @@ export const Workspace: React.FC<WorkspaceProps> = ({
                   </button>
                 );
               })}
+          </div>
+
+          {/* Vertical Drag-to-Resize Splitter Handle */}
+          <div
+            onMouseDown={handleTablesResizeStart}
+            className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize select-none flex items-center justify-center group/resizer z-20 hover:bg-brand-500/10 active:bg-brand-500/20"
+          >
+            <div className="w-[2px] h-full group-hover/resizer:bg-brand-400 group-active/resizer:bg-brand-500 bg-transparent transition-colors" />
           </div>
         </div>
 

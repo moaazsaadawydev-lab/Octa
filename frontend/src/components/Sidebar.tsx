@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   Plus,
   Search,
@@ -46,6 +46,43 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
 
+  // Resizable sidebar width state (persisted in localStorage)
+  const [width, setWidth] = useState<number>(() => {
+    const saved = localStorage.getItem('devcockpit_sidebar_width');
+    const num = saved ? Number(saved) : 260;
+    return isNaN(num) ? 260 : Math.min(450, Math.max(200, num));
+  });
+
+  const resizingRef = useRef<{ startX: number; startWidth: number } | null>(null);
+
+  const handleResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    resizingRef.current = { startX: e.clientX, startWidth: width };
+
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      if (!resizingRef.current) return;
+      const deltaX = moveEvent.clientX - resizingRef.current.startX;
+      const nextWidth = Math.min(450, Math.max(200, resizingRef.current.startWidth + deltaX));
+      setWidth(nextWidth);
+      localStorage.setItem('devcockpit_sidebar_width', String(nextWidth));
+    };
+
+    const onMouseUp = () => {
+      resizingRef.current = null;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  };
+
   // Filter connections by search query
   const filteredConnections = connections.filter((conn) => {
     const q = searchQuery.toLowerCase().trim();
@@ -64,7 +101,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   });
 
   return (
-    <div className="w-64 bg-surface-900 border-r border-border-subtle flex flex-col h-full select-none flex-shrink-0">
+    <div
+      style={{ width, minWidth: width, maxWidth: width }}
+      className="bg-surface-900 border-r border-border-subtle flex flex-col h-full select-none flex-shrink-0 relative group/sidebar"
+    >
       {/* Sidebar Header */}
       <div className="px-3.5 py-3 border-b border-border-subtle flex items-center justify-between bg-surface-900">
         <div className="flex items-center gap-2">
@@ -285,6 +325,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
               : 'Disconnected'}
           </span>
         </div>
+      </div>
+
+      {/* Vertical Drag-to-Resize Splitter Handle */}
+      <div
+        onMouseDown={handleResizeStart}
+        className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize select-none flex items-center justify-center group/resizer z-20 hover:bg-brand-500/10 active:bg-brand-500/20"
+      >
+        <div className="w-[2px] h-full group-hover/resizer:bg-brand-400 group-active/resizer:bg-brand-500 bg-transparent transition-colors" />
       </div>
     </div>
   );
