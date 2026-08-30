@@ -22,6 +22,10 @@ export function GetDatabases(arg1) {
   return window['go']['main']['App']['GetDatabases'](arg1);
 }
 
+export function GetEnumValues(arg1, arg2, arg3) {
+  return window['go']['main']['App']['GetEnumValues'](arg1, arg2, arg3);
+}
+
 export function GetQueryLogs() {
   return window['go']['main']['App']['GetQueryLogs']();
 }
@@ -52,4 +56,8 @@ export function SaveConnection(arg1) {
 
 export function TestConnection(arg1) {
   return window['go']['main']['App']['TestConnection'](arg1);
+}
+
+export function UpdateTableRows(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['main']['App']['UpdateTableRows'](arg1, arg2, arg3, arg4, arg5);
 }

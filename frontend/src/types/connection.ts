@@ -24,6 +24,13 @@ export interface TableColumn {
   isNullable: boolean;
   isPrimaryKey: boolean;
   defaultValue?: string;
+  enumValues?: string[];
+}
+
+export interface RowUpdate {
+  rowId: any;
+  column: string;
+  newValue: any;
 }
 
 export interface TableDataResult {
@@ -41,4 +48,5 @@ export interface QueryLog {
   status: 'SUCCESS' | 'ERROR' | string;
   error?: string;
 }
+
 

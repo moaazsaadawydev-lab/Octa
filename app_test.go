@@ -120,3 +120,74 @@ func TestQueryLogging(t *testing.T) {
 		t.Fatalf("Expected 0 logs after clear, got %d", len(logs))
 	}
 }
+
+func TestRowUpdatesValidation(t *testing.T) {
+	app := NewApp()
+
+	// Empty updates slice should succeed trivially
+	ok, err := app.UpdateTableRows(ConnectionConfig{Type: "postgres"}, "testdb", "users", "id", []RowUpdate{})
+	if err != nil || !ok {
+		t.Errorf("Expected empty updates to return true and nil error, got ok=%v, err=%v", ok, err)
+	}
+
+	// Unsupported type should fail validation
+	ok, err = app.UpdateTableRows(ConnectionConfig{Type: "invalid_type"}, "testdb", "users", "id", []RowUpdate{
+		{RowID: "1", Column: "name", NewValue: "Alice"},
+	})
+	if ok || err == nil {
+		t.Errorf("Expected invalid type to fail, got ok=%v", ok)
+	}
+
+	// Invalid connection params should fail
+	badConfig := ConnectionConfig{
+		Type: "postgres",
+		Host: "127.0.0.1",
+		Port: 59999,
+	}
+	ok, err = app.UpdateTableRows(badConfig, "testdb", "users", "id", []RowUpdate{
+		{RowID: "1", Column: "name", NewValue: "Alice"},
+	})
+	if ok || err == nil {
+		t.Errorf("Expected bad connection to fail, got ok=%v", ok)
+	}
+
+	// Enum inspection on invalid connection should fail gracefully
+	enums, err := app.GetEnumValues(badConfig, "testdb", "user_role")
+	if err == nil || enums != nil {
+		t.Errorf("Expected GetEnumValues to fail on invalid connection, got enums=%v", enums)
+	}
+}
+
+func TestUUIDFormatting(t *testing.T) {
+	// 16-byte raw UUID
+	rawBytes := [16]byte{0xa0, 0xee, 0xbc, 0x99, 0x9c, 0x0b, 0x4e, 0xf8, 0xbb, 0x6d, 0x6b, 0xb9, 0xbd, 0x38, 0x0a, 0x11}
+	expectedUUID := "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11"
+
+	// Test formatPostgresValue with [16]byte
+	formatted := formatPostgresValue(rawBytes, 2950)
+	if formatted != expectedUUID {
+		t.Errorf("Expected UUID %s, got %v", expectedUUID, formatted)
+	}
+
+	// Test formatPostgresValue with []byte slice
+	sliceBytes := []byte{0xa0, 0xee, 0xbc, 0x99, 0x9c, 0x0b, 0x4e, 0xf8, 0xbb, 0x6d, 0x6b, 0xb9, 0xbd, 0x38, 0x0a, 0x11}
+	formattedSlice := formatPostgresValue(sliceBytes, 2950)
+	if formattedSlice != expectedUUID {
+		t.Errorf("Expected UUID %s, got %v", expectedUUID, formattedSlice)
+	}
+
+	// Test cleanRowID with JSON array representation
+	jsonArrStr := "[160, 238, 188, 153, 156, 11, 78, 248, 187, 109, 107, 185, 189, 56, 10, 17]"
+	cleaned := cleanRowID(jsonArrStr)
+	if cleaned != expectedUUID {
+		t.Errorf("Expected cleaned UUID %s, got %v", expectedUUID, cleaned)
+	}
+
+	// Test cleanRowID with valid string UUID
+	cleanedStr := cleanRowID(expectedUUID)
+	if cleanedStr != expectedUUID {
+		t.Errorf("Expected cleaned UUID %s, got %v", expectedUUID, cleanedStr)
+	}
+}
+
+

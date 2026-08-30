@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Database,
   Table,
@@ -15,7 +15,7 @@ import {
   Clock,
   HardDrive
 } from 'lucide-react';
-import { ActiveSession, TableColumn, TableDataResult } from '../types/connection';
+import { ActiveSession, TableColumn, TableDataResult, RowUpdate } from '../types/connection';
 import {
   getTables,
   getTableSchema,
@@ -23,6 +23,7 @@ import {
   addColumn,
   dropColumn,
   renameColumn,
+  updateTableRows,
 } from '../services/api';
 import { DataGrid } from './DataGrid';
 import { QueryConsole } from './QueryConsole';
@@ -224,6 +225,29 @@ export const Workspace: React.FC<WorkspaceProps> = ({
     } catch (err: any) {
       console.error('Failed to rename column:', err);
       showToast(`Failed to rename column: ${err?.message || err}`, 'error');
+      throw err;
+    }
+  };
+
+  // Save Batch Cell Updates handler
+  const handleSaveUpdates = async (primaryKeyCol: string, updates: RowUpdate[]) => {
+    if (!activeSession || !selectedTable || updates.length === 0) return;
+    try {
+      await updateTableRows(
+        activeSession.connection,
+        activeSession.activeDatabase,
+        selectedTable,
+        primaryKeyCol,
+        updates
+      );
+      showToast(
+        `Successfully saved ${updates.length} cell change${updates.length > 1 ? 's' : ''} to ${selectedTable}`,
+        'success'
+      );
+      await loadTableDetails(selectedTable, page, limit);
+    } catch (err: any) {
+      console.error('Failed to save updates:', err);
+      showToast(`Failed to save changes: ${err?.message || err}`, 'error');
       throw err;
     }
   };
@@ -450,6 +474,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({
               }}
               onDropColumn={handleDropColumn}
               onRenameColumn={handleRenameColumn}
+              onSaveUpdates={handleSaveUpdates}
             />
           ) : (
             <div className="flex-1 bg-[#141414] flex flex-col items-center justify-center text-gray-500 text-xs italic select-none">

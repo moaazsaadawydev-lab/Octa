@@ -31,11 +31,19 @@ type ConnectionConfig struct {
 
 // TableColumn represents the column metadata of a table.
 type TableColumn struct {
-	Name         string  `json:"name"`
-	Type         string  `json:"type"`
-	IsNullable   bool    `json:"isNullable"`
-	IsPrimaryKey bool    `json:"isPrimaryKey"`
-	DefaultValue *string `json:"defaultValue"`
+	Name         string   `json:"name"`
+	Type         string   `json:"type"`
+	IsNullable   bool     `json:"isNullable"`
+	IsPrimaryKey bool     `json:"isPrimaryKey"`
+	DefaultValue *string  `json:"defaultValue"`
+	EnumValues   []string `json:"enumValues,omitempty"`
+}
+
+// RowUpdate defines a single cell mutation within a row.
+type RowUpdate struct {
+	RowID    any    `json:"rowId"`
+	Column   string `json:"column"`
+	NewValue any    `json:"newValue"`
 }
 
 // TableDataResult holds paginated rows, columns, and timing information.
@@ -466,8 +474,10 @@ func (a *App) GetTableSchema(config ConnectionConfig, dbName string, tableName s
     c.udt_name,
     c.is_nullable,
     c.column_default,
-    CASE WHEN pk.column_name IS NOT NULL THEN true ELSE false END as is_primary_key
+    CASE WHEN pk.column_name IS NOT NULL THEN true ELSE false END as is_primary_key,
+    COALESCE(t.typtype, '') as udt_typtype
 FROM information_schema.columns c
+LEFT JOIN pg_type t ON t.typname = c.udt_name
 LEFT JOIN (
     SELECT ku.table_schema, ku.table_name, ku.column_name
     FROM information_schema.table_constraints tc
@@ -496,37 +506,159 @@ ORDER BY c.ordinal_position;`
 
 	a.logQuery(logQueryStr, durationMs, "SUCCESS", "")
 
-	var columns []TableColumn
-	for rows.Next() {
-		var colName, dataType, udtName, isNullableStr string
-		var colDefault *string
-		var isPk bool
+	type colRaw struct {
+		colName, dataType, udtName, isNullableStr, udtType string
+		colDefault                                         *string
+		isPk                                               bool
+	}
+	var rawCols []colRaw
 
-		if err := rows.Scan(&colName, &dataType, &udtName, &isNullableStr, &colDefault, &isPk); err != nil {
+	for rows.Next() {
+		var r colRaw
+		if err := rows.Scan(&r.colName, &r.dataType, &r.udtName, &r.isNullableStr, &r.colDefault, &r.isPk, &r.udtType); err != nil {
 			return nil, fmt.Errorf("failed to scan column schema: %w", err)
 		}
-
-		displayType := dataType
-		if dataType == "USER-DEFINED" || dataType == "ARRAY" {
-			displayType = udtName
-		}
-
-		columns = append(columns, TableColumn{
-			Name:         colName,
-			Type:         displayType,
-			IsNullable:   isNullableStr == "YES",
-			IsPrimaryKey: isPk,
-			DefaultValue: colDefault,
-		})
+		rawCols = append(rawCols, r)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("schema query iteration error: %w", err)
+	}
+
+	var columns []TableColumn
+	for _, r := range rawCols {
+		displayType := r.dataType
+		if r.dataType == "USER-DEFINED" || r.dataType == "ARRAY" {
+			displayType = r.udtName
+		}
+
+		var enumVals []string
+		if r.udtType == "e" {
+			enumRows, enumErr := conn.Query(ctx, `SELECT e.enumlabel FROM pg_enum e JOIN pg_type t ON e.enumtypid = t.oid WHERE t.typname = $1 ORDER BY e.enumsortorder;`, r.udtName)
+			if enumErr == nil {
+				for enumRows.Next() {
+					var el string
+					if err := enumRows.Scan(&el); err == nil {
+						enumVals = append(enumVals, el)
+					}
+				}
+				enumRows.Close()
+			}
+		}
+
+		columns = append(columns, TableColumn{
+			Name:         r.colName,
+			Type:         displayType,
+			IsNullable:   r.isNullableStr == "YES",
+			IsPrimaryKey: r.isPk,
+			DefaultValue: r.colDefault,
+			EnumValues:   enumVals,
+		})
 	}
 
 	if columns == nil {
 		columns = []TableColumn{}
 	}
 	return columns, nil
+}
+
+// isPrintableASCII returns true if all bytes are printable ASCII characters.
+func isPrintableASCII(b []byte) bool {
+	for _, c := range b {
+		if c < 32 || c > 126 {
+			return false
+		}
+	}
+	return true
+}
+
+// formatPostgresValue converts PostgreSQL types (UUIDs, timestamps, raw bytes, etc.) into clean JSON values.
+func formatPostgresValue(val any, dataTypeOID uint32) any {
+	if val == nil {
+		return nil
+	}
+
+	// 1. Explicit UUID OID check (PostgreSQL OID 2950 is UUID)
+	if dataTypeOID == 2950 {
+		switch v := val.(type) {
+		case [16]byte:
+			if u, err := uuid.FromBytes(v[:]); err == nil {
+				return u.String()
+			}
+			return fmt.Sprintf("%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x",
+				v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7], v[8], v[9], v[10], v[11], v[12], v[13], v[14], v[15])
+		case []byte:
+			if len(v) == 16 {
+				if u, err := uuid.FromBytes(v); err == nil {
+					return u.String()
+				}
+				return fmt.Sprintf("%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x",
+					v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7], v[8], v[9], v[10], v[11], v[12], v[13], v[14], v[15])
+			}
+			return string(v)
+		case string:
+			return v
+		}
+	}
+
+	// 2. Generic type checks
+	switch v := val.(type) {
+	case [16]byte:
+		if u, err := uuid.FromBytes(v[:]); err == nil {
+			return u.String()
+		}
+		return fmt.Sprintf("%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x",
+			v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7], v[8], v[9], v[10], v[11], v[12], v[13], v[14], v[15])
+	case []byte:
+		if len(v) == 16 && !isPrintableASCII(v) {
+			if u, err := uuid.FromBytes(v); err == nil {
+				return u.String()
+			}
+		}
+		return string(v)
+	case time.Time:
+		return v.Format(time.RFC3339)
+	default:
+		return v
+	}
+}
+
+// cleanRowID normalizes row identifiers (converting legacy byte arrays to canonical UUID strings).
+func cleanRowID(rowID any) any {
+	if rowID == nil {
+		return nil
+	}
+	switch v := rowID.(type) {
+	case string:
+		// Check if it's a JSON array representation like [220, 225, ...]
+		var byteArr []byte
+		if json.Unmarshal([]byte(v), &byteArr) == nil && len(byteArr) == 16 {
+			if parsedUUID, err := uuid.FromBytes(byteArr); err == nil {
+				return parsedUUID.String()
+			}
+		}
+		return v
+	case []any:
+		if len(v) == 16 {
+			bytes := make([]byte, 16)
+			allBytes := true
+			for i, elem := range v {
+				if num, ok := elem.(float64); ok && num >= 0 && num <= 255 {
+					bytes[i] = byte(num)
+				} else {
+					allBytes = false
+					break
+				}
+			}
+			if allBytes {
+				if parsedUUID, err := uuid.FromBytes(bytes); err == nil {
+					return parsedUUID.String()
+				}
+			}
+		}
+		return v
+	default:
+		return v
+	}
 }
 
 // GetTableData retrieves paginated table rows and logs the query execution.
@@ -606,14 +738,11 @@ func (a *App) GetTableData(config ConnectionConfig, dbName string, tableName str
 		for i, val := range values {
 			if i < len(result.Columns) {
 				colName := result.Columns[i]
-				switch v := val.(type) {
-				case time.Time:
-					rowMap[colName] = v.Format(time.RFC3339)
-				case []byte:
-					rowMap[colName] = string(v)
-				default:
-					rowMap[colName] = v
+				var dataTypeOID uint32 = 0
+				if i < len(fieldDescs) {
+					dataTypeOID = fieldDescs[i].DataTypeOID
 				}
+				rowMap[colName] = formatPostgresValue(val, dataTypeOID)
 			}
 		}
 		result.Rows = append(result.Rows, rowMap)
@@ -745,5 +874,144 @@ func (a *App) RenameColumn(config ConnectionConfig, dbName string, tableName str
 	}
 
 	a.logQuery(query, durationMs, "SUCCESS", "")
+	return true, nil
+}
+
+// GetEnumValues queries pg_enum and pg_type to fetch all valid values for a PostgreSQL enum type.
+func (a *App) GetEnumValues(config ConnectionConfig, dbName string, enumTypeName string) ([]string, error) {
+	if config.Type == "" {
+		config.Type = "postgres"
+	}
+	if config.Type != "postgres" {
+		return nil, fmt.Errorf("unsupported database type: %s", config.Type)
+	}
+
+	connStr := buildPostgresURLWithDB(config, dbName)
+	connConfig, err := pgx.ParseConfig(connStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid connection configuration: %w", err)
+	}
+	connConfig.ConnectTimeout = 5 * time.Second
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	conn, err := pgx.ConnectConfig(ctx, connConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect: %w", err)
+	}
+	defer conn.Close(ctx)
+
+	query := `SELECT e.enumlabel
+FROM pg_enum e
+JOIN pg_type t ON e.enumtypid = t.oid
+WHERE t.typname = $1
+ORDER BY e.enumsortorder;`
+
+	logQueryStr := fmt.Sprintf("SELECT enumlabel FROM pg_enum JOIN pg_type ON pg_enum.enumtypid = pg_type.oid WHERE pg_type.typname = '%s';", enumTypeName)
+	start := time.Now()
+	rows, err := conn.Query(ctx, query, enumTypeName)
+	durationMs := float64(time.Since(start).Microseconds()) / 1000.0
+
+	if err != nil {
+		a.logQuery(logQueryStr, durationMs, "ERROR", err.Error())
+		return nil, fmt.Errorf("failed to query enum values: %w", err)
+	}
+	defer rows.Close()
+
+	a.logQuery(logQueryStr, durationMs, "SUCCESS", "")
+
+	var values []string
+	for rows.Next() {
+		var val string
+		if err := rows.Scan(&val); err != nil {
+			return nil, fmt.Errorf("failed to scan enum value: %w", err)
+		}
+		values = append(values, val)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("enum values error: %w", err)
+	}
+
+	if values == nil {
+		values = []string{}
+	}
+	return values, nil
+}
+
+// UpdateTableRows executes batch cell updates within a single PostgreSQL transaction.
+func (a *App) UpdateTableRows(config ConnectionConfig, dbName string, tableName string, primaryKeyCol string, updates []RowUpdate) (bool, error) {
+	if len(updates) == 0 {
+		return true, nil
+	}
+	if primaryKeyCol == "" {
+		primaryKeyCol = "id"
+	}
+
+	if config.Type == "" {
+		config.Type = "postgres"
+	}
+	if config.Type != "postgres" {
+		return false, fmt.Errorf("unsupported database type: %s", config.Type)
+	}
+
+	connStr := buildPostgresURLWithDB(config, dbName)
+	connConfig, err := pgx.ParseConfig(connStr)
+	if err != nil {
+		return false, fmt.Errorf("invalid connection configuration: %w", err)
+	}
+	connConfig.ConnectTimeout = 5 * time.Second
+
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	conn, err := pgx.ConnectConfig(ctx, connConfig)
+	if err != nil {
+		return false, fmt.Errorf("failed to connect: %w", err)
+	}
+	defer conn.Close(ctx)
+
+	// Begin atomic transaction
+	tx, err := conn.Begin(ctx)
+	if err != nil {
+		a.logQuery("BEGIN TRANSACTION;", 0, "ERROR", err.Error())
+		return false, fmt.Errorf("failed to start transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	a.logQuery("BEGIN TRANSACTION;", 0.1, "SUCCESS", "")
+
+	for _, u := range updates {
+		query := fmt.Sprintf(`UPDATE %q SET %q = $1 WHERE %q = $2;`, tableName, u.Column, primaryKeyCol)
+		start := time.Now()
+
+		rowIDToMatch := cleanRowID(u.RowID)
+
+		var valToSet any = cleanRowID(u.NewValue)
+		if strVal, isStr := valToSet.(string); isStr && (strVal == "NULL" || strVal == "[NULL]") {
+			valToSet = nil
+		}
+
+		_, execErr := tx.Exec(ctx, query, valToSet, rowIDToMatch)
+		durationMs := float64(time.Since(start).Microseconds()) / 1000.0
+
+		logQueryStr := fmt.Sprintf(`UPDATE "%s" SET "%s" = '%v' WHERE "%s" = '%v';`, tableName, u.Column, valToSet, primaryKeyCol, rowIDToMatch)
+		if execErr != nil {
+			a.logQuery(logQueryStr, durationMs, "ERROR", execErr.Error())
+			return false, fmt.Errorf("failed to update row (%s=%v): %w", primaryKeyCol, rowIDToMatch, execErr)
+		}
+
+		a.logQuery(logQueryStr, durationMs, "SUCCESS", "")
+	}
+
+	commitStart := time.Now()
+	if err := tx.Commit(ctx); err != nil {
+		commitDuration := float64(time.Since(commitStart).Microseconds()) / 1000.0
+		a.logQuery("COMMIT;", commitDuration, "ERROR", err.Error())
+		return false, fmt.Errorf("failed to commit transaction: %w", err)
+	}
+	commitDuration := float64(time.Since(commitStart).Microseconds()) / 1000.0
+	a.logQuery("COMMIT;", commitDuration, "SUCCESS", "")
+
 	return true, nil
 }

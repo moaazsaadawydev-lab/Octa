@@ -50,12 +50,29 @@ export namespace main {
 	        this.error = source["error"];
 	    }
 	}
+	export class RowUpdate {
+	    rowId: any;
+	    column: string;
+	    newValue: any;
+	
+	    static createFrom(source: any = {}) {
+	        return new RowUpdate(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.rowId = source["rowId"];
+	        this.column = source["column"];
+	        this.newValue = source["newValue"];
+	    }
+	}
 	export class TableColumn {
 	    name: string;
 	    type: string;
 	    isNullable: boolean;
 	    isPrimaryKey: boolean;
 	    defaultValue?: string;
+	    enumValues?: string[];
 	
 	    static createFrom(source: any = {}) {
 	        return new TableColumn(source);
@@ -68,6 +85,7 @@ export namespace main {
 	        this.isNullable = source["isNullable"];
 	        this.isPrimaryKey = source["isPrimaryKey"];
 	        this.defaultValue = source["defaultValue"];
+	        this.enumValues = source["enumValues"];
 	    }
 	}
 	export class TableDataResult {

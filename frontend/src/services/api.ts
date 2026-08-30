@@ -12,6 +12,8 @@ import {
   RenameColumn,
   GetQueryLogs,
   ClearQueryLogs,
+  GetEnumValues,
+  UpdateTableRows,
 } from '../../wailsjs/go/main/App';
 import { main } from '../../wailsjs/go/models';
 import {
@@ -19,6 +21,7 @@ import {
   TableColumn,
   TableDataResult,
   QueryLog,
+  RowUpdate,
 } from '../types/connection';
 
 function toModelConfig(config: ConnectionConfig): main.ConnectionConfig {
@@ -270,4 +273,43 @@ export async function clearQueryLogs(): Promise<boolean> {
     return false;
   }
 }
+
+export async function getEnumValues(
+  config: ConnectionConfig,
+  dbName: string,
+  enumTypeName: string
+): Promise<string[]> {
+  try {
+    const model = toModelConfig(config);
+    const vals = await GetEnumValues(model, dbName, enumTypeName);
+    return vals || [];
+  } catch (err: any) {
+    console.error('Failed to get enum values:', err);
+    throw err;
+  }
+}
+
+export async function updateTableRows(
+  config: ConnectionConfig,
+  dbName: string,
+  tableName: string,
+  primaryKeyCol: string,
+  updates: RowUpdate[]
+): Promise<boolean> {
+  try {
+    const model = toModelConfig(config);
+    const rowUpdates = updates.map((u) =>
+      main.RowUpdate.createFrom({
+        rowId: u.rowId,
+        column: u.column,
+        newValue: u.newValue,
+      })
+    );
+    return await UpdateTableRows(model, dbName, tableName, primaryKeyCol, rowUpdates);
+  } catch (err: any) {
+    console.error('Failed to update table rows:', err);
+    throw err;
+  }
+}
+
 

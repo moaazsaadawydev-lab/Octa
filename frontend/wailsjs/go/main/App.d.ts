@@ -12,6 +12,8 @@ export function DropColumn(arg1:main.ConnectionConfig,arg2:string,arg3:string,ar
 
 export function GetDatabases(arg1:main.ConnectionConfig):Promise<Array<string>>;
 
+export function GetEnumValues(arg1:main.ConnectionConfig,arg2:string,arg3:string):Promise<Array<string>>;
+
 export function GetQueryLogs():Promise<Array<main.QueryLog>>;
 
 export function GetSavedConnections():Promise<Array<main.ConnectionConfig>>;
@@ -27,3 +29,5 @@ export function RenameColumn(arg1:main.ConnectionConfig,arg2:string,arg3:string,
 export function SaveConnection(arg1:main.ConnectionConfig):Promise<boolean|string>;
 
 export function TestConnection(arg1:main.ConnectionConfig):Promise<boolean|string>;
+
+export function UpdateTableRows(arg1:main.ConnectionConfig,arg2:string,arg3:string,arg4:string,arg5:Array<main.RowUpdate>):Promise<boolean>;
