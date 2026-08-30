@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Play,
   Download,
@@ -432,8 +432,10 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
 
       {/* 4. Split Resizable Query Results Panel */}
       <div
-        style={{ height: activeTab.results ? resultsHeight : 38 }}
-        className="border-t border-border-subtle bg-surface-900 flex flex-col relative flex-shrink-0 transition-all duration-150"
+        style={{ height: activeTab.results ? resultsHeight : 'auto' }}
+        className={`border-t border-border-subtle bg-surface-900 flex flex-col relative flex-shrink-0 transition-all duration-150 ${
+          !activeTab.results ? 'min-h-[38px] overflow-hidden' : ''
+        }`}
       >
         {/* Horizontal Splitter Resizer Handle */}
         {activeTab.results && (
@@ -445,16 +447,16 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
           </div>
         )}
 
-        {/* Results Tab Header */}
-        <div className="px-3.5 py-1.5 bg-surface-950 border-b border-border/40 flex items-center justify-between text-xs">
+        {/* Results Tab Header / Status Bar */}
+        <div className="px-3.5 py-2 bg-surface-950 border-b border-border/40 flex items-center justify-between text-xs min-h-[38px] select-none">
           <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400 mr-2 flex items-center gap-1.5">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400 mr-2 flex items-center gap-1.5 flex-shrink-0">
               <Layers className="w-3.5 h-3.5 text-brand-400" />
               Results
             </span>
 
             {/* Multi-Statement Result Tabs */}
-            {activeTab.results && activeTab.results.length > 0 ? (
+            {activeTab.results && activeTab.results.length > 0 &&
               activeTab.results.map((res, rIdx) => {
                 const isSelected = activeTab.activeResultIndex === rIdx;
                 const isErr = Boolean(res.error);
@@ -489,20 +491,24 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
                     </span>
                   </button>
                 );
-              })
-            ) : (
-              <span className="text-gray-500 italic text-[11px]">No query results to display</span>
-            )}
+              })}
           </div>
+
+          {/* Right-side placeholder hint when no results are active */}
+          {!activeTab.results && (
+            <div className="flex items-center gap-1.5 text-xs text-zinc-400 select-none flex-shrink-0">
+              <span>Execute SQL queries (</span>
+              <kbd className="px-1.5 py-0.5 rounded bg-surface-800 border border-border/60 text-zinc-300 font-mono text-[10px]">
+                Ctrl + Enter
+              </kbd>
+              <span>) to view result sets</span>
+            </div>
+          )}
         </div>
 
         {/* Result Content Area */}
-        <div className="flex-1 overflow-auto bg-[#141414] relative">
-          {!activeTab.results && (
-            <div className="h-full flex flex-col items-center justify-center text-gray-600 text-xs italic select-none">
-              <span>Execute SQL queries (Ctrl + Enter) to view result sets</span>
-            </div>
-          )}
+        {activeTab.results && (
+          <div className="flex-1 overflow-auto bg-[#141414] relative">
 
           {activeResult && activeResult.error && (
             <div className="p-4">
@@ -641,6 +647,7 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
             </div>
           )}
         </div>
+      )}
       </div>
     </div>
   );
