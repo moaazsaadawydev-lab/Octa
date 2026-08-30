@@ -50,6 +50,32 @@ export namespace main {
 	        this.error = source["error"];
 	    }
 	}
+	export class QueryResult {
+	    queryIndex: number;
+	    statement: string;
+	    columns: string[];
+	    rows: any[];
+	    rowsAffected: number;
+	    durationMs: number;
+	    error?: string;
+	    isSelect: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new QueryResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.queryIndex = source["queryIndex"];
+	        this.statement = source["statement"];
+	        this.columns = source["columns"];
+	        this.rows = source["rows"];
+	        this.rowsAffected = source["rowsAffected"];
+	        this.durationMs = source["durationMs"];
+	        this.error = source["error"];
+	        this.isSelect = source["isSelect"];
+	    }
+	}
 	export class RowUpdate {
 	    rowId: any;
 	    column: string;

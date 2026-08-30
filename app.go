@@ -55,6 +55,18 @@ type TableDataResult struct {
 	DurationMs float64          `json:"durationMs"`
 }
 
+// QueryResult holds the result of a single statement in raw query execution.
+type QueryResult struct {
+	QueryIndex   int              `json:"queryIndex"`
+	Statement    string           `json:"statement"`
+	Columns      []string         `json:"columns"`
+	Rows         []map[string]any `json:"rows"`
+	RowsAffected int64            `json:"rowsAffected"`
+	DurationMs   float64          `json:"durationMs"`
+	Error        string           `json:"error,omitempty"`
+	IsSelect     bool             `json:"isSelect"`
+}
+
 // QueryLog represents an executed SQL statement with metadata.
 type QueryLog struct {
 	ID         string  `json:"id"`
@@ -1118,4 +1130,285 @@ func (a *App) TruncateTable(config ConnectionConfig, dbName string, tableName st
 
 	a.logQuery(query, durationMs, "SUCCESS", "")
 	return true, nil
+}
+
+// splitSQLStatements parses raw SQL text and splits it into individual statements by semicolon,
+// safely ignoring semicolons within single quotes, double quotes, line/block comments, and dollar-quoted strings.
+func splitSQLStatements(rawSQL string) []string {
+	var statements []string
+	var current strings.Builder
+
+	inSingleQuote := false
+	inDoubleQuote := false
+	inLineComment := false
+	inBlockComment := false
+	dollarTag := ""
+	inDollarQuote := false
+
+	chars := []rune(rawSQL)
+	n := len(chars)
+
+	for i := 0; i < n; i++ {
+		c := chars[i]
+
+		// 1. Handle Line Comment (-- ...)
+		if inLineComment {
+			current.WriteRune(c)
+			if c == '\n' {
+				inLineComment = false
+			}
+			continue
+		}
+
+		// 2. Handle Block Comment (/* ... */)
+		if inBlockComment {
+			current.WriteRune(c)
+			if c == '*' && i+1 < n && chars[i+1] == '/' {
+				current.WriteRune('/')
+				i++
+				inBlockComment = false
+			}
+			continue
+		}
+
+		// 3. Handle Single Quote ('...')
+		if inSingleQuote {
+			current.WriteRune(c)
+			if c == '\'' {
+				// Check for escaped single quote ''
+				if i+1 < n && chars[i+1] == '\'' {
+					current.WriteRune('\'')
+					i++
+				} else {
+					inSingleQuote = false
+				}
+			}
+			continue
+		}
+
+		// 4. Handle Double Quote ("...")
+		if inDoubleQuote {
+			current.WriteRune(c)
+			if c == '"' {
+				if i+1 < n && chars[i+1] == '"' {
+					current.WriteRune('"')
+					i++
+				} else {
+					inDoubleQuote = false
+				}
+			}
+			continue
+		}
+
+		// 5. Handle Dollar Quote ($tag$...$tag$ or $$...$$)
+		if inDollarQuote {
+			current.WriteRune(c)
+			if c == '$' {
+				tagLen := len(dollarTag)
+				if i+tagLen <= n {
+					sub := string(chars[i : i+tagLen])
+					if sub == dollarTag {
+						for k := 1; k < tagLen; k++ {
+							current.WriteRune(chars[i+k])
+						}
+						i += tagLen - 1
+						inDollarQuote = false
+						dollarTag = ""
+					}
+				}
+			}
+			continue
+		}
+
+		// Check start of Line Comment (-- ...)
+		if c == '-' && i+1 < n && chars[i+1] == '-' {
+			inLineComment = true
+			current.WriteRune(c)
+			current.WriteRune('-')
+			i++
+			continue
+		}
+
+		// Check start of Block Comment (/* ...)
+		if c == '/' && i+1 < n && chars[i+1] == '*' {
+			inBlockComment = true
+			current.WriteRune(c)
+			current.WriteRune('*')
+			i++
+			continue
+		}
+
+		// Check start of Single Quote
+		if c == '\'' {
+			inSingleQuote = true
+			current.WriteRune(c)
+			continue
+		}
+
+		// Check start of Double Quote
+		if c == '"' {
+			inDoubleQuote = true
+			current.WriteRune(c)
+			continue
+		}
+
+		// Check start of Dollar Quote ($tag$ or $$)
+		if c == '$' {
+			endDollar := -1
+			for j := i + 1; j < n && j < i+32; j++ {
+				if chars[j] == '$' {
+					endDollar = j
+					break
+				}
+				if !(chars[j] >= 'a' && chars[j] <= 'z') &&
+					!(chars[j] >= 'A' && chars[j] <= 'Z') &&
+					!(chars[j] >= '0' && chars[j] <= '9') &&
+					chars[j] != '_' {
+					break
+				}
+			}
+			if endDollar != -1 {
+				dollarTag = string(chars[i : endDollar+1])
+				inDollarQuote = true
+				for k := i; k <= endDollar; k++ {
+					current.WriteRune(chars[k])
+				}
+				i = endDollar
+				continue
+			}
+		}
+
+		// Check for statement delimiter ';'
+		if c == ';' {
+			stmt := strings.TrimSpace(current.String())
+			if stmt != "" {
+				statements = append(statements, stmt)
+			}
+			current.Reset()
+			continue
+		}
+
+		current.WriteRune(c)
+	}
+
+	lastStmt := strings.TrimSpace(current.String())
+	if lastStmt != "" {
+		statements = append(statements, lastStmt)
+	}
+
+	return statements
+}
+
+// ExecuteRawQuery executes one or more raw SQL statements against the target database.
+func (a *App) ExecuteRawQuery(config ConnectionConfig, dbName string, rawSql string) ([]QueryResult, error) {
+	if config.Type == "" {
+		config.Type = "postgres"
+	}
+	if config.Type != "postgres" {
+		return nil, fmt.Errorf("unsupported database type: %s", config.Type)
+	}
+
+	statements := splitSQLStatements(rawSql)
+	if len(statements) == 0 {
+		return []QueryResult{}, nil
+	}
+
+	connStr := buildPostgresURLWithDB(config, dbName)
+	connConfig, err := pgx.ParseConfig(connStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid connection configuration: %w", err)
+	}
+	connConfig.ConnectTimeout = 5 * time.Second
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	conn, err := pgx.ConnectConfig(ctx, connConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to database: %w", err)
+	}
+	defer conn.Close(ctx)
+
+	var results []QueryResult
+
+	for idx, stmt := range statements {
+		result := QueryResult{
+			QueryIndex: idx + 1,
+			Statement:  stmt,
+			Columns:    []string{},
+			Rows:       []map[string]any{},
+		}
+
+		start := time.Now()
+		rows, queryErr := conn.Query(ctx, stmt)
+		durationMs := float64(time.Since(start).Microseconds()) / 1000.0
+		result.DurationMs = durationMs
+
+		if queryErr != nil {
+			result.Error = queryErr.Error()
+			result.IsSelect = false
+			a.logQuery(stmt, durationMs, "ERROR", queryErr.Error())
+			results = append(results, result)
+			continue
+		}
+
+		fieldDescs := rows.FieldDescriptions()
+		if len(fieldDescs) == 0 {
+			result.IsSelect = false
+			tag := rows.CommandTag()
+			result.RowsAffected = tag.RowsAffected()
+			rows.Close()
+
+			a.logQuery(stmt, durationMs, "SUCCESS", "")
+			results = append(results, result)
+			continue
+		}
+
+		result.IsSelect = true
+		for _, fd := range fieldDescs {
+			result.Columns = append(result.Columns, string(fd.Name))
+		}
+
+		for rows.Next() {
+			values, err := rows.Values()
+			if err != nil {
+				result.Error = err.Error()
+				break
+			}
+
+			rowMap := make(map[string]any)
+			for i, val := range values {
+				if i < len(result.Columns) {
+					colName := result.Columns[i]
+					var dataTypeOID uint32 = 0
+					if i < len(fieldDescs) {
+						dataTypeOID = fieldDescs[i].DataTypeOID
+					}
+					rowMap[colName] = formatPostgresValue(val, dataTypeOID)
+				}
+			}
+			result.Rows = append(result.Rows, rowMap)
+		}
+
+		if rows.Err() != nil && result.Error == "" {
+			result.Error = rows.Err().Error()
+		}
+
+		tag := rows.CommandTag()
+		result.RowsAffected = tag.RowsAffected()
+		if result.RowsAffected == 0 {
+			result.RowsAffected = int64(len(result.Rows))
+		}
+		rows.Close()
+
+		if result.Error != "" {
+			a.logQuery(stmt, durationMs, "ERROR", result.Error)
+		} else {
+			a.logQuery(stmt, durationMs, "SUCCESS", "")
+		}
+
+		results = append(results, result)
+	}
+
+	return results, nil
 }

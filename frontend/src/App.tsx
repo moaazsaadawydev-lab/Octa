@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { ActivityBar } from './components/ActivityBar';
 import { Sidebar } from './components/Sidebar';
 import { Workspace } from './components/Workspace';
+import { QueryPlayground } from './components/QueryPlayground';
 import { NewConnectionModal } from './components/NewConnectionModal';
 import { ConnectionConfig, ActiveSession } from './types/connection';
 import {
@@ -173,12 +174,20 @@ export function App() {
         onDeleteConnection={handleDeleteConnection}
       />
 
-      {/* Main Workspace Area */}
-      <Workspace
-        activeSession={activeSession}
-        onOpenNewModal={() => setIsModalOpen(true)}
-        showToast={showToast}
-      />
+      {/* Main Workspace / Playground View */}
+      {activeTab === 'editor' ? (
+        <QueryPlayground
+          activeSession={activeSession}
+          onOpenNewModal={() => setIsModalOpen(true)}
+          showToast={showToast}
+        />
+      ) : (
+        <Workspace
+          activeSession={activeSession}
+          onOpenNewModal={() => setIsModalOpen(true)}
+          showToast={showToast}
+        />
+      )}
 
       {/* New Connection Modal */}
       <NewConnectionModal

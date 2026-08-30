@@ -12,6 +12,8 @@ export function DeleteTableRows(arg1:main.ConnectionConfig,arg2:string,arg3:stri
 
 export function DropColumn(arg1:main.ConnectionConfig,arg2:string,arg3:string,arg4:string):Promise<boolean>;
 
+export function ExecuteRawQuery(arg1:main.ConnectionConfig,arg2:string,arg3:string):Promise<Array<main.QueryResult>>;
+
 export function GetDatabases(arg1:main.ConnectionConfig):Promise<Array<string>>;
 
 export function GetEnumValues(arg1:main.ConnectionConfig,arg2:string,arg3:string):Promise<Array<string>>;

@@ -49,4 +49,25 @@ export interface QueryLog {
   error?: string;
 }
 
+export interface QueryResult {
+  queryIndex: number;
+  statement: string;
+  columns: string[];
+  rows: Record<string, any>[];
+  rowsAffected: number;
+  durationMs: number;
+  error?: string;
+  isSelect: boolean;
+}
+
+export interface QueryTab {
+  id: string;
+  title: string;
+  query: string;
+  results: QueryResult[] | null;
+  activeResultIndex: number;
+  isExecuting: boolean;
+}
+
+
 

@@ -227,3 +227,70 @@ func TestDeleteTableRowsAndTruncateValidation(t *testing.T) {
 		t.Errorf("Expected bad connection to fail TruncateTable")
 	}
 }
+
+func TestSplitSQLStatements(t *testing.T) {
+	// Test basic semicolon separation
+	raw := `SELECT 1; SELECT 2; SELECT 3;`
+	stmts := splitSQLStatements(raw)
+	if len(stmts) != 3 {
+		t.Fatalf("Expected 3 statements, got %d", len(stmts))
+	}
+	if stmts[0] != "SELECT 1" || stmts[1] != "SELECT 2" || stmts[2] != "SELECT 3" {
+		t.Errorf("Unexpected statements: %v", stmts)
+	}
+
+	// Test semicolons inside single quotes
+	rawQuotes := `SELECT 'hello; world' AS greeting; INSERT INTO logs VALUES ('quote with ; inside');`
+	stmtsQuotes := splitSQLStatements(rawQuotes)
+	if len(stmtsQuotes) != 2 {
+		t.Fatalf("Expected 2 statements, got %d", len(stmtsQuotes))
+	}
+
+	// Test dollar-quoted strings ($$ and $tag$)
+	rawDollar := `CREATE OR REPLACE FUNCTION test_func() RETURNS void AS $$
+BEGIN
+    SELECT 1;
+    INSERT INTO tbl VALUES (2);
+END;
+$$ LANGUAGE plpgsql; SELECT 42;`
+	stmtsDollar := splitSQLStatements(rawDollar)
+	if len(stmtsDollar) != 2 {
+		t.Fatalf("Expected 2 statements with dollar quotes, got %d: %v", len(stmtsDollar), stmtsDollar)
+	}
+
+	// Test comments with semicolons
+	rawComments := `-- comment with ; semicolon
+SELECT 100; /* block comment with ; semicolon */ SELECT 200;`
+	stmtsComments := splitSQLStatements(rawComments)
+	if len(stmtsComments) != 2 {
+		t.Fatalf("Expected 2 statements with comments, got %d: %v", len(stmtsComments), stmtsComments)
+	}
+}
+
+func TestExecuteRawQueryValidation(t *testing.T) {
+	app := NewApp()
+
+	// Empty SQL query returns empty slice
+	res, err := app.ExecuteRawQuery(ConnectionConfig{Type: "postgres"}, "testdb", "")
+	if err != nil || len(res) != 0 {
+		t.Errorf("Expected empty result for empty query, got res=%v, err=%v", res, err)
+	}
+
+	// Invalid database type should fail
+	badTypeConfig := ConnectionConfig{Type: "mongo_db"}
+	res, err = app.ExecuteRawQuery(badTypeConfig, "testdb", "SELECT 1;")
+	if err == nil {
+		t.Errorf("Expected invalid DB type to return error")
+	}
+
+	// Invalid connection params should return error
+	badConnConfig := ConnectionConfig{
+		Type: "postgres",
+		Host: "127.0.0.1",
+		Port: 59999,
+	}
+	res, err = app.ExecuteRawQuery(badConnConfig, "testdb", "SELECT 1;")
+	if err == nil {
+		t.Errorf("Expected connection error on unreachable host")
+	}
+}

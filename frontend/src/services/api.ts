@@ -16,6 +16,7 @@ import {
   UpdateTableRows,
   DeleteTableRows,
   TruncateTable,
+  ExecuteRawQuery,
 } from '../../wailsjs/go/main/App';
 import { main } from '../../wailsjs/go/models';
 import {
@@ -24,6 +25,7 @@ import {
   TableDataResult,
   QueryLog,
   RowUpdate,
+  QueryResult,
 } from '../types/connection';
 
 function toModelConfig(config: ConnectionConfig): main.ConnectionConfig {
@@ -343,6 +345,32 @@ export async function truncateTable(
     throw err;
   }
 }
+
+export async function executeRawQuery(
+  config: ConnectionConfig,
+  dbName: string,
+  rawSql: string
+): Promise<QueryResult[]> {
+  try {
+    const model = toModelConfig(config);
+    const results = await ExecuteRawQuery(model, dbName, rawSql);
+    if (!results || !Array.isArray(results)) return [];
+    return results.map((r) => ({
+      queryIndex: r.queryIndex,
+      statement: r.statement,
+      columns: r.columns || [],
+      rows: r.rows || [],
+      rowsAffected: r.rowsAffected || 0,
+      durationMs: r.durationMs || 0,
+      error: r.error,
+      isSelect: Boolean(r.isSelect),
+    }));
+  } catch (err: any) {
+    console.error('Failed to execute raw query:', err);
+    throw err;
+  }
+}
+
 
 
 
