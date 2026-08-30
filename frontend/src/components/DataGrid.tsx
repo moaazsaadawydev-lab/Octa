@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Key,
   Trash2,
@@ -64,6 +64,10 @@ export const DataGrid: React.FC<DataGridProps> = ({
   const [stagedUpdates, setStagedUpdates] = useState<Record<string, Record<string, any>>>({});
   const [savingUpdates, setSavingUpdates] = useState(false);
 
+  // Column widths state for drag-to-resize: Record<columnName, widthInPixels>
+  const [columnWidths, setColumnWidths] = useState<Record<string, number>>({});
+  const resizingColRef = useRef<{ colName: string; startX: number; startWidth: number } | null>(null);
+
   // Inline cell editing state
   const [editingCell, setEditingCell] = useState<EditingCellState | null>(null);
   const inputRef = useRef<HTMLInputElement | HTMLSelectElement | null>(null);
@@ -94,6 +98,55 @@ export const DataGrid: React.FC<DataGridProps> = ({
           isNullable: true,
           isPrimaryKey: false,
         }));
+
+  // Helper to get effective column width
+  const getColumnWidth = useCallback((colName: string): number => {
+    if (columnWidths[colName]) return columnWidths[colName];
+    // Sensible defaults based on column name / type
+    const col = schema.find((c) => c.name === colName);
+    const typeStr = col?.type?.toLowerCase() || '';
+    if (col?.isPrimaryKey || colName.toLowerCase() === 'id') return 120;
+    if (typeStr.includes('bool')) return 100;
+    if (typeStr.includes('int') || typeStr.includes('serial')) return 110;
+    if (typeStr.includes('timestamp') || typeStr.includes('date')) return 200;
+    if (typeStr.includes('uuid')) return 280;
+    if (typeStr.includes('json')) return 240;
+    return 180;
+  }, [columnWidths, schema]);
+
+  // Column drag-to-resize handlers
+  const handleResizeStart = (e: React.MouseEvent, colName: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const startX = e.clientX;
+    const startWidth = getColumnWidth(colName);
+    resizingColRef.current = { colName, startX, startWidth };
+
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      if (!resizingColRef.current) return;
+      const deltaX = moveEvent.clientX - resizingColRef.current.startX;
+      const newWidth = Math.max(80, resizingColRef.current.startWidth + deltaX);
+      setColumnWidths((prev) => ({
+        ...prev,
+        [resizingColRef.current!.colName]: newWidth,
+      }));
+    };
+
+    const onMouseUp = () => {
+      resizingColRef.current = null;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  };
 
   // Detect Primary Key Column
   const detectedPkCol = schema.find((c) => c.isPrimaryKey)?.name ||
@@ -343,57 +396,70 @@ export const DataGrid: React.FC<DataGridProps> = ({
           </div>
         )}
 
-        <table className="w-full text-left border-collapse text-xs select-text">
+        <table className="text-left border-collapse text-xs select-text table-fixed min-w-full">
           {/* Sticky Header */}
           <thead className="sticky top-0 bg-[#1F1F1F] z-20 shadow-sm border-b border-[#2D2D2D]">
             <tr>
               {/* Row Number Sticky Column */}
-              <th className="w-12 px-3 py-2.5 text-center text-gray-500 font-mono font-medium text-[11px] border-r border-[#2D2D2D] bg-[#1a1a1a] sticky left-0 z-30">
+              <th className="w-12 min-w-[48px] max-w-[48px] px-3 py-2.5 text-center text-gray-500 font-mono font-medium text-[11px] border-r border-[#2D2D2D] bg-[#1a1a1a] sticky left-0 z-30">
                 #
               </th>
 
-              {columns.map((col) => (
-                <th
-                  key={col.name}
-                  className="px-3.5 py-2.5 font-medium border-r border-[#2D2D2D] text-gray-200 group/col hover:bg-[#252525] transition-colors min-w-[140px] max-w-[280px]"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-1.5 min-w-0 truncate">
-                      {col.isPrimaryKey && (
-                        <span title="Primary Key" className="inline-flex">
-                          <Key className="w-3 h-3 text-amber-400 flex-shrink-0" />
-                        </span>
-                      )}
-                      <span className="font-semibold text-gray-100 truncate">{col.name}</span>
-                      {col.type && (
-                        <span className="text-[10px] text-gray-400 font-mono font-normal">
-                          ({col.type})
-                        </span>
-                      )}
+              {columns.map((col) => {
+                const width = getColumnWidth(col.name);
+
+                return (
+                  <th
+                    key={col.name}
+                    style={{ width, minWidth: width, maxWidth: width }}
+                    className="px-3.5 py-2.5 font-medium border-r border-[#2D2D2D] text-gray-200 group/col hover:bg-[#252525] transition-colors relative select-none"
+                  >
+                    <div className="flex items-center justify-between gap-1.5 pr-2 overflow-hidden">
+                      <div className="flex items-center gap-1.5 min-w-0 truncate flex-1">
+                        {col.isPrimaryKey && (
+                          <span title="Primary Key" className="inline-flex flex-shrink-0">
+                            <Key className="w-3 h-3 text-amber-400" />
+                          </span>
+                        )}
+                        <span className="font-semibold text-gray-100 truncate">{col.name}</span>
+                        {col.type && (
+                          <span className="text-[10px] text-gray-400 font-mono font-normal flex-shrink-0">
+                            ({col.type})
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Column Header Actions (Rename, Drop) */}
+                      <div className="flex items-center gap-0.5 opacity-0 group-hover/col:opacity-100 transition-opacity flex-shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => setColumnToRename({ oldName: col.name, newName: col.name })}
+                          title="Rename Column"
+                          className="p-1 rounded text-gray-400 hover:text-brand-300 hover:bg-surface-700 transition-colors"
+                        >
+                          <Edit2 className="w-2.5 h-2.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setColumnToDrop(col.name)}
+                          title="Drop Column"
+                          className="p-1 rounded text-gray-400 hover:text-rose-400 hover:bg-surface-700 transition-colors"
+                        >
+                          <Trash2 className="w-2.5 h-2.5" />
+                        </button>
+                      </div>
                     </div>
 
-                    {/* Column Header Actions (Rename, Drop) */}
-                    <div className="flex items-center gap-1 opacity-0 group-hover/col:opacity-100 transition-opacity">
-                      <button
-                        type="button"
-                        onClick={() => setColumnToRename({ oldName: col.name, newName: col.name })}
-                        title="Rename Column"
-                        className="p-1 rounded text-gray-400 hover:text-brand-300 hover:bg-surface-700 transition-colors"
-                      >
-                        <Edit2 className="w-2.5 h-2.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setColumnToDrop(col.name)}
-                        title="Drop Column"
-                        className="p-1 rounded text-gray-400 hover:text-rose-400 hover:bg-surface-700 transition-colors"
-                      >
-                        <Trash2 className="w-2.5 h-2.5" />
-                      </button>
+                    {/* Resizable Column Handle */}
+                    <div
+                      onMouseDown={(e) => handleResizeStart(e, col.name)}
+                      className="absolute right-0 top-0 bottom-0 w-2.5 cursor-col-resize select-none flex items-center justify-center group/resizer z-10 hover:bg-brand-500/20"
+                    >
+                      <div className="w-[2px] h-full group-hover/resizer:bg-brand-400 group-active/resizer:bg-brand-500 bg-transparent transition-colors" />
                     </div>
-                  </div>
-                </th>
-              ))}
+                  </th>
+                );
+              })}
             </tr>
           </thead>
 
@@ -419,11 +485,12 @@ export const DataGrid: React.FC<DataGridProps> = ({
                   className="hover:bg-[#1a1a1a] transition-colors group/row"
                 >
                   {/* Sticky Row Index */}
-                  <td className="px-3 py-2 text-center text-gray-500 font-mono text-[10px] border-r border-[#242424] bg-[#141414] group-hover/row:bg-[#1a1a1a] sticky left-0 z-10 select-none">
+                  <td className="w-12 min-w-[48px] max-w-[48px] px-3 py-2 text-center text-gray-500 font-mono text-[10px] border-r border-[#242424] bg-[#141414] group-hover/row:bg-[#1a1a1a] sticky left-0 z-10 select-none">
                     {(page - 1) * limit + rIdx + 1}
                   </td>
 
                   {columns.map((col) => {
+                    const width = getColumnWidth(col.name);
                     const isEditing =
                       editingCell?.rowIdx === rIdx && editingCell?.colName === col.name;
                     const staged = isCellStaged(rowId, col.name);
@@ -434,8 +501,9 @@ export const DataGrid: React.FC<DataGridProps> = ({
                     return (
                       <td
                         key={col.name}
+                        style={{ width, minWidth: width, maxWidth: width }}
                         onDoubleClick={() => handleStartEdit(rIdx, row, col)}
-                        className={`px-3.5 py-1.5 border-r border-[#242424] truncate max-w-[280px] relative cursor-pointer ${
+                        className={`px-3.5 py-1.5 border-r border-[#242424] truncate relative cursor-pointer ${
                           staged
                             ? 'bg-amber-500/15 text-amber-200 border-b-amber-500/40'
                             : ''
