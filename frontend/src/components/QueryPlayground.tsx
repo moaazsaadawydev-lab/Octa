@@ -15,11 +15,13 @@ import {
   ChevronLeft,
   ChevronRight,
   FileCode,
+  FileSpreadsheet,
+  FileJson,
   Sparkles,
   ArrowRight
 } from 'lucide-react';
 import { ActiveSession, QueryResult, QueryTab } from '../types/connection';
-import { executeRawQuery } from '../services/api';
+import { executeRawQuery, getTables, getTableSchema } from '../services/api';
 import { QueryEditor } from './QueryEditor';
 
 interface QueryPlaygroundProps {
@@ -72,6 +74,45 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
   });
 
   const [activeTabId, setActiveTabId] = useState<string>(() => tabs[0]?.id || 'tab-1');
+
+  // Dynamic Schema for Intellisense
+  const [tables, setTables] = useState<string[]>([]);
+  const [columns, setColumns] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!activeSession) {
+      setTables([]);
+      setColumns([]);
+      return;
+    }
+    let isMounted = true;
+    getTables(activeSession.connection, activeSession.activeDatabase)
+      .then(async (tbls) => {
+        if (!isMounted) return;
+        setTables(tbls || []);
+        const colsSet = new Set<string>();
+        for (const tbl of (tbls || []).slice(0, 10)) {
+          try {
+            const schema = await getTableSchema(
+              activeSession.connection,
+              activeSession.activeDatabase,
+              tbl
+            );
+            schema.forEach((c) => colsSet.add(c.name));
+          } catch (e) {
+            // ignore schema query errors
+          }
+        }
+        if (isMounted) {
+          setColumns(Array.from(colsSet));
+        }
+      })
+      .catch((e) => console.warn('Failed to load schema for Intellisense', e));
+
+    return () => {
+      isMounted = false;
+    };
+  }, [activeSession?.connection?.id, activeSession?.activeDatabase]);
 
   // Save tabs (without results) to localStorage
   useEffect(() => {
@@ -229,7 +270,7 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
   const handleExportJSON = () => {
     if (!activeTab.results || activeTab.results.length === 0) return;
     const activeResult = activeTab.results[activeTab.activeResultIndex];
-    if (!activeResult || !activeResult.rows) return;
+    if (!activeResult || !activeResult.rows || activeResult.rows.length === 0) return;
 
     const jsonStr = JSON.stringify(activeResult.rows, null, 2);
     const blob = new Blob([jsonStr], { type: 'application/json' });
@@ -242,6 +283,46 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
     showToast('Exported results as JSON', 'success');
+  };
+
+  // Export active result set to CSV
+  const handleExportCSV = () => {
+    if (!activeTab.results || activeTab.results.length === 0) return;
+    const activeResult = activeTab.results[activeTab.activeResultIndex];
+    if (!activeResult || !activeResult.rows || activeResult.rows.length === 0) return;
+
+    const cols =
+      activeResult.columns && activeResult.columns.length > 0
+        ? activeResult.columns
+        : Object.keys(activeResult.rows[0] || {});
+
+    if (cols.length === 0) return;
+
+    const escapeCSV = (val: any): string => {
+      if (val === null || val === undefined) return '';
+      const str = typeof val === 'object' ? JSON.stringify(val) : String(val);
+      if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+
+    const headerLine = cols.map(escapeCSV).join(',');
+    const rowLines = activeResult.rows.map((row) =>
+      cols.map((col) => escapeCSV(row[col])).join(',')
+    );
+
+    const csvContent = [headerLine, ...rowLines].join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `query_result_${activeSession?.activeDatabase || 'postgres'}_${Date.now()}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('Exported results as CSV', 'success');
   };
 
   // Clear query or results
@@ -375,18 +456,6 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
             </span>
           </button>
 
-          {/* Export JSON Button */}
-          {activeResult && activeResult.rows && activeResult.rows.length > 0 && (
-            <button
-              type="button"
-              onClick={handleExportJSON}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-800 hover:bg-surface-750 text-gray-300 border border-border/80 text-xs font-medium transition-colors"
-            >
-              <Download className="w-3.5 h-3.5 text-gray-400" />
-              <span>Export as JSON</span>
-            </button>
-          )}
-
           {/* Clear Button */}
           <button
             type="button"
@@ -427,6 +496,8 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
           onChange={handleQueryChange}
           onExecute={handleExecuteQuery}
           isExecuting={activeTab.isExecuting}
+          tables={tables}
+          columns={columns}
         />
       </div>
 
@@ -494,8 +565,8 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
               })}
           </div>
 
-          {/* Right-side placeholder hint when no results are active */}
-          {!activeTab.results && (
+          {/* Right-side: Export actions or placeholder hint */}
+          {!activeTab.results ? (
             <div className="flex items-center gap-1.5 text-xs text-zinc-400 select-none flex-shrink-0">
               <span>Execute SQL queries (</span>
               <kbd className="px-1.5 py-0.5 rounded bg-surface-800 border border-border/60 text-zinc-300 font-mono text-[10px]">
@@ -503,7 +574,31 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
               </kbd>
               <span>) to view result sets</span>
             </div>
-          )}
+          ) : activeResult && activeResult.rows && activeResult.rows.length > 0 ? (
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <span className="text-[11px] text-zinc-500 font-mono hidden sm:inline mr-1">
+                {activeResult.rows.length.toLocaleString()} rows
+              </span>
+              <button
+                type="button"
+                onClick={handleExportJSON}
+                title="Export active result set as formatted JSON"
+                className="flex items-center gap-1.5 text-xs text-zinc-300 hover:text-white bg-zinc-800/80 hover:bg-zinc-700 px-2.5 py-1 rounded border border-zinc-700/60 transition-colors shadow-sm cursor-pointer"
+              >
+                <FileJson className="w-3.5 h-3.5 text-brand-400" />
+                <span>Export JSON</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleExportCSV}
+                title="Export active result set as CSV"
+                className="flex items-center gap-1.5 text-xs text-zinc-300 hover:text-white bg-zinc-800/80 hover:bg-zinc-700 px-2.5 py-1 rounded border border-zinc-700/60 transition-colors shadow-sm cursor-pointer"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Export CSV</span>
+              </button>
+            </div>
+          ) : null}
         </div>
 
         {/* Result Content Area */}
