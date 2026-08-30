@@ -1,0 +1,27 @@
+# Wails build output
+build/bin/
+build/windows/
+build/darwin/
+build/linux/
+
+# Node & Frontend dependencies
+frontend/node_modules/
+frontend/dist/
+
+# Go binaries & build artifacts
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Local settings / connection passwords
+connections.json
+.env
+.env.local
+
+# IDEs
+.vscode/
+.idea/

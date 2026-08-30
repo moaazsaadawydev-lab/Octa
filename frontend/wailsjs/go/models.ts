@@ -1,0 +1,93 @@
+export namespace main {
+	
+	export class ConnectionConfig {
+	    id: string;
+	    name: string;
+	    type: string;
+	    host: string;
+	    port: number;
+	    database: string;
+	    username: string;
+	    password: string;
+	    ssl: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new ConnectionConfig(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.type = source["type"];
+	        this.host = source["host"];
+	        this.port = source["port"];
+	        this.database = source["database"];
+	        this.username = source["username"];
+	        this.password = source["password"];
+	        this.ssl = source["ssl"];
+	    }
+	}
+	export class QueryLog {
+	    id: string;
+	    timestamp: string;
+	    query: string;
+	    durationMs: number;
+	    status: string;
+	    error?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new QueryLog(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.timestamp = source["timestamp"];
+	        this.query = source["query"];
+	        this.durationMs = source["durationMs"];
+	        this.status = source["status"];
+	        this.error = source["error"];
+	    }
+	}
+	export class TableColumn {
+	    name: string;
+	    type: string;
+	    isNullable: boolean;
+	    isPrimaryKey: boolean;
+	    defaultValue?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new TableColumn(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.type = source["type"];
+	        this.isNullable = source["isNullable"];
+	        this.isPrimaryKey = source["isPrimaryKey"];
+	        this.defaultValue = source["defaultValue"];
+	    }
+	}
+	export class TableDataResult {
+	    columns: string[];
+	    rows: any[];
+	    totalRows: number;
+	    durationMs: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new TableDataResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.columns = source["columns"];
+	        this.rows = source["rows"];
+	        this.totalRows = source["totalRows"];
+	        this.durationMs = source["durationMs"];
+	    }
+	}
+
+}
+
