@@ -190,4 +190,40 @@ func TestUUIDFormatting(t *testing.T) {
 	}
 }
 
+func TestDeleteTableRowsAndTruncateValidation(t *testing.T) {
+	app := NewApp()
 
+	// Empty rowIds should return true trivially
+	ok, err := app.DeleteTableRows(ConnectionConfig{Type: "postgres"}, "testdb", "users", "id", []string{})
+	if err != nil || !ok {
+		t.Errorf("Expected empty rowIds to succeed, got ok=%v, err=%v", ok, err)
+	}
+
+	// Invalid type should fail
+	badTypeConfig := ConnectionConfig{Type: "invalid_db"}
+	ok, err = app.DeleteTableRows(badTypeConfig, "testdb", "users", "id", []string{"1", "2"})
+	if ok || err == nil {
+		t.Errorf("Expected invalid type to fail DeleteTableRows")
+	}
+
+	ok, err = app.TruncateTable(badTypeConfig, "testdb", "users")
+	if ok || err == nil {
+		t.Errorf("Expected invalid type to fail TruncateTable")
+	}
+
+	// Bad connection params should fail
+	badConnConfig := ConnectionConfig{
+		Type: "postgres",
+		Host: "127.0.0.1",
+		Port: 59999,
+	}
+	ok, err = app.DeleteTableRows(badConnConfig, "testdb", "users", "id", []string{"1", "2"})
+	if ok || err == nil {
+		t.Errorf("Expected bad connection to fail DeleteTableRows")
+	}
+
+	ok, err = app.TruncateTable(badConnConfig, "testdb", "users")
+	if ok || err == nil {
+		t.Errorf("Expected bad connection to fail TruncateTable")
+	}
+}

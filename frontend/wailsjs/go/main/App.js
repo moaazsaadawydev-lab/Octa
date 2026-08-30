@@ -14,6 +14,10 @@ export function DeleteConnection(arg1) {
   return window['go']['main']['App']['DeleteConnection'](arg1);
 }
 
+export function DeleteTableRows(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['main']['App']['DeleteTableRows'](arg1, arg2, arg3, arg4, arg5);
+}
+
 export function DropColumn(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['DropColumn'](arg1, arg2, arg3, arg4);
 }
@@ -56,6 +60,10 @@ export function SaveConnection(arg1) {
 
 export function TestConnection(arg1) {
   return window['go']['main']['App']['TestConnection'](arg1);
+}
+
+export function TruncateTable(arg1, arg2, arg3) {
+  return window['go']['main']['App']['TruncateTable'](arg1, arg2, arg3);
 }
 
 export function UpdateTableRows(arg1, arg2, arg3, arg4, arg5) {

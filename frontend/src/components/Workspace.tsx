@@ -24,6 +24,8 @@ import {
   dropColumn,
   renameColumn,
   updateTableRows,
+  deleteTableRows,
+  truncateTable,
 } from '../services/api';
 import { DataGrid } from './DataGrid';
 import { QueryConsole } from './QueryConsole';
@@ -252,6 +254,43 @@ export const Workspace: React.FC<WorkspaceProps> = ({
     }
   };
 
+  // Batch Row Deletion & Truncation handler
+  const handleDeleteRows = async (
+    primaryKeyCol: string,
+    rowIds: string[],
+    isAllTable: boolean
+  ) => {
+    if (!activeSession || !selectedTable) return;
+    try {
+      if (isAllTable) {
+        await truncateTable(
+          activeSession.connection,
+          activeSession.activeDatabase,
+          selectedTable
+        );
+        showToast(`Successfully truncated table "${selectedTable}"`, 'success');
+      } else {
+        if (rowIds.length === 0) return;
+        await deleteTableRows(
+          activeSession.connection,
+          activeSession.activeDatabase,
+          selectedTable,
+          primaryKeyCol,
+          rowIds
+        );
+        showToast(
+          `Successfully deleted ${rowIds.length} row${rowIds.length > 1 ? 's' : ''} from ${selectedTable}`,
+          'success'
+        );
+      }
+      await loadTableDetails(selectedTable, page, limit);
+    } catch (err: any) {
+      console.error('Failed to delete rows:', err);
+      showToast(`Failed to delete rows: ${err?.message || err}`, 'error');
+      throw err;
+    }
+  };
+
   // Filtered tables list
   const filteredTables = tables.filter((t) =>
     t.toLowerCase().includes(tableSearch.toLowerCase().trim())
@@ -475,6 +514,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({
               onDropColumn={handleDropColumn}
               onRenameColumn={handleRenameColumn}
               onSaveUpdates={handleSaveUpdates}
+              onDeleteRows={handleDeleteRows}
             />
           ) : (
             <div className="flex-1 bg-[#141414] flex flex-col items-center justify-center text-gray-500 text-xs italic select-none">

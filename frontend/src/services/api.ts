@@ -14,6 +14,8 @@ import {
   ClearQueryLogs,
   GetEnumValues,
   UpdateTableRows,
+  DeleteTableRows,
+  TruncateTable,
 } from '../../wailsjs/go/main/App';
 import { main } from '../../wailsjs/go/models';
 import {
@@ -311,5 +313,36 @@ export async function updateTableRows(
     throw err;
   }
 }
+
+export async function deleteTableRows(
+  config: ConnectionConfig,
+  dbName: string,
+  tableName: string,
+  primaryKeyCol: string,
+  rowIds: string[]
+): Promise<boolean> {
+  try {
+    const model = toModelConfig(config);
+    return await DeleteTableRows(model, dbName, tableName, primaryKeyCol, rowIds);
+  } catch (err: any) {
+    console.error('Failed to delete table rows:', err);
+    throw err;
+  }
+}
+
+export async function truncateTable(
+  config: ConnectionConfig,
+  dbName: string,
+  tableName: string
+): Promise<boolean> {
+  try {
+    const model = toModelConfig(config);
+    return await TruncateTable(model, dbName, tableName);
+  } catch (err: any) {
+    console.error('Failed to truncate table:', err);
+    throw err;
+  }
+}
+
 
 

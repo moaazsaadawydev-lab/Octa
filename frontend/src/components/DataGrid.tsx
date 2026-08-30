@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Key,
   Trash2,
@@ -13,7 +13,8 @@ import {
   Save,
   RotateCcw,
   Sparkles,
-  CheckCircle2
+  CheckCircle2,
+  Layers
 } from 'lucide-react';
 import { TableColumn, TableDataResult, RowUpdate } from '../types/connection';
 
@@ -29,6 +30,7 @@ interface DataGridProps {
   onDropColumn: (colName: string) => Promise<void>;
   onRenameColumn: (oldName: string, newName: string) => Promise<void>;
   onSaveUpdates: (primaryKeyCol: string, updates: RowUpdate[]) => Promise<void>;
+  onDeleteRows: (primaryKeyCol: string, rowIds: string[], isAllTable: boolean) => Promise<void>;
 }
 
 interface EditingCellState {
@@ -54,6 +56,7 @@ export const DataGrid: React.FC<DataGridProps> = ({
   onDropColumn,
   onRenameColumn,
   onSaveUpdates,
+  onDeleteRows,
 }) => {
   // Modal states for column dropping / renaming
   const [columnToDrop, setColumnToDrop] = useState<string | null>(null);
@@ -64,6 +67,12 @@ export const DataGrid: React.FC<DataGridProps> = ({
   const [stagedUpdates, setStagedUpdates] = useState<Record<string, Record<string, any>>>({});
   const [savingUpdates, setSavingUpdates] = useState(false);
 
+  // Multi-row selection state
+  const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(new Set());
+  const [isAllTableSelected, setIsAllTableSelected] = useState(false);
+  const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
+  const [deletingRows, setDeletingRows] = useState(false);
+
   // Column widths state for drag-to-resize: Record<columnName, widthInPixels>
   const [columnWidths, setColumnWidths] = useState<Record<string, number>>({});
   const resizingColRef = useRef<{ colName: string; startX: number; startWidth: number } | null>(null);
@@ -71,22 +80,7 @@ export const DataGrid: React.FC<DataGridProps> = ({
   // Inline cell editing state
   const [editingCell, setEditingCell] = useState<EditingCellState | null>(null);
   const inputRef = useRef<HTMLInputElement | HTMLSelectElement | null>(null);
-
-  // Clear staged updates when switching tables
-  useEffect(() => {
-    setStagedUpdates({});
-    setEditingCell(null);
-  }, [tableName]);
-
-  // Focus and select input on edit mode
-  useEffect(() => {
-    if (editingCell && inputRef.current) {
-      inputRef.current.focus();
-      if ('select' in inputRef.current && typeof inputRef.current.select === 'function') {
-        inputRef.current.select();
-      }
-    }
-  }, [editingCell?.rowIdx, editingCell?.colName]);
+  const headerCheckboxRef = useRef<HTMLInputElement | null>(null);
 
   // Derive column list from schema if available, else from dataResult columns
   const columns: TableColumn[] =
@@ -99,19 +93,164 @@ export const DataGrid: React.FC<DataGridProps> = ({
           isPrimaryKey: false,
         }));
 
-  // Helper to get effective column width
+  // Detect Primary Key Column
+  const detectedPkCol = schema.find((c) => c.isPrimaryKey)?.name ||
+    (schema.some((c) => c.name.toLowerCase() === 'id') ? 'id' : columns[0]?.name || 'id');
+
+  const rows = dataResult?.rows || [];
+  const totalRows = dataResult?.totalRows || 0;
+  const totalPages = Math.ceil(totalRows / limit) || 1;
+  const startRow = totalRows === 0 ? 0 : (page - 1) * limit + 1;
+  const endRow = Math.min(page * limit, totalRows);
+
+  // Page row selection helpers
+  const currentPageRowIds = rows.map((r, rIdx) => String(r[detectedPkCol] ?? rIdx));
+  const allPageRowsSelected =
+    currentPageRowIds.length > 0 &&
+    currentPageRowIds.every((id) => selectedRowIds.has(id));
+  const somePageRowsSelected =
+    currentPageRowIds.some((id) => selectedRowIds.has(id));
+
+  // Sync header checkbox indeterminate state
+  useEffect(() => {
+    if (headerCheckboxRef.current) {
+      headerCheckboxRef.current.indeterminate =
+        somePageRowsSelected && !allPageRowsSelected && !isAllTableSelected;
+    }
+  }, [somePageRowsSelected, allPageRowsSelected, isAllTableSelected]);
+
+  // Clear state when switching tables
+  useEffect(() => {
+    setStagedUpdates({});
+    setEditingCell(null);
+    setSelectedRowIds(new Set());
+    setIsAllTableSelected(false);
+    setShowDeleteConfirmModal(false);
+  }, [tableName]);
+
+  // Focus and select input on edit mode
+  useEffect(() => {
+    if (editingCell && inputRef.current) {
+      inputRef.current.focus();
+      if ('select' in inputRef.current && typeof inputRef.current.select === 'function') {
+        inputRef.current.select();
+      }
+    }
+  }, [editingCell?.rowIdx, editingCell?.colName]);
+
+  // Keyboard Shortcuts (Delete / Backspace triggers delete modal, Escape deselects)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'SELECT' ||
+        target.tagName === 'TEXTAREA' ||
+        editingCell !== null ||
+        columnToDrop !== null ||
+        columnToRename !== null
+      ) {
+        return;
+      }
+
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (selectedRowIds.size > 0 || isAllTableSelected) {
+          e.preventDefault();
+          setShowDeleteConfirmModal(true);
+        }
+      } else if (e.key === 'Escape') {
+        if (showDeleteConfirmModal) {
+          setShowDeleteConfirmModal(false);
+        } else if (selectedRowIds.size > 0 || isAllTableSelected) {
+          setSelectedRowIds(new Set());
+          setIsAllTableSelected(false);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedRowIds, isAllTableSelected, editingCell, columnToDrop, columnToRename, showDeleteConfirmModal]);
+
+// Helper to shorten and cleanly format PostgreSQL data types for badges
+const formatDisplayType = (type?: string, enumValues?: string[]): string => {
+  if (!type) return '';
+  const lower = type.toLowerCase().trim();
+
+  if (enumValues && enumValues.length > 0) return 'enum';
+  if (lower.includes('varying') || lower.includes('varchar')) return 'varchar';
+  if (lower === 'character' || lower === 'char') return 'char';
+  if (lower === 'boolean' || lower === 'bool') return 'bool';
+  if (lower.includes('with time zone') || lower === 'timestamptz') return 'timestamptz';
+  if (lower.includes('without time zone') || lower === 'timestamp') return 'timestamp';
+  if (lower === 'smallint' || lower === 'int2') return 'smallint';
+  if (lower === 'bigint' || lower === 'int8') return 'bigint';
+  if (lower === 'integer' || lower === 'int' || lower === 'int4') return 'int';
+  if (lower.includes('double') || lower.includes('float')) return 'float';
+  if (lower.includes('numeric') || lower.includes('decimal')) return 'numeric';
+  if (lower.includes('uuid')) return 'uuid';
+  if (lower.includes('jsonb')) return 'jsonb';
+  if (lower.includes('json')) return 'json';
+  if (lower.endsWith('_enum') || lower.includes('enum')) return 'enum';
+
+  return lower.length > 12 ? lower.slice(0, 10) + '..' : lower;
+};
+
+  // Helper to get generous effective column width
   const getColumnWidth = useCallback((colName: string): number => {
     if (columnWidths[colName]) return columnWidths[colName];
-    // Sensible defaults based on column name / type
+
     const col = schema.find((c) => c.name === colName);
     const typeStr = col?.type?.toLowerCase() || '';
-    if (col?.isPrimaryKey || colName.toLowerCase() === 'id') return 120;
-    if (typeStr.includes('bool')) return 100;
-    if (typeStr.includes('int') || typeStr.includes('serial')) return 110;
-    if (typeStr.includes('timestamp') || typeStr.includes('date')) return 200;
-    if (typeStr.includes('uuid')) return 280;
+    const nameLower = colName.toLowerCase();
+
+    // Primary keys or ID columns
+    if (col?.isPrimaryKey || nameLower === 'id' || nameLower.endsWith('_id')) {
+      if (typeStr.includes('uuid')) return 260;
+      return 220;
+    }
+
+    // Specific type-based widths
+    if (typeStr.includes('uuid')) return 260;
+    if (typeStr.includes('timestamp') || typeStr.includes('date')) return 220;
     if (typeStr.includes('json')) return 240;
-    return 180;
+
+    // Short boolean / small enum / status fields
+    if (
+      typeStr.includes('bool') ||
+      typeStr.includes('smallint') ||
+      nameLower === 'gender' ||
+      nameLower === 'status' ||
+      nameLower === 'role' ||
+      nameLower === 'country' ||
+      nameLower.startsWith('is_') ||
+      nameLower.startsWith('has_')
+    ) {
+      return 140;
+    }
+
+    // Standard string text fields
+    if (
+      nameLower.includes('email') ||
+      nameLower.includes('description') ||
+      nameLower.includes('address') ||
+      nameLower.includes('password') ||
+      nameLower.includes('avatar') ||
+      nameLower.includes('image') ||
+      nameLower.includes('url')
+    ) {
+      return 230;
+    }
+
+    if (typeStr.includes('char') || typeStr.includes('text') || nameLower.includes('name')) {
+      return 200;
+    }
+
+    if (typeStr.includes('int') || typeStr.includes('numeric') || typeStr.includes('float')) {
+      return 150;
+    }
+
+    return 190;
   }, [columnWidths, schema]);
 
   // Column drag-to-resize handlers
@@ -129,7 +268,7 @@ export const DataGrid: React.FC<DataGridProps> = ({
     const onMouseMove = (moveEvent: MouseEvent) => {
       if (!resizingColRef.current) return;
       const deltaX = moveEvent.clientX - resizingColRef.current.startX;
-      const newWidth = Math.max(80, resizingColRef.current.startWidth + deltaX);
+      const newWidth = Math.max(120, resizingColRef.current.startWidth + deltaX);
       setColumnWidths((prev) => ({
         ...prev,
         [resizingColRef.current!.colName]: newWidth,
@@ -148,21 +287,60 @@ export const DataGrid: React.FC<DataGridProps> = ({
     window.addEventListener('mouseup', onMouseUp);
   };
 
-  // Detect Primary Key Column
-  const detectedPkCol = schema.find((c) => c.isPrimaryKey)?.name ||
-    (schema.some((c) => c.name.toLowerCase() === 'id') ? 'id' : columns[0]?.name || 'id');
-
-  const rows = dataResult?.rows || [];
-  const totalRows = dataResult?.totalRows || 0;
-  const totalPages = Math.ceil(totalRows / limit) || 1;
-  const startRow = totalRows === 0 ? 0 : (page - 1) * limit + 1;
-  const endRow = Math.min(page * limit, totalRows);
-
   // Count total staged cell edits
   const totalStagedEditsCount = Object.values(stagedUpdates).reduce(
     (acc, rowUpdates) => acc + Object.keys(rowUpdates).length,
     0
   );
+
+  // Toggle selection for all rows on page
+  const handleToggleSelectAllPage = () => {
+    if (isAllTableSelected || allPageRowsSelected) {
+      setSelectedRowIds(new Set());
+      setIsAllTableSelected(false);
+    } else {
+      const next = new Set<string>(selectedRowIds);
+      currentPageRowIds.forEach((id) => next.add(id));
+      setSelectedRowIds(next);
+    }
+  };
+
+  // Toggle single row selection
+  const handleToggleRowSelect = (rowId: string) => {
+    const next = new Set<string>(selectedRowIds);
+    if (isAllTableSelected) {
+      currentPageRowIds.forEach((id) => {
+        if (id !== rowId) next.add(id);
+      });
+      setIsAllTableSelected(false);
+      setSelectedRowIds(next);
+      return;
+    }
+
+    if (next.has(rowId)) {
+      next.delete(rowId);
+    } else {
+      next.add(rowId);
+    }
+    setSelectedRowIds(next);
+  };
+
+  // Execute Batch Row Delete or Table Truncation
+  const handleConfirmBatchDelete = async () => {
+    setDeletingRows(true);
+    try {
+      await onDeleteRows(
+        detectedPkCol,
+        Array.from(selectedRowIds),
+        isAllTableSelected
+      );
+      setSelectedRowIds(new Set());
+      setIsAllTableSelected(false);
+      setShowDeleteConfirmModal(false);
+    } finally {
+      setDeletingRows(false);
+    }
+  };
 
   // Helper to get effective cell value (staged vs original)
   const getCellValue = (row: Record<string, any>, rowId: any, colName: string) => {
@@ -385,7 +563,67 @@ export const DataGrid: React.FC<DataGridProps> = ({
         </div>
       )}
 
-      {/* 2. Table Content Container */}
+      {/* 2. Multi-Row Selection Sticky Action Bar */}
+      {(selectedRowIds.size > 0 || isAllTableSelected) && (
+        <div className="px-4 py-2 bg-brand-950/85 border-b border-brand-500/40 backdrop-blur-md flex items-center justify-between z-30 animate-fade-in">
+          <div className="flex items-center gap-2.5 text-xs text-brand-200 font-medium">
+            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-brand-500/20 border border-brand-500/30 text-brand-300">
+              <Sparkles className="w-3.5 h-3.5 text-brand-400" />
+              <span>
+                {isAllTableSelected
+                  ? `All ${totalRows.toLocaleString()} rows selected in table`
+                  : `${selectedRowIds.size} row${selectedRowIds.size > 1 ? 's' : ''} selected`}
+              </span>
+            </div>
+            <span className="text-brand-400/60 text-[11px] font-mono">(PK: {detectedPkCol})</span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedRowIds(new Set());
+                setIsAllTableSelected(false);
+              }}
+              disabled={deletingRows}
+              className="flex items-center gap-1 px-2.5 py-1 rounded bg-surface-850 hover:bg-surface-800 text-gray-300 border border-border text-xs font-medium transition-colors"
+            >
+              <X className="w-3 h-3 text-gray-400" />
+              <span>Deselect All</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowDeleteConfirmModal(true)}
+              disabled={deletingRows}
+              className="flex items-center gap-1.5 px-3 py-1 rounded bg-rose-600 hover:bg-rose-500 text-white font-medium text-xs shadow-md shadow-rose-600/20 transition-all"
+            >
+              <Trash2 className="w-3 h-3" />
+              <span>
+                {isAllTableSelected ? 'Truncate Table' : `Delete Selected (${selectedRowIds.size})`}
+              </span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 3. Table Prompt Banner for Selecting All Table Records */}
+      {allPageRowsSelected && totalRows > rows.length && !isAllTableSelected && (
+        <div className="px-4 py-1.5 bg-[#1b2230] border-b border-brand-500/30 flex items-center justify-center text-xs text-brand-200 z-20">
+          <span>
+            All <strong>{rows.length}</strong> rows on this page are selected.{' '}
+            <button
+              type="button"
+              onClick={() => setIsAllTableSelected(true)}
+              className="text-brand-400 hover:text-brand-300 font-semibold underline ml-1 cursor-pointer transition-colors"
+            >
+              Select all {totalRows.toLocaleString()} records in "{tableName}"
+            </button>
+          </span>
+        </div>
+      )}
+
+      {/* 4. Table Content Container */}
       <div className="flex-1 overflow-auto relative">
         {loading && (
           <div className="absolute inset-0 bg-surface-950/60 backdrop-blur-xs flex items-center justify-center z-30">
@@ -400,8 +638,19 @@ export const DataGrid: React.FC<DataGridProps> = ({
           {/* Sticky Header */}
           <thead className="sticky top-0 bg-[#1F1F1F] z-20 shadow-sm border-b border-[#2D2D2D]">
             <tr>
+              {/* Checkbox Column */}
+              <th className="w-[44px] min-w-[44px] max-w-[44px] px-2.5 py-2.5 text-center border-r border-[#2D2D2D] bg-[#1a1a1a] sticky left-0 z-30">
+                <input
+                  ref={headerCheckboxRef}
+                  type="checkbox"
+                  checked={isAllTableSelected || (allPageRowsSelected && rows.length > 0)}
+                  onChange={handleToggleSelectAllPage}
+                  className="rounded border-gray-600 bg-surface-800 text-brand-500 focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                />
+              </th>
+
               {/* Row Number Sticky Column */}
-              <th className="w-12 min-w-[48px] max-w-[48px] px-3 py-2.5 text-center text-gray-500 font-mono font-medium text-[11px] border-r border-[#2D2D2D] bg-[#1a1a1a] sticky left-0 z-30">
+              <th className="w-[50px] min-w-[50px] max-w-[50px] px-2 py-2.5 text-center text-gray-500 font-mono font-medium text-[11px] border-r border-[#2D2D2D] bg-[#1a1a1a] sticky left-[44px] z-30">
                 #
               </th>
 
@@ -412,7 +661,7 @@ export const DataGrid: React.FC<DataGridProps> = ({
                   <th
                     key={col.name}
                     style={{ width, minWidth: width, maxWidth: width }}
-                    className="px-3.5 py-2.5 font-medium border-r border-[#2D2D2D] text-gray-200 group/col hover:bg-[#252525] transition-colors relative select-none"
+                    className="px-4 py-2.5 font-medium border-r border-[#2D2D2D] text-gray-200 group/col hover:bg-[#252525] transition-colors relative select-none whitespace-nowrap"
                   >
                     <div className="flex items-center justify-between gap-1.5 pr-2 overflow-hidden">
                       <div className="flex items-center gap-1.5 min-w-0 truncate flex-1">
@@ -423,8 +672,11 @@ export const DataGrid: React.FC<DataGridProps> = ({
                         )}
                         <span className="font-semibold text-gray-100 truncate">{col.name}</span>
                         {col.type && (
-                          <span className="text-[10px] text-gray-400 font-mono font-normal flex-shrink-0">
-                            ({col.type})
+                          <span
+                            className="text-[10px] text-zinc-500 font-normal font-mono flex-shrink-0"
+                            title={col.type}
+                          >
+                            ({formatDisplayType(col.type, col.enumValues)})
                           </span>
                         )}
                       </div>
@@ -468,7 +720,7 @@ export const DataGrid: React.FC<DataGridProps> = ({
             {rows.length === 0 && !loading && (
               <tr>
                 <td
-                  colSpan={columns.length + 1}
+                  colSpan={columns.length + 2}
                   className="py-16 text-center text-gray-500 italic select-none"
                 >
                   No records in "{tableName}"
@@ -477,15 +729,34 @@ export const DataGrid: React.FC<DataGridProps> = ({
             )}
 
             {rows.map((row, rIdx) => {
-              const rowId = row[detectedPkCol] ?? rIdx;
+              const rowId = String(row[detectedPkCol] ?? rIdx);
+              const isRowSelected = isAllTableSelected || selectedRowIds.has(rowId);
 
               return (
                 <tr
                   key={rIdx}
-                  className="hover:bg-[#1a1a1a] transition-colors group/row"
+                  className={`transition-colors group/row ${
+                    isRowSelected
+                      ? 'bg-brand-950/35 hover:bg-brand-900/45 text-blue-100'
+                      : 'hover:bg-[#1a1a1a]'
+                  }`}
                 >
+                  {/* Row Checkbox Column */}
+                  <td className={`w-[44px] min-w-[44px] max-w-[44px] px-2.5 py-2 text-center border-r border-[#242424] sticky left-0 z-10 select-none ${
+                    isRowSelected ? 'bg-[#151c28]' : 'bg-[#141414] group-hover/row:bg-[#1a1a1a]'
+                  }`}>
+                    <input
+                      type="checkbox"
+                      checked={isRowSelected}
+                      onChange={() => handleToggleRowSelect(rowId)}
+                      className="rounded border-gray-600 bg-surface-800 text-brand-500 focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                    />
+                  </td>
+
                   {/* Sticky Row Index */}
-                  <td className="w-12 min-w-[48px] max-w-[48px] px-3 py-2 text-center text-gray-500 font-mono text-[10px] border-r border-[#242424] bg-[#141414] group-hover/row:bg-[#1a1a1a] sticky left-0 z-10 select-none">
+                  <td className={`w-[50px] min-w-[50px] max-w-[50px] px-2 py-2 text-center text-gray-500 font-mono text-[10px] border-r border-[#242424] sticky left-[44px] z-10 select-none ${
+                    isRowSelected ? 'bg-[#151c28]' : 'bg-[#141414] group-hover/row:bg-[#1a1a1a]'
+                  }`}>
                     {(page - 1) * limit + rIdx + 1}
                   </td>
 
@@ -503,7 +774,7 @@ export const DataGrid: React.FC<DataGridProps> = ({
                         key={col.name}
                         style={{ width, minWidth: width, maxWidth: width }}
                         onDoubleClick={() => handleStartEdit(rIdx, row, col)}
-                        className={`px-3.5 py-1.5 border-r border-[#242424] truncate relative cursor-pointer ${
+                        className={`px-4 py-2 border-r border-[#242424] truncate relative cursor-pointer ${
                           staged
                             ? 'bg-amber-500/15 text-amber-200 border-b-amber-500/40'
                             : ''
@@ -634,6 +905,79 @@ export const DataGrid: React.FC<DataGridProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Confirmation Modal for Batch Row Deletion / Truncation */}
+      {showDeleteConfirmModal && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-surface-900 border border-border rounded-xl p-5 max-w-md w-full shadow-2xl space-y-4 animate-fade-in">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center text-rose-400 flex-shrink-0">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-sm font-semibold text-gray-100">
+                  {isAllTableSelected ? 'Truncate Table' : 'Delete Selected Rows'}
+                </h4>
+                <p className="text-xs text-gray-400">
+                  {isAllTableSelected
+                    ? 'Permanent removal of all table records'
+                    : 'Permanent removal of selected records'}
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3 rounded-lg bg-surface-950/70 border border-border/60 text-xs text-gray-300 space-y-2">
+              {isAllTableSelected ? (
+                <p className="leading-relaxed">
+                  Are you sure you want to permanently delete all{' '}
+                  <strong className="text-rose-300 font-semibold">{totalRows.toLocaleString()}</strong> records in table{' '}
+                  <strong className="text-gray-100 font-mono">"{tableName}"</strong>?
+                  <br />
+                  <span className="text-gray-400 text-[11px] mt-1 block">
+                    This will execute a <code className="text-rose-400 bg-surface-800 px-1 rounded">TRUNCATE TABLE CASCADE</code> statement.
+                  </span>
+                </p>
+              ) : (
+                <p className="leading-relaxed">
+                  Are you sure you want to permanently delete{' '}
+                  <strong className="text-rose-300 font-semibold">{selectedRowIds.size}</strong> selected row{selectedRowIds.size > 1 ? 's' : ''} from table{' '}
+                  <strong className="text-gray-100 font-mono">"{tableName}"</strong>?
+                  <br />
+                  <span className="text-gray-400 text-[11px] mt-1 block">
+                    Matching records via primary key column <code className="text-brand-300 bg-surface-800 px-1 rounded">{detectedPkCol}</code>.
+                  </span>
+                </p>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirmModal(false)}
+                disabled={deletingRows}
+                className="px-3.5 py-1.5 rounded-lg bg-surface-800 hover:bg-surface-750 text-gray-300 text-xs font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmBatchDelete}
+                disabled={deletingRows}
+                className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-medium shadow-md shadow-rose-600/20"
+              >
+                {deletingRows ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Trash2 className="w-3.5 h-3.5" />
+                )}
+                <span>
+                  {isAllTableSelected ? 'Truncate Table' : `Delete (${selectedRowIds.size})`}
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Confirmation Modal for Dropping Column */}
       {columnToDrop && (

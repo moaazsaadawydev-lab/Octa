@@ -8,6 +8,8 @@ export function ClearQueryLogs():Promise<boolean>;
 
 export function DeleteConnection(arg1:string):Promise<boolean>;
 
+export function DeleteTableRows(arg1:main.ConnectionConfig,arg2:string,arg3:string,arg4:string,arg5:Array<string>):Promise<boolean>;
+
 export function DropColumn(arg1:main.ConnectionConfig,arg2:string,arg3:string,arg4:string):Promise<boolean>;
 
 export function GetDatabases(arg1:main.ConnectionConfig):Promise<Array<string>>;
@@ -29,5 +31,7 @@ export function RenameColumn(arg1:main.ConnectionConfig,arg2:string,arg3:string,
 export function SaveConnection(arg1:main.ConnectionConfig):Promise<boolean|string>;
 
 export function TestConnection(arg1:main.ConnectionConfig):Promise<boolean|string>;
+
+export function TruncateTable(arg1:main.ConnectionConfig,arg2:string,arg3:string):Promise<boolean>;
 
 export function UpdateTableRows(arg1:main.ConnectionConfig,arg2:string,arg3:string,arg4:string,arg5:Array<main.RowUpdate>):Promise<boolean>;

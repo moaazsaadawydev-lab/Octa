@@ -1016,3 +1016,106 @@ func (a *App) UpdateTableRows(config ConnectionConfig, dbName string, tableName 
 
 	return true, nil
 }
+
+// formatStringArrayForLog formats a slice of strings nicely for the SQL console log.
+func formatStringArrayForLog(arr []string) string {
+	if len(arr) == 0 {
+		return ""
+	}
+	maxItems := 5
+	var formatted []string
+	for i, s := range arr {
+		if i >= maxItems {
+			formatted = append(formatted, fmt.Sprintf("... (%d more)", len(arr)-maxItems))
+			break
+		}
+		formatted = append(formatted, fmt.Sprintf("'%s'", s))
+	}
+	return strings.Join(formatted, ", ")
+}
+
+// DeleteTableRows deletes multiple rows matching primaryKeyCol using ANY($1) parameterized query.
+func (a *App) DeleteTableRows(config ConnectionConfig, dbName string, tableName string, primaryKeyCol string, rowIds []string) (bool, error) {
+	if len(rowIds) == 0 {
+		return true, nil
+	}
+	if primaryKeyCol == "" {
+		primaryKeyCol = "id"
+	}
+
+	if config.Type == "" {
+		config.Type = "postgres"
+	}
+	if config.Type != "postgres" {
+		return false, fmt.Errorf("unsupported database type: %s", config.Type)
+	}
+
+	connStr := buildPostgresURLWithDB(config, dbName)
+	connConfig, err := pgx.ParseConfig(connStr)
+	if err != nil {
+		return false, fmt.Errorf("invalid connection configuration: %w", err)
+	}
+	connConfig.ConnectTimeout = 5 * time.Second
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	conn, err := pgx.ConnectConfig(ctx, connConfig)
+	if err != nil {
+		return false, fmt.Errorf("failed to connect: %w", err)
+	}
+	defer conn.Close(ctx)
+
+	query := fmt.Sprintf(`DELETE FROM %q WHERE %q::text = ANY($1);`, tableName, primaryKeyCol)
+	start := time.Now()
+	_, err = conn.Exec(ctx, query, rowIds)
+	durationMs := float64(time.Since(start).Microseconds()) / 1000.0
+
+	logQueryStr := fmt.Sprintf(`DELETE FROM "%s" WHERE "%s"::text = ANY(ARRAY[%s]);`, tableName, primaryKeyCol, formatStringArrayForLog(rowIds))
+	if err != nil {
+		a.logQuery(logQueryStr, durationMs, "ERROR", err.Error())
+		return false, fmt.Errorf("failed to delete rows: %w", err)
+	}
+
+	a.logQuery(logQueryStr, durationMs, "SUCCESS", "")
+	return true, nil
+}
+
+// TruncateTable completely empties a table and cascades to foreign keys.
+func (a *App) TruncateTable(config ConnectionConfig, dbName string, tableName string) (bool, error) {
+	if config.Type == "" {
+		config.Type = "postgres"
+	}
+	if config.Type != "postgres" {
+		return false, fmt.Errorf("unsupported database type: %s", config.Type)
+	}
+
+	connStr := buildPostgresURLWithDB(config, dbName)
+	connConfig, err := pgx.ParseConfig(connStr)
+	if err != nil {
+		return false, fmt.Errorf("invalid connection configuration: %w", err)
+	}
+	connConfig.ConnectTimeout = 5 * time.Second
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	conn, err := pgx.ConnectConfig(ctx, connConfig)
+	if err != nil {
+		return false, fmt.Errorf("failed to connect: %w", err)
+	}
+	defer conn.Close(ctx)
+
+	query := fmt.Sprintf(`TRUNCATE TABLE %q CASCADE;`, tableName)
+	start := time.Now()
+	_, err = conn.Exec(ctx, query)
+	durationMs := float64(time.Since(start).Microseconds()) / 1000.0
+
+	if err != nil {
+		a.logQuery(query, durationMs, "ERROR", err.Error())
+		return false, fmt.Errorf("failed to truncate table: %w", err)
+	}
+
+	a.logQuery(query, durationMs, "SUCCESS", "")
+	return true, nil
+}
