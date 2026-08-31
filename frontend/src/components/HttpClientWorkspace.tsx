@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Group, Panel, Separator } from 'react-resizable-panels';
 import {
   Send,
   Plus,
@@ -15,11 +16,15 @@ import {
   Layers,
   MoreVertical,
   Files,
-  FileCode,
+  X,
   Check,
-  X
+  Columns2,
+  Rows2
 } from 'lucide-react';
+import interfaceSvg from '../assets/interface.svg';
 import { saveHttpClientData, loadHttpClientData } from '../services/api';
+
+export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'OPTIONS' | 'HEAD';
 
 export interface HttpHeader {
   key: string;
@@ -37,12 +42,13 @@ export interface HttpRequestItem {
   id: string;
   type: 'request';
   name: string;
-  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+  method: HttpMethod;
   url: string;
   headers: HttpHeader[];
   params: HttpParam[];
   bodyType: 'json' | 'raw' | 'none';
   bodyContent: string;
+  isDirty?: boolean;
 }
 
 export interface HttpFolderItem {
@@ -64,13 +70,20 @@ export interface HttpResponseState {
   headers: Record<string, string>;
 }
 
-const METHOD_COLORS: Record<string, { badge: string; text: string }> = {
-  GET: { badge: 'bg-emerald-950/70 border-emerald-500/40 text-emerald-300', text: 'text-emerald-400' },
-  POST: { badge: 'bg-amber-950/70 border-amber-500/40 text-amber-300', text: 'text-amber-400' },
-  PUT: { badge: 'bg-blue-950/70 border-blue-500/40 text-blue-300', text: 'text-blue-400' },
-  PATCH: { badge: 'bg-purple-950/70 border-purple-500/40 text-purple-300', text: 'text-purple-400' },
-  DELETE: { badge: 'bg-rose-950/70 border-rose-500/40 text-rose-300', text: 'text-rose-400' },
-};
+export const HTTP_METHODS: { method: HttpMethod; label: string; color: string; badge: string }[] = [
+  { method: 'GET', label: 'GET', color: 'text-emerald-400', badge: 'bg-emerald-950/70 border-emerald-500/40 text-emerald-300' },
+  { method: 'POST', label: 'POST', color: 'text-amber-400', badge: 'bg-amber-950/70 border-amber-500/40 text-amber-300' },
+  { method: 'PUT', label: 'PUT', color: 'text-blue-400', badge: 'bg-blue-950/70 border-blue-500/40 text-blue-300' },
+  { method: 'PATCH', label: 'PATCH', color: 'text-purple-400', badge: 'bg-purple-950/70 border-purple-500/40 text-purple-300' },
+  { method: 'DELETE', label: 'DELETE', color: 'text-rose-400', badge: 'bg-rose-950/70 border-rose-500/40 text-rose-300' },
+  { method: 'OPTIONS', label: 'OPTIONS', color: 'text-zinc-400', badge: 'bg-zinc-900 border-zinc-700 text-zinc-300' },
+  { method: 'HEAD', label: 'HEAD', color: 'text-sky-400', badge: 'bg-sky-950/70 border-sky-500/40 text-sky-300' },
+];
+
+export const METHOD_COLORS: Record<string, { badge: string; text: string }> = HTTP_METHODS.reduce((acc, curr) => {
+  acc[curr.method] = { badge: curr.badge, text: curr.color };
+  return acc;
+}, {} as Record<string, { badge: string; text: string }>);
 
 const createDefaultRequest = (name: string = 'Untitled Request'): HttpRequestItem => ({
   id: 'req-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7),
@@ -82,6 +95,7 @@ const createDefaultRequest = (name: string = 'Untitled Request'): HttpRequestIte
   params: [],
   bodyType: 'none',
   bodyContent: '',
+  isDirty: false,
 });
 
 const createDefaultFolder = (name: string = 'New Folder'): HttpFolderItem => ({
@@ -104,16 +118,6 @@ const createDefaultCollection = (name: string = 'Untitled Collection'): HttpFold
 function countRequests(item: HttpTreeItem): number {
   if (item.type === 'request') return 1;
   return item.items.reduce((sum, child) => sum + countRequests(child), 0);
-}
-
-// Helper: Find first request in tree
-function findFirstRequest(items: HttpTreeItem[]): HttpRequestItem | null {
-  for (const item of items) {
-    if (item.type === 'request') return item;
-    const nested = findFirstRequest(item.items);
-    if (nested) return nested;
-  }
-  return null;
 }
 
 // Helper: Check if targetId is a descendant of parentId
@@ -182,7 +186,7 @@ function findParentOfItem(
   return null;
 }
 
-// Helper: Migrate old format data if needed
+// Helper: Normalize collections
 function normalizeCollections(data: any): HttpFolderItem[] {
   if (!Array.isArray(data)) return [];
   return data.map((col: any) => {
@@ -193,7 +197,6 @@ function normalizeCollections(data: any): HttpFolderItem[] {
         items: Array.isArray(col.items) ? normalizeItems(col.items) : [],
       };
     }
-    // Old format: { id, name, requests: [] }
     return {
       id: col.id || 'col-' + Date.now(),
       type: 'collection',
@@ -222,12 +225,118 @@ function normalizeItems(items: any[]): (HttpFolderItem | HttpRequestItem)[] {
   });
 }
 
+// --- Custom Method Dropdown Component ---
+interface HttpMethodDropdownProps {
+  value: HttpMethod;
+  onChange: (method: HttpMethod) => void;
+}
+
+const HttpMethodDropdown: React.FC<HttpMethodDropdownProps> = ({ value, onChange }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [focusedIndex, setFocusedIndex] = useState(0);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const selectedOption = HTTP_METHODS.find((m) => m.method === value) || HTTP_METHODS[0];
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    window.addEventListener('mousedown', handleClickOutside);
+    return () => window.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (!isOpen) {
+      if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        setIsOpen(true);
+        const idx = HTTP_METHODS.findIndex((m) => m.method === value);
+        setFocusedIndex(idx >= 0 ? idx : 0);
+      }
+      return;
+    }
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setFocusedIndex((prev) => (prev + 1) % HTTP_METHODS.length);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setFocusedIndex((prev) => (prev - 1 + HTTP_METHODS.length) % HTTP_METHODS.length);
+    } else if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      onChange(HTTP_METHODS[focusedIndex].method);
+      setIsOpen(false);
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      setIsOpen(false);
+    }
+  };
+
+  return (
+    <div ref={dropdownRef} className="relative select-none flex-shrink-0">
+      {/* Trigger Button */}
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        onKeyDown={handleKeyDown}
+        className={
+          'flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-mono font-bold transition-all cursor-pointer bg-[#1a1a1c] hover:bg-[#222226] border-zinc-700/80 shadow-sm outline-none focus:border-brand-500 ' +
+          selectedOption.color
+        }
+      >
+        <span>{selectedOption.method}</span>
+        <ChevronDown
+          className={'w-3.5 h-3.5 text-zinc-400 transition-transform duration-200 ' + (isOpen ? 'rotate-180' : '')}
+        />
+      </button>
+
+      {/* Floating Menu List */}
+      {isOpen && (
+        <div className="absolute left-0 top-full mt-1.5 w-40 bg-[#161618] border border-zinc-800/90 shadow-2xl rounded-xl py-1.5 z-50 backdrop-blur-md animate-in fade-in zoom-in-95 duration-100">
+          <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-zinc-500 border-b border-zinc-800/60 mb-1">
+            HTTP Method
+          </div>
+          {HTTP_METHODS.map((item, index) => {
+            const isSelected = item.method === value;
+            const isFocused = index === focusedIndex;
+            return (
+              <button
+                key={item.method}
+                type="button"
+                onClick={() => {
+                  onChange(item.method);
+                  setIsOpen(false);
+                }}
+                onMouseEnter={() => setFocusedIndex(index)}
+                className={
+                  'w-full px-2.5 py-1.5 flex items-center justify-between text-xs font-mono transition-colors cursor-pointer ' +
+                  (isFocused ? 'bg-zinc-800/80 text-white' : 'text-zinc-300 hover:bg-zinc-800/50')
+                }
+              >
+                <div className="flex items-center gap-2">
+                  <span className={'px-1.5 py-0.5 rounded text-[10px] font-bold border ' + item.badge}>
+                    {item.method}
+                  </span>
+                </div>
+                {isSelected && <Check className="w-3.5 h-3.5 text-brand-400" />}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+
 interface HttpClientWorkspaceProps {
   showToast: (message: string, type?: 'success' | 'error' | 'info') => void;
 }
 
 export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({ showToast }) => {
-  // Collections State
+  // Collections Tree State
   const [collections, setCollections] = useState<HttpFolderItem[]>(() => {
     try {
       const saved = localStorage.getItem('octa_http_collections');
@@ -243,10 +352,38 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({ showTo
     return [];
   });
 
-  // Active Request State
-  const [activeRequest, setActiveRequest] = useState<HttpRequestItem>(() => {
-    const first = findFirstRequest(collections);
-    return first || createDefaultRequest();
+  // Multi-Tab State (starts empty if no saved tabs exist)
+  const [openTabs, setOpenTabs] = useState<HttpRequestItem[]>(() => {
+    try {
+      const savedTabs = localStorage.getItem('octa_http_open_tabs');
+      if (savedTabs) {
+        const parsed = JSON.parse(savedTabs);
+        if (Array.isArray(parsed)) {
+          return parsed;
+        }
+      }
+    } catch {
+      // fallback
+    }
+    return [];
+  });
+
+  const [activeTabId, setActiveTabId] = useState<string>(() => {
+    const savedActiveId = localStorage.getItem('octa_http_active_tab_id');
+    if (savedActiveId && openTabs.some((t) => t.id === savedActiveId)) {
+      return savedActiveId;
+    }
+    return openTabs[0]?.id || '';
+  });
+
+  // Get active request from active tab (null if no tabs open)
+  const activeRequest: HttpRequestItem | null =
+    openTabs.find((t) => t.id === activeTabId) || (openTabs.length > 0 ? openTabs[0] : null);
+
+  // Layout Orientation State: 'horizontal' (side-by-side) vs 'vertical' (stacked)
+  const [layoutOrientation, setLayoutOrientation] = useState<'horizontal' | 'vertical'>(() => {
+    const saved = localStorage.getItem('octa_http_layout_orientation');
+    return saved === 'vertical' ? 'vertical' : 'horizontal';
   });
 
   const [requestTab, setRequestTab] = useState<'params' | 'headers' | 'body'>('params');
@@ -269,8 +406,9 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({ showTo
     position: 'inside' | 'before' | 'after';
   } | null>(null);
 
-  // Response State
-  const [responseState, setResponseState] = useState<HttpResponseState | null>(null);
+  // Response State (mapped per request tab id)
+  const [responseMap, setResponseMap] = useState<Record<string, HttpResponseState>>({});
+  const activeResponseState = activeRequest ? responseMap[activeRequest.id] || null : null;
 
   // Load from Go backend on startup
   useEffect(() => {
@@ -283,10 +421,6 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({ showTo
           if (Array.isArray(parsed)) {
             const normalized = normalizeCollections(parsed);
             setCollections(normalized);
-            const first = findFirstRequest(normalized);
-            if (first) {
-              setActiveRequest(first);
-            }
           }
         }
       } catch (err) {
@@ -298,7 +432,18 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({ showTo
     };
   }, []);
 
-  // Save to Go backend and localStorage on tree change
+  // Persist open tabs and layout orientation
+  useEffect(() => {
+    try {
+      localStorage.setItem('octa_http_open_tabs', JSON.stringify(openTabs));
+      localStorage.setItem('octa_http_active_tab_id', activeTabId);
+      localStorage.setItem('octa_http_layout_orientation', layoutOrientation);
+    } catch (e) {
+      console.warn('Failed to persist tabs state:', e);
+    }
+  }, [openTabs, activeTabId, layoutOrientation]);
+
+  // Save tree data to Go backend and localStorage
   const saveTreeData = useCallback((nextTree: HttpFolderItem[]) => {
     setCollections(nextTree);
     try {
@@ -331,13 +476,17 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({ showTo
     return () => window.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Update active request fields and sync into tree
+  // Update active request in open tabs and sync into tree
   const updateActiveRequest = (updated: HttpRequestItem) => {
-    setActiveRequest(updated);
+    // 1. Update open tabs
+    const nextTabs = openTabs.map((t) => (t.id === updated.id ? { ...updated, isDirty: true } : t));
+    setOpenTabs(nextTabs);
+
+    // 2. Sync to collection tree
     const updateRecursively = (items: (HttpFolderItem | HttpRequestItem)[]): (HttpFolderItem | HttpRequestItem)[] => {
       return items.map((item) => {
         if (item.id === updated.id && item.type === 'request') {
-          return updated;
+          return { ...updated, isDirty: true };
         }
         if (item.type !== 'request') {
           return {
@@ -349,6 +498,55 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({ showTo
       });
     };
     saveTreeData(updateRecursively(collections) as HttpFolderItem[]);
+  };
+
+  // Select / Open a request in tabs
+  const handleOpenRequestInTab = (req: HttpRequestItem) => {
+    const exists = openTabs.find((t) => t.id === req.id);
+    if (!exists) {
+      setOpenTabs((prev) => [...prev, req]);
+    }
+    setActiveTabId(req.id);
+  };
+
+  // Close a tab (Refactored: Does NOT spawn a default tab when closing the last one)
+  const handleCloseTab = (tabId: string, e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation();
+    }
+    const idx = openTabs.findIndex((t) => t.id === tabId);
+    if (idx === -1) return;
+
+    const nextTabs = openTabs.filter((t) => t.id !== tabId);
+    setOpenTabs(nextTabs);
+
+    if (nextTabs.length === 0) {
+      setActiveTabId('');
+    } else if (activeTabId === tabId) {
+      const nextActive = nextTabs[Math.max(0, idx - 1)];
+      setActiveTabId(nextActive.id);
+    }
+  };
+
+  // Create new tab directly from tab strip
+  const handleNewTab = () => {
+    const newReq = createDefaultRequest('Untitled Request');
+    if (collections.length > 0) {
+      // Add to first collection
+      const nextCols = [
+        {
+          ...collections[0],
+          items: [newReq, ...collections[0].items],
+        },
+        ...collections.slice(1),
+      ];
+      saveTreeData(nextCols);
+    }
+    setOpenTabs((prev) => [...prev, newReq]);
+    setActiveTabId(newReq.id);
+    setEditingId(newReq.id);
+    setEditingName(newReq.name);
+    showToast('New request tab opened', 'info');
   };
 
   // Toggle folder / collection expanded state
@@ -397,9 +595,10 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({ showTo
     };
 
     saveTreeData(renameRecursively(collections) as HttpFolderItem[]);
-    if (activeRequest.id === editingId) {
-      setActiveRequest((prev) => ({ ...prev, name: finalName }));
-    }
+    // Update open tabs title as well
+    setOpenTabs((prev) =>
+      prev.map((t) => (t.id === editingId ? { ...t, name: finalName } : t))
+    );
     setEditingId(null);
   };
 
@@ -414,7 +613,7 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({ showTo
     showToast('Created new collection', 'success');
   };
 
-  // 2. Create Folder inside target parent (or root if null)
+  // 2. Create Folder inside target parent
   const handleCreateFolder = (parentId: string | null) => {
     const newFolder = createDefaultFolder('New Folder');
     if (!parentId || collections.length === 0) {
@@ -455,17 +654,17 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({ showTo
     showToast('Created new folder', 'info');
   };
 
-  // 3. Create Request inside target parent (or root collection)
+  // 3. Create Request inside target parent
   const handleCreateNewRequest = (parentId?: string | null) => {
     const newReq = createDefaultRequest('Untitled Request');
     if (collections.length === 0) {
       const newCol = createDefaultCollection('My Collection');
       newCol.items.push(newReq);
       saveTreeData([newCol]);
-      setActiveRequest(newReq);
+      setOpenTabs([newReq]);
+      setActiveTabId(newReq.id);
       setEditingId(newReq.id);
       setEditingName(newReq.name);
-      setResponseState(null);
       return;
     }
 
@@ -492,10 +691,9 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({ showTo
     };
 
     saveTreeData(insertRecursively(collections));
-    setActiveRequest(newReq);
+    handleOpenRequestInTab(newReq);
     setEditingId(newReq.id);
     setEditingName(newReq.name);
-    setResponseState(null);
     setMenuOpenId(null);
     showToast('Created new request', 'info');
   };
@@ -509,6 +707,7 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({ showTo
       ...original,
       id: 'req-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7),
       name: original.name + ' (Copy)',
+      isDirty: false,
     };
 
     const duplicateInTree = (items: (HttpFolderItem | HttpRequestItem)[]): (HttpFolderItem | HttpRequestItem)[] => {
@@ -525,12 +724,12 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({ showTo
     };
 
     saveTreeData(duplicateInTree(collections) as HttpFolderItem[]);
-    setActiveRequest(duplicated);
+    handleOpenRequestInTab(duplicated);
     setMenuOpenId(null);
     showToast('Request duplicated', 'success');
   };
 
-  // 5. Delete Item (Collection, Folder, or Request)
+  // 5. Delete Item
   const handleDeleteItem = (id: string) => {
     const deleteRecursively = (items: (HttpFolderItem | HttpRequestItem)[]): (HttpFolderItem | HttpRequestItem)[] => {
       return items
@@ -548,10 +747,10 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({ showTo
 
     const nextTree = deleteRecursively(collections) as HttpFolderItem[];
     saveTreeData(nextTree);
-    if (activeRequest.id === id) {
-      const first = findFirstRequest(nextTree);
-      setActiveRequest(first || createDefaultRequest());
-      setResponseState(null);
+
+    // If deleted item was open in tabs, close it
+    if (openTabs.some((t) => t.id === id)) {
+      handleCloseTab(id);
     }
     setMenuOpenId(null);
     showToast('Deleted successfully', 'info');
@@ -616,7 +815,6 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({ showTo
       return;
     }
 
-    // 1. Extract dragged item from tree
     const extractedItem = findItemById(collections, draggedId);
     if (!extractedItem) return;
 
@@ -635,12 +833,9 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({ showTo
     };
 
     const treeWithoutDragged = removeDragged(collections) as HttpFolderItem[];
-
-    // 2. Insert into new location
     const { position } = dragOverTarget;
 
     if (position === 'inside' && targetItem.type !== 'request') {
-      // Drop inside folder/collection
       const insertInside = (items: HttpFolderItem[]): HttpFolderItem[] => {
         return items.map((folder) => {
           if (folder.id === targetItem.id) {
@@ -663,10 +858,8 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({ showTo
       };
       saveTreeData(insertInside(treeWithoutDragged));
     } else {
-      // Insert before or after targetItem
       const parentInfo = findParentOfItem(treeWithoutDragged, targetItem.id);
       if (!parentInfo) {
-        // Target is at top-level collections
         const targetIdx = treeWithoutDragged.findIndex((c) => c.id === targetItem.id);
         const insertIdx = position === 'before' ? targetIdx : targetIdx + 1;
         const newCols = [...treeWithoutDragged];
@@ -711,8 +904,9 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({ showTo
     setDragOverTarget(null);
   };
 
-  // Handle Send Request Execution
+  // Send HTTP Request
   const handleSendRequest = async () => {
+    if (!activeRequest) return;
     if (!activeRequest.url.trim()) {
       showToast('Please enter a request URL', 'error');
       return;
@@ -720,6 +914,8 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({ showTo
 
     setIsSending(true);
     const startTs = Date.now();
+    const reqId = activeRequest.id;
+
     try {
       let targetUrl = activeRequest.url.trim();
       if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
@@ -744,7 +940,7 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({ showTo
         headers: reqHeaders,
       };
 
-      if (activeRequest.method !== 'GET' && activeRequest.bodyContent && activeRequest.bodyType !== 'none') {
+      if (activeRequest.method !== 'GET' && activeRequest.method !== 'HEAD' && activeRequest.bodyContent && activeRequest.bodyType !== 'none') {
         options.body = activeRequest.bodyContent;
       }
 
@@ -763,31 +959,52 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({ showTo
         resHeaders[k] = v;
       });
 
-      setResponseState({
+      const result: HttpResponseState = {
         status: res.status,
         statusText: res.statusText || (res.ok ? 'OK' : 'Error'),
         durationMs,
         sizeKb: Number((text.length / 1024).toFixed(2)),
         data: jsonData,
         headers: resHeaders,
-      });
+      };
 
+      setResponseMap((prev) => ({ ...prev, [reqId]: result }));
       showToast('Response: ' + res.status + ' ' + (res.statusText || ''), res.ok ? 'success' : 'error');
     } catch (err: any) {
       const durationMs = Date.now() - startTs;
-      setResponseState({
+      const errorResult: HttpResponseState = {
         status: 0,
         statusText: 'Network Error',
         durationMs,
         sizeKb: 0,
         data: { error: err?.message || String(err), hint: 'Check target URL, network connection, or CORS permissions' },
         headers: {},
-      });
+      };
+      setResponseMap((prev) => ({ ...prev, [reqId]: errorResult }));
       showToast('Request failed: ' + (err?.message || err), 'error');
     } finally {
       setIsSending(false);
     }
   };
+
+  // Keyboard shortcut support (Ctrl+W, Ctrl+T)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey) {
+        if (e.key === 'w' || e.key === 'W') {
+          e.preventDefault();
+          if (activeTabId) {
+            handleCloseTab(activeTabId);
+          }
+        } else if (e.key === 't' || e.key === 'T') {
+          e.preventDefault();
+          handleNewTab();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeTabId, openTabs]);
 
   // Filter matches helper
   const matchesSearch = (item: HttpTreeItem): boolean => {
@@ -807,11 +1024,10 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({ showTo
 
     const isFolder = item.type === 'collection' || item.type === 'folder';
     const isCollection = item.type === 'collection';
-    const isSelected = !isFolder && activeRequest.id === item.id;
+    const isSelected = !isFolder && activeRequest?.id === item.id;
     const isEditing = editingId === item.id;
     const isMenuOpen = menuOpenId === item.id;
 
-    // Drag over state styling
     const isDragTarget = dragOverTarget?.id === item.id;
     const dropPosition = isDragTarget ? dragOverTarget.position : null;
 
@@ -833,8 +1049,7 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({ showTo
             if (isFolder) {
               toggleFolderOpen(item.id);
             } else {
-              setActiveRequest(item as HttpRequestItem);
-              setResponseState(null);
+              handleOpenRequestInTab(item as HttpRequestItem);
             }
           }}
           style={{ paddingLeft: depth * 14 + 8 }}
@@ -917,7 +1132,14 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({ showTo
                 setEditingId(item.id);
                 setEditingName(item.name);
               }}
-              className={'text-xs truncate flex-1 ' + (isCollection ? 'font-semibold text-zinc-200' : isFolder ? 'font-medium text-zinc-300' : 'text-zinc-400 group-hover/row:text-zinc-200')}
+              className={
+                'text-xs truncate flex-1 ' +
+                (isCollection
+                  ? 'font-semibold text-zinc-200'
+                  : isFolder
+                  ? 'font-medium text-zinc-300'
+                  : 'text-zinc-400 group-hover/row:text-zinc-200')
+              }
             >
               {item.name}
             </span>
@@ -1057,415 +1279,575 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({ showTo
   };
 
   return (
-    <div className="flex-1 flex h-full bg-[#121212] text-zinc-100 overflow-hidden select-none font-sans">
-      {/* 1. Request Explorer Tree Sidebar */}
-      <div className="w-68 border-r border-[#262626] bg-[#161616] flex flex-col flex-shrink-0">
-        {/* Sidebar Header */}
-        <div className="p-3 border-b border-[#262626] flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Globe className="w-4 h-4 text-brand-400" />
-            <span className="text-xs font-bold text-zinc-200 uppercase tracking-wider">Explorer</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={handleCreateNewCollection}
-              title="New Collection"
-              className="p-1.5 rounded-lg bg-surface-800 hover:bg-surface-750 text-zinc-400 hover:text-zinc-200 border border-[#2b2b2b] transition-colors cursor-pointer"
-            >
-              <FolderPlus className="w-3.5 h-3.5" />
-            </button>
-            <button
-              type="button"
-              onClick={() => handleCreateNewRequest()}
-              title="New HTTP Request"
-              className="p-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 text-white shadow-sm transition-colors cursor-pointer"
-            >
-              <Plus className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        </div>
-
-        {/* Filter Input */}
-        {collections.length > 0 && (
-          <div className="px-3 py-2 border-b border-[#262626]">
-            <div className="relative">
-              <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Filter requests & folders..."
-                className="w-full pl-8 pr-2.5 py-1 text-xs bg-[#1a1a1a] border border-[#2b2b2b] rounded-md text-zinc-200 placeholder-zinc-500 focus:border-brand-500 outline-none font-mono"
-              />
+    <div className="flex-1 flex h-full bg-[#121214] text-zinc-100 overflow-hidden select-none font-sans">
+      {/* Resizable Panel Group (Level 1: Sidebar vs Main Workspace) */}
+      <Group orientation="horizontal" id="octa_http_main_split" className="h-full w-full">
+        {/* 1. Request Explorer Tree Sidebar */}
+        <Panel defaultSize="22%" minSize="14%" maxSize="40%" className="flex flex-col h-full bg-[#161618] border-r border-[#26262a]">
+          {/* Sidebar Header */}
+          <div className="p-3 border-b border-[#26262a] flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Globe className="w-4 h-4 text-brand-400" />
+              <span className="text-xs font-bold text-zinc-200 uppercase tracking-wider">Explorer</span>
             </div>
-          </div>
-        )}
-
-        {/* Tree View Area */}
-        <div className="flex-1 overflow-y-auto p-2 space-y-1">
-          {collections.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center p-4 text-center select-none text-zinc-500">
-              <div className="w-10 h-10 rounded-xl bg-surface-800 border border-[#2b2b2b] flex items-center justify-center mb-3 text-zinc-400">
-                <FolderPlus className="w-5 h-5 text-zinc-400" />
-              </div>
-              <span className="text-xs font-semibold text-zinc-300">No Collections</span>
-              <span className="text-[11px] text-zinc-500 mt-1 mb-4 leading-normal">
-                Create a collection to organize and save your API endpoints in folders.
-              </span>
-              <div className="flex flex-col gap-2 w-full">
-                <button
-                  type="button"
-                  onClick={() => handleCreateNewRequest()}
-                  className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 text-white font-medium text-xs shadow-sm transition-colors cursor-pointer"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>New Request</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={handleCreateNewCollection}
-                  className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-800 hover:bg-surface-750 text-zinc-300 hover:text-white border border-[#2b2b2b] text-xs transition-colors cursor-pointer"
-                >
-                  <FolderPlus className="w-3.5 h-3.5 text-zinc-400" />
-                  <span>New Collection</span>
-                </button>
-              </div>
-            </div>
-          ) : (
-            collections.map((col) => renderTreeItem(col, 0))
-          )}
-        </div>
-      </div>
-
-      {/* 2. Main Request & Response Workspace Area */}
-      <div className="flex-1 flex flex-col h-full overflow-hidden bg-[#121212]">
-        {/* Top Request Title & URL Bar */}
-        <div className="p-3 border-b border-[#262626] bg-[#171717] flex flex-col gap-2 flex-shrink-0">
-          {/* Request Name Header */}
-          <div className="flex items-center gap-2">
-            {editingId === activeRequest.id ? (
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  commitNameEdit();
-                }}
-                className="flex items-center gap-1.5"
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={handleCreateNewCollection}
+                title="New Collection"
+                className="p-1.5 rounded-lg bg-surface-800 hover:bg-surface-750 text-zinc-400 hover:text-zinc-200 border border-[#2b2b2b] transition-colors cursor-pointer"
               >
+                <FolderPlus className="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => handleCreateNewRequest()}
+                title="New HTTP Request"
+                className="p-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 text-white shadow-sm transition-colors cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Filter Input */}
+          {collections.length > 0 && (
+            <div className="px-3 py-2 border-b border-[#26262a]">
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
                 <input
-                  ref={editInputRef}
                   type="text"
-                  value={editingName}
-                  onChange={(e) => setEditingName(e.target.value)}
-                  onBlur={commitNameEdit}
-                  className="px-2 py-0.5 text-xs font-semibold bg-[#1f1f1f] border border-cyan-500 rounded text-white outline-none"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Filter requests & folders..."
+                  className="w-full pl-8 pr-2.5 py-1 text-xs bg-[#1a1a1c] border border-[#2b2b2e] rounded-md text-zinc-200 placeholder-zinc-500 focus:border-brand-500 outline-none font-mono"
                 />
-              </form>
+              </div>
+            </div>
+          )}
+
+          {/* Tree View Area */}
+          <div className="flex-1 overflow-y-auto p-2 space-y-1">
+            {collections.length === 0 ? (
+              <div className="h-full flex flex-col items-center justify-center p-4 text-center select-none text-zinc-500">
+                <div className="w-10 h-10 rounded-xl bg-surface-800 border border-[#2b2b2b] flex items-center justify-center mb-3 text-zinc-400">
+                  <FolderPlus className="w-5 h-5 text-zinc-400" />
+                </div>
+                <span className="text-xs font-semibold text-zinc-300">No Collections</span>
+                <span className="text-[11px] text-zinc-500 mt-1 mb-4 leading-normal">
+                  Create a collection to organize and save your API endpoints in folders.
+                </span>
+                <div className="flex flex-col gap-2 w-full">
+                  <button
+                    type="button"
+                    onClick={() => handleCreateNewRequest()}
+                    className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 text-white font-medium text-xs shadow-sm transition-colors cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>New Request</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCreateNewCollection}
+                    className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-800 hover:bg-surface-750 text-zinc-300 hover:text-white border border-[#2b2b2b] text-xs transition-colors cursor-pointer"
+                  >
+                    <FolderPlus className="w-3.5 h-3.5 text-zinc-400" />
+                    <span>New Collection</span>
+                  </button>
+                </div>
+              </div>
             ) : (
-              <div
-                onClick={() => {
-                  setEditingId(activeRequest.id);
-                  setEditingName(activeRequest.name);
-                }}
-                title="Click to rename request"
-                className="flex items-center gap-1.5 text-xs font-semibold text-zinc-200 hover:text-white cursor-pointer group"
+              collections.map((col) => renderTreeItem(col, 0))
+            )}
+          </div>
+        </Panel>
+
+        {/* Resize Handle 1 (Sidebar vs Workspace) */}
+        <Separator className="w-1 bg-[#202023] hover:bg-brand-500/60 active:bg-brand-500 transition-colors cursor-col-resize relative flex items-center justify-center group/h1">
+          <div className="w-0.5 h-8 bg-zinc-600 rounded-full group-hover/h1:bg-brand-300 transition-colors" />
+        </Separator>
+
+        {/* 2. Main API Workspace Panel */}
+        <Panel defaultSize="78%" minSize="40%" className="flex flex-col h-full overflow-hidden bg-[#121214]">
+          {/* Top Multi-Tab Bar Strip */}
+          <div className="bg-[#141416] border-b border-[#242428] flex items-center justify-between pl-2 pr-3 flex-shrink-0 select-none min-h-[38px]">
+            {/* Scrollable Tabs List */}
+            <div className="flex items-center gap-1 overflow-x-auto no-scrollbar flex-1 py-1.5">
+              {openTabs.map((tab) => {
+                const isActive = tab.id === activeTabId;
+                const methodColor = METHOD_COLORS[tab.method] || METHOD_COLORS.GET;
+                return (
+                  <div
+                    key={tab.id}
+                    onClick={() => setActiveTabId(tab.id)}
+                    onAuxClick={(e) => {
+                      if (e.button === 1) handleCloseTab(tab.id, e);
+                    }}
+                    title={tab.name + ' (' + tab.method + ')'}
+                    className={
+                      'group/tab relative flex items-center gap-2 px-3 py-1 rounded-lg text-xs transition-all cursor-pointer border max-w-[200px] ' +
+                      (isActive
+                        ? 'bg-[#1e1e22] text-white border-zinc-700/80 shadow-sm font-medium'
+                        : 'text-zinc-400 hover:text-zinc-200 hover:bg-[#18181c] border-transparent')
+                    }
+                  >
+                    {/* Method Tag */}
+                    <span className={'text-[9px] font-bold font-mono px-1 py-0.2 rounded border ' + methodColor.badge}>
+                      {tab.method}
+                    </span>
+
+                    {/* Tab Title */}
+                    <span className="truncate flex-1">{tab.name}</span>
+
+                    {/* Dirty Dot Indicator */}
+                    {tab.isDirty && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-brand-400 flex-shrink-0" />
+                    )}
+
+                    {/* Close Tab Button */}
+                    <button
+                      type="button"
+                      onClick={(e) => handleCloseTab(tab.id, e)}
+                      title="Close Tab (Ctrl+W)"
+                      className="opacity-0 group-hover/tab:opacity-100 p-0.5 rounded text-zinc-500 hover:text-zinc-200 hover:bg-zinc-700/60 transition-all cursor-pointer"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                );
+              })}
+
+              {/* Add Tab Button */}
+              <button
+                type="button"
+                onClick={handleNewTab}
+                title="New Request Tab (Ctrl+T)"
+                className="p-1 rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors cursor-pointer ml-1"
               >
-                <span>{activeRequest.name}</span>
-                <Edit2 className="w-3 h-3 text-zinc-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                <Plus className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {/* Layout Orientation Switcher (only when active request exists) */}
+            {activeRequest && (
+              <div className="flex items-center gap-1 pl-2 border-l border-zinc-800 flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setLayoutOrientation(layoutOrientation === 'horizontal' ? 'vertical' : 'horizontal')}
+                  title={
+                    layoutOrientation === 'horizontal'
+                      ? 'Switch to Stacked View (Top/Bottom)'
+                      : 'Switch to Side-by-Side View (Left/Right)'
+                  }
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/80 border border-zinc-800 transition-colors cursor-pointer"
+                >
+                  {layoutOrientation === 'horizontal' ? (
+                    <>
+                      <Columns2 className="w-3.5 h-3.5 text-brand-400" />
+                      <span className="text-[11px] hidden sm:inline">Side-by-Side</span>
+                    </>
+                  ) : (
+                    <>
+                      <Rows2 className="w-3.5 h-3.5 text-amber-400" />
+                      <span className="text-[11px] hidden sm:inline">Stacked</span>
+                    </>
+                  )}
+                </button>
               </div>
             )}
           </div>
 
-          {/* URL Input & Method Bar */}
-          <div className="flex items-center gap-2">
-            {/* Method Dropdown */}
-            <select
-              value={activeRequest.method}
-              onChange={(e) => updateActiveRequest({ ...activeRequest, method: e.target.value as any })}
-              className={'px-3 py-1.5 text-xs font-mono font-bold rounded-lg border bg-[#1c1c1c] outline-none cursor-pointer ' + (METHOD_COLORS[activeRequest.method]?.badge || '')}
-            >
-              <option value="GET">GET</option>
-              <option value="POST">POST</option>
-              <option value="PUT">PUT</option>
-              <option value="PATCH">PATCH</option>
-              <option value="DELETE">DELETE</option>
-            </select>
-
-            {/* URL Input */}
-            <input
-              type="text"
-              value={activeRequest.url}
-              onChange={(e) => updateActiveRequest({ ...activeRequest, url: e.target.value })}
-              placeholder="https://api.example.com/v1/resource"
-              className="flex-1 px-3 py-1.5 text-xs font-mono bg-[#1a1a1a] border border-[#2b2b2b] rounded-lg text-zinc-100 placeholder-zinc-500 focus:border-brand-500 outline-none"
-            />
-
-            {/* Send Button */}
-            <button
-              type="button"
-              onClick={handleSendRequest}
-              disabled={isSending}
-              className="flex items-center gap-2 px-4 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 text-white font-semibold text-xs shadow-md shadow-brand-600/20 transition-all disabled:opacity-50 cursor-pointer"
-            >
-              <Send className="w-3.5 h-3.5" />
-              <span>{isSending ? 'Sending...' : 'Send'}</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Middle Section: Request Details & Response Inspector */}
-        <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
-          {/* Left / Top: Request Builder */}
-          <div className="flex-1 flex flex-col border-b lg:border-b-0 lg:border-r border-[#262626] overflow-hidden">
-            {/* Request Tabs Header */}
-            <div className="px-3 border-b border-[#262626] bg-[#161616] flex items-center gap-1 text-xs">
-              <button
-                type="button"
-                onClick={() => setRequestTab('params')}
-                className={'px-3 py-2 font-medium border-b-2 transition-colors cursor-pointer ' + (requestTab === 'params' ? 'border-brand-400 text-brand-300' : 'border-transparent text-zinc-400 hover:text-zinc-200')}
-              >
-                Params ({activeRequest.params.length})
-              </button>
-              <button
-                type="button"
-                onClick={() => setRequestTab('headers')}
-                className={'px-3 py-2 font-medium border-b-2 transition-colors cursor-pointer ' + (requestTab === 'headers' ? 'border-brand-400 text-brand-300' : 'border-transparent text-zinc-400 hover:text-zinc-200')}
-              >
-                Headers ({activeRequest.headers.length})
-              </button>
-              <button
-                type="button"
-                onClick={() => setRequestTab('body')}
-                className={'px-3 py-2 font-medium border-b-2 transition-colors cursor-pointer ' + (requestTab === 'body' ? 'border-brand-400 text-brand-300' : 'border-transparent text-zinc-400 hover:text-zinc-200')}
-              >
-                Body
-              </button>
-            </div>
-
-            {/* Request Tab Content */}
-            <div className="flex-1 p-3 overflow-y-auto bg-[#141414]">
-              {requestTab === 'params' && (
-                <div className="space-y-2">
-                  <div className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider">
-                    Query Parameters
-                  </div>
-                  {activeRequest.params.map((p, idx) => (
-                    <div key={idx} className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={p.enabled}
-                        onChange={(e) => {
-                          const next = [...activeRequest.params];
-                          next[idx].enabled = e.target.checked;
-                          updateActiveRequest({ ...activeRequest, params: next });
-                        }}
-                        className="rounded bg-zinc-800 border-zinc-700 text-brand-500"
-                      />
-                      <input
-                        type="text"
-                        value={p.key}
-                        onChange={(e) => {
-                          const next = [...activeRequest.params];
-                          next[idx].key = e.target.value;
-                          updateActiveRequest({ ...activeRequest, params: next });
-                        }}
-                        placeholder="Key"
-                        className="flex-1 px-2.5 py-1 text-xs bg-[#1a1a1a] border border-[#2b2b2b] rounded text-zinc-200 font-mono outline-none"
-                      />
-                      <input
-                        type="text"
-                        value={p.value}
-                        onChange={(e) => {
-                          const next = [...activeRequest.params];
-                          next[idx].value = e.target.value;
-                          updateActiveRequest({ ...activeRequest, params: next });
-                        }}
-                        placeholder="Value"
-                        className="flex-1 px-2.5 py-1 text-xs bg-[#1a1a1a] border border-[#2b2b2b] rounded text-zinc-200 font-mono outline-none"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const next = activeRequest.params.filter((_, i) => i !== idx);
-                          updateActiveRequest({ ...activeRequest, params: next });
-                        }}
-                        title="Remove Parameter"
-                        className="p-1 text-zinc-500 hover:text-rose-400 cursor-pointer"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      updateActiveRequest({
-                        ...activeRequest,
-                        params: [...activeRequest.params, { key: '', value: '', enabled: true }],
-                      });
-                    }}
-                    className="text-xs text-brand-400 hover:text-brand-300 font-medium flex items-center gap-1 cursor-pointer mt-2"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Add Parameter</span>
-                  </button>
-                </div>
-              )}
-
-              {requestTab === 'headers' && (
-                <div className="space-y-2">
-                  <div className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider">Headers</div>
-                  {activeRequest.headers.map((h, idx) => (
-                    <div key={idx} className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={h.enabled}
-                        onChange={(e) => {
-                          const next = [...activeRequest.headers];
-                          next[idx].enabled = e.target.checked;
-                          updateActiveRequest({ ...activeRequest, headers: next });
-                        }}
-                        className="rounded bg-zinc-800 border-zinc-700 text-brand-500"
-                      />
-                      <input
-                        type="text"
-                        value={h.key}
-                        onChange={(e) => {
-                          const next = [...activeRequest.headers];
-                          next[idx].key = e.target.value;
-                          updateActiveRequest({ ...activeRequest, headers: next });
-                        }}
-                        placeholder="Header Name"
-                        className="flex-1 px-2.5 py-1 text-xs bg-[#1a1a1a] border border-[#2b2b2b] rounded text-zinc-200 font-mono outline-none"
-                      />
-                      <input
-                        type="text"
-                        value={h.value}
-                        onChange={(e) => {
-                          const next = [...activeRequest.headers];
-                          next[idx].value = e.target.value;
-                          updateActiveRequest({ ...activeRequest, headers: next });
-                        }}
-                        placeholder="Value"
-                        className="flex-1 px-2.5 py-1 text-xs bg-[#1a1a1a] border border-[#2b2b2b] rounded text-zinc-200 font-mono outline-none"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const next = activeRequest.headers.filter((_, i) => i !== idx);
-                          updateActiveRequest({ ...activeRequest, headers: next });
-                        }}
-                        title="Remove Header"
-                        className="p-1 text-zinc-500 hover:text-rose-400 cursor-pointer"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      updateActiveRequest({
-                        ...activeRequest,
-                        headers: [...activeRequest.headers, { key: '', value: '', enabled: true }],
-                      });
-                    }}
-                    className="text-xs text-brand-400 hover:text-brand-300 font-medium flex items-center gap-1 cursor-pointer mt-2"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Add Header</span>
-                  </button>
-                </div>
-              )}
-
-              {requestTab === 'body' && (
-                <div className="h-full flex flex-col space-y-2">
-                  <div className="flex items-center justify-between text-xs text-zinc-400">
-                    <span className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider">
-                      JSON Body
-                    </span>
-                  </div>
-                  <textarea
-                    value={activeRequest.bodyContent}
-                    onChange={(e) =>
-                      updateActiveRequest({ ...activeRequest, bodyContent: e.target.value, bodyType: 'json' })
-                    }
-                    placeholder="Enter raw JSON body..."
-                    rows={12}
-                    className="w-full flex-1 p-3 text-xs font-mono bg-[#161616] border border-[#2b2b2b] rounded-lg text-zinc-200 outline-none resize-none"
-                  />
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Right / Bottom: Response Inspector */}
-          <div className="flex-1 flex flex-col overflow-hidden bg-[#151515]">
-            {/* Response Status Bar */}
-            <div className="px-3 py-2 border-b border-[#262626] bg-[#181818] flex items-center justify-between flex-shrink-0">
-              <div className="flex items-center gap-3">
-                <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Response</span>
-                {responseState && (
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={
-                        'text-xs font-mono font-bold px-2 py-0.5 rounded border ' +
-                        (responseState.status >= 200 && responseState.status < 300
-                          ? 'bg-emerald-950/70 border-emerald-500/40 text-emerald-300'
-                          : 'bg-rose-950/70 border-rose-500/40 text-rose-300')
-                      }
-                    >
-                      {responseState.status} {responseState.statusText}
-                    </span>
-                    <span className="text-xs font-mono text-zinc-400">{responseState.durationMs} ms</span>
-                    <span className="text-xs font-mono text-zinc-500">•</span>
-                    <span className="text-xs font-mono text-zinc-400">{responseState.sizeKb} KB</span>
-                  </div>
-                )}
+          {/* Main Area: Empty Workspace Landing or Active Request Workspace */}
+          {!activeRequest ? (
+            <div className="flex-1 w-full h-full bg-[#121212] flex flex-col items-center justify-center select-none overflow-hidden p-8">
+              {/* Central Geometric Watermark Matching Database Empty State */}
+              <div className="w-[320px] h-[320px] sm:w-[400px] sm:h-[400px] md:w-[440px] md:h-[440px] max-w-[50vw] max-h-[50vh] flex items-center justify-center pointer-events-none">
+                <img
+                  src={interfaceSvg}
+                  className="w-full h-full object-contain opacity-45 select-none pointer-events-none drop-shadow-2xl"
+                  alt="Empty Workspace"
+                />
               </div>
 
-              {responseState && (
+              {/* Subtitle / Action */}
+              <div className="mt-4 flex flex-col items-center text-center">
+                <span className="text-sm font-semibold text-zinc-300">No Request Selected</span>
+                <span className="text-xs text-zinc-500 mt-1 max-w-sm">
+                  Click a request in the explorer sidebar to open or click + to create a new tab.
+                </span>
                 <button
                   type="button"
-                  onClick={() => {
-                    navigator.clipboard.writeText(
-                      typeof responseState.data === 'object'
-                        ? JSON.stringify(responseState.data, null, 2)
-                        : String(responseState.data)
-                    );
-                    showToast('Response copied to clipboard', 'success');
-                  }}
-                  className="flex items-center gap-1 text-xs text-zinc-400 hover:text-white px-2 py-1 rounded bg-[#202020] border border-zinc-700/60 cursor-pointer"
+                  onClick={handleNewTab}
+                  className="mt-6 flex items-center gap-2 px-4 py-2 text-xs font-medium text-zinc-300 hover:text-white bg-zinc-800/80 hover:bg-zinc-700 active:scale-[0.98] border border-zinc-700/60 hover:border-zinc-600 rounded-lg shadow-sm transition-all duration-150 cursor-pointer group"
                 >
-                  <Copy className="w-3 h-3" />
-                  <span>Copy</span>
+                  <Plus className="w-3.5 h-3.5 text-zinc-400 group-hover:text-zinc-200 transition-colors" />
+                  <span>New Request</span>
                 </button>
-              )}
+              </div>
             </div>
-
-            {/* Response Body Inspector */}
-            <div className="flex-1 overflow-auto p-3 bg-[#131313]">
-              {responseState ? (
-                <pre className="text-xs font-mono text-zinc-200 whitespace-pre leading-relaxed select-text">
-                  {typeof responseState.data === 'object'
-                    ? JSON.stringify(responseState.data, null, 2)
-                    : responseState.data}
-                </pre>
-              ) : (
-                <div className="h-full flex flex-col items-center justify-center p-8 text-center select-none text-zinc-500">
-                  <div className="w-12 h-12 rounded-2xl bg-[#1a1a1a] border border-[#2b2b2b] flex items-center justify-center mb-3 text-zinc-400">
-                    <Send className="w-5 h-5 text-brand-400 opacity-80" />
-                  </div>
-                  <span className="text-xs font-semibold text-zinc-300">No response yet</span>
-                  <span className="text-[11px] text-zinc-500 mt-1 max-w-xs leading-normal">
-                    Enter a URL and click <strong className="text-brand-400">Send</strong> to execute the request and view response data, headers, and status metrics.
-                  </span>
+          ) : (
+            <div className="flex-1 flex flex-col h-full overflow-hidden">
+              {/* Request Header Bar (Custom Method Dropdown + URL + Send Button) */}
+              <div className="p-3 border-b border-[#242428] bg-[#161619] flex flex-col gap-2 flex-shrink-0">
+                {/* Request Name Header */}
+                <div className="flex items-center gap-2">
+                  {editingId === activeRequest.id ? (
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        commitNameEdit();
+                      }}
+                      className="flex items-center gap-1.5"
+                    >
+                      <input
+                        ref={editInputRef}
+                        type="text"
+                        value={editingName}
+                        onChange={(e) => setEditingName(e.target.value)}
+                        onBlur={commitNameEdit}
+                        className="px-2 py-0.5 text-xs font-semibold bg-[#1f1f23] border border-brand-500 rounded text-white outline-none"
+                      />
+                    </form>
+                  ) : (
+                    <div
+                      onClick={() => {
+                        setEditingId(activeRequest.id);
+                        setEditingName(activeRequest.name);
+                      }}
+                      title="Click to rename request"
+                      className="flex items-center gap-1.5 text-xs font-semibold text-zinc-200 hover:text-white cursor-pointer group"
+                    >
+                      <span>{activeRequest.name}</span>
+                      <Edit2 className="w-3 h-3 text-zinc-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </div>
+                  )}
                 </div>
-              )}
+
+                {/* URL Input & Custom Method Bar */}
+                <div className="flex items-center gap-2">
+                  {/* Custom HTTP Method Dropdown */}
+                  <HttpMethodDropdown
+                    value={activeRequest.method}
+                    onChange={(newMethod) => updateActiveRequest({ ...activeRequest, method: newMethod })}
+                  />
+
+                  {/* URL Input */}
+                  <input
+                    type="text"
+                    value={activeRequest.url}
+                    onChange={(e) => updateActiveRequest({ ...activeRequest, url: e.target.value })}
+                    placeholder="https://api.example.com/v1/resource"
+                    className="flex-1 px-3 py-1.5 text-xs font-mono bg-[#1a1a1d] border border-[#2b2b30] rounded-lg text-zinc-100 placeholder-zinc-500 focus:border-brand-500 outline-none"
+                  />
+
+                  {/* Send Button */}
+                  <button
+                    type="button"
+                    onClick={handleSendRequest}
+                    disabled={isSending}
+                    className="flex items-center gap-2 px-4 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 text-white font-semibold text-xs shadow-md shadow-brand-600/20 transition-all disabled:opacity-50 cursor-pointer"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                    <span>{isSending ? 'Sending...' : 'Send'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Level 2 Resizable Panel Group (Request Builder vs Response Viewer) */}
+              <div className="flex-1 overflow-hidden">
+                <Group
+                  key={layoutOrientation}
+                  orientation={layoutOrientation}
+                  id={'octa_http_workspace_' + layoutOrientation}
+                  className="h-full w-full"
+                >
+                  {/* Left / Top: Request Builder Panel */}
+                  <Panel defaultSize="50%" minSize="25%" className="flex flex-col h-full overflow-hidden bg-[#131316]">
+                    {/* Request Tabs Header */}
+                    <div className="px-3 border-b border-[#242428] bg-[#161619] flex items-center gap-1 text-xs flex-shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setRequestTab('params')}
+                        className={
+                          'px-3 py-2 font-medium border-b-2 transition-colors cursor-pointer ' +
+                          (requestTab === 'params'
+                            ? 'border-brand-400 text-brand-300'
+                            : 'border-transparent text-zinc-400 hover:text-zinc-200')
+                        }
+                      >
+                        Params ({activeRequest.params.length})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setRequestTab('headers')}
+                        className={
+                          'px-3 py-2 font-medium border-b-2 transition-colors cursor-pointer ' +
+                          (requestTab === 'headers'
+                            ? 'border-brand-400 text-brand-300'
+                            : 'border-transparent text-zinc-400 hover:text-zinc-200')
+                        }
+                      >
+                        Headers ({activeRequest.headers.length})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setRequestTab('body')}
+                        className={
+                          'px-3 py-2 font-medium border-b-2 transition-colors cursor-pointer ' +
+                          (requestTab === 'body'
+                            ? 'border-brand-400 text-brand-300'
+                            : 'border-transparent text-zinc-400 hover:text-zinc-200')
+                        }
+                      >
+                        Body
+                      </button>
+                    </div>
+
+                    {/* Request Tab Content */}
+                    <div className="flex-1 p-3 overflow-y-auto bg-[#131316]">
+                      {requestTab === 'params' && (
+                        <div className="space-y-2">
+                          <div className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider">
+                            Query Parameters
+                          </div>
+                          {activeRequest.params.map((p, idx) => (
+                            <div key={idx} className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={p.enabled}
+                                onChange={(e) => {
+                                  const next = [...activeRequest.params];
+                                  next[idx].enabled = e.target.checked;
+                                  updateActiveRequest({ ...activeRequest, params: next });
+                                }}
+                                className="rounded bg-zinc-800 border-zinc-700 text-brand-500"
+                              />
+                              <input
+                                type="text"
+                                value={p.key}
+                                onChange={(e) => {
+                                  const next = [...activeRequest.params];
+                                  next[idx].key = e.target.value;
+                                  updateActiveRequest({ ...activeRequest, params: next });
+                                }}
+                                placeholder="Key"
+                                className="flex-1 px-2.5 py-1 text-xs bg-[#1a1a1e] border border-[#2b2b30] rounded text-zinc-200 font-mono outline-none"
+                              />
+                              <input
+                                type="text"
+                                value={p.value}
+                                onChange={(e) => {
+                                  const next = [...activeRequest.params];
+                                  next[idx].value = e.target.value;
+                                  updateActiveRequest({ ...activeRequest, params: next });
+                                }}
+                                placeholder="Value"
+                                className="flex-1 px-2.5 py-1 text-xs bg-[#1a1a1e] border border-[#2b2b30] rounded text-zinc-200 font-mono outline-none"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const next = activeRequest.params.filter((_, i) => i !== idx);
+                                  updateActiveRequest({ ...activeRequest, params: next });
+                                }}
+                                title="Remove Parameter"
+                                className="p-1 text-zinc-500 hover:text-rose-400 cursor-pointer"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          ))}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              updateActiveRequest({
+                                ...activeRequest,
+                                params: [...activeRequest.params, { key: '', value: '', enabled: true }],
+                              });
+                            }}
+                            className="text-xs text-brand-400 hover:text-brand-300 font-medium flex items-center gap-1 cursor-pointer mt-2"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>Add Parameter</span>
+                          </button>
+                        </div>
+                      )}
+
+                      {requestTab === 'headers' && (
+                        <div className="space-y-2">
+                          <div className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider">Headers</div>
+                          {activeRequest.headers.map((h, idx) => (
+                            <div key={idx} className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={h.enabled}
+                                onChange={(e) => {
+                                  const next = [...activeRequest.headers];
+                                  next[idx].enabled = e.target.checked;
+                                  updateActiveRequest({ ...activeRequest, headers: next });
+                                }}
+                                className="rounded bg-zinc-800 border-zinc-700 text-brand-500"
+                              />
+                              <input
+                                type="text"
+                                value={h.key}
+                                onChange={(e) => {
+                                  const next = [...activeRequest.headers];
+                                  next[idx].key = e.target.value;
+                                  updateActiveRequest({ ...activeRequest, headers: next });
+                                }}
+                                placeholder="Header Name"
+                                className="flex-1 px-2.5 py-1 text-xs bg-[#1a1a1e] border border-[#2b2b30] rounded text-zinc-200 font-mono outline-none"
+                              />
+                              <input
+                                type="text"
+                                value={h.value}
+                                onChange={(e) => {
+                                  const next = [...activeRequest.headers];
+                                  next[idx].value = e.target.value;
+                                  updateActiveRequest({ ...activeRequest, headers: next });
+                                }}
+                                placeholder="Value"
+                                className="flex-1 px-2.5 py-1 text-xs bg-[#1a1a1e] border border-[#2b2b30] rounded text-zinc-200 font-mono outline-none"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const next = activeRequest.headers.filter((_, i) => i !== idx);
+                                  updateActiveRequest({ ...activeRequest, headers: next });
+                                }}
+                                title="Remove Header"
+                                className="p-1 text-zinc-500 hover:text-rose-400 cursor-pointer"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          ))}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              updateActiveRequest({
+                                ...activeRequest,
+                                headers: [...activeRequest.headers, { key: '', value: '', enabled: true }],
+                              });
+                            }}
+                            className="text-xs text-brand-400 hover:text-brand-300 font-medium flex items-center gap-1 cursor-pointer mt-2"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>Add Header</span>
+                          </button>
+                        </div>
+                      )}
+
+                      {requestTab === 'body' && (
+                        <div className="h-full flex flex-col space-y-2">
+                          <div className="flex items-center justify-between text-xs text-zinc-400">
+                            <span className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider">
+                              JSON Body
+                            </span>
+                          </div>
+                          <textarea
+                            value={activeRequest.bodyContent}
+                            onChange={(e) =>
+                              updateActiveRequest({ ...activeRequest, bodyContent: e.target.value, bodyType: 'json' })
+                            }
+                            placeholder="Enter raw JSON body..."
+                            rows={12}
+                            className="w-full flex-1 p-3 text-xs font-mono bg-[#18181c] border border-[#2b2b30] rounded-lg text-zinc-200 outline-none resize-none"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </Panel>
+
+                  {/* Resize Handle 2 (Request vs Response) */}
+                  <Separator
+                    className={
+                      layoutOrientation === 'horizontal'
+                        ? 'w-1 bg-[#202023] hover:bg-brand-500/60 active:bg-brand-500 transition-colors cursor-col-resize relative flex items-center justify-center group/h2'
+                        : 'h-1 bg-[#202023] hover:bg-brand-500/60 active:bg-brand-500 transition-colors cursor-row-resize relative flex items-center justify-center group/h2'
+                    }
+                  >
+                    <div
+                      className={
+                        layoutOrientation === 'horizontal'
+                          ? 'w-0.5 h-8 bg-zinc-600 rounded-full group-hover/h2:bg-brand-300 transition-colors'
+                          : 'h-0.5 w-8 bg-zinc-600 rounded-full group-hover/h2:bg-brand-300 transition-colors'
+                      }
+                    />
+                  </Separator>
+
+                  {/* Right / Bottom: Response Inspector Panel */}
+                  <Panel defaultSize="50%" minSize="20%" className="flex flex-col h-full overflow-hidden bg-[#141417]">
+                    {/* Response Status Bar */}
+                    <div className="px-3 py-2 border-b border-[#242428] bg-[#17171a] flex items-center justify-between flex-shrink-0">
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Response</span>
+                        {activeResponseState && (
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={
+                                'text-xs font-mono font-bold px-2 py-0.5 rounded border ' +
+                                (activeResponseState.status >= 200 && activeResponseState.status < 300
+                                  ? 'bg-emerald-950/70 border-emerald-500/40 text-emerald-300'
+                                  : 'bg-rose-950/70 border-rose-500/40 text-rose-300')
+                              }
+                            >
+                              {activeResponseState.status} {activeResponseState.statusText}
+                            </span>
+                            <span className="text-xs font-mono text-zinc-400">{activeResponseState.durationMs} ms</span>
+                            <span className="text-xs font-mono text-zinc-500">•</span>
+                            <span className="text-xs font-mono text-zinc-400">{activeResponseState.sizeKb} KB</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {activeResponseState && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard.writeText(
+                              typeof activeResponseState.data === 'object'
+                                ? JSON.stringify(activeResponseState.data, null, 2)
+                                : String(activeResponseState.data)
+                            );
+                            showToast('Response copied to clipboard', 'success');
+                          }}
+                          className="flex items-center gap-1 text-xs text-zinc-400 hover:text-white px-2 py-1 rounded bg-[#202024] border border-zinc-700/60 cursor-pointer transition-colors"
+                        >
+                          <Copy className="w-3 h-3" />
+                          <span>Copy</span>
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Response Body Inspector */}
+                    <div className="flex-1 overflow-auto p-3 bg-[#111114]">
+                      {activeResponseState ? (
+                        <pre className="text-xs font-mono text-zinc-200 whitespace-pre leading-relaxed select-text">
+                          {typeof activeResponseState.data === 'object'
+                            ? JSON.stringify(activeResponseState.data, null, 2)
+                            : activeResponseState.data}
+                        </pre>
+                      ) : (
+                        <div className="h-full flex flex-col items-center justify-center p-8 text-center select-none text-zinc-500">
+                          <div className="w-12 h-12 rounded-2xl bg-[#1a1a1e] border border-[#2b2b30] flex items-center justify-center mb-3 text-zinc-400">
+                            <Send className="w-5 h-5 text-brand-400 opacity-80" />
+                          </div>
+                          <span className="text-xs font-semibold text-zinc-300">No response yet</span>
+                          <span className="text-[11px] text-zinc-500 mt-1 max-w-xs leading-normal">
+                            Enter a URL and click <strong className="text-brand-400">Send</strong> to execute the request and view response data, headers, and status metrics.
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </Panel>
+                </Group>
+              </div>
             </div>
-          </div>
-        </div>
-      </div>
+          )}
+        </Panel>
+      </Group>
     </div>
   );
 };

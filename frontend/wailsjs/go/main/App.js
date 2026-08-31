@@ -78,6 +78,10 @@ export function LoadHttpClientData() {
   return window['go']['main']['App']['LoadHttpClientData']();
 }
 
+export function LoadSqlQueriesData() {
+  return window['go']['main']['App']['LoadSqlQueriesData']();
+}
+
 export function RenameColumn(arg1, arg2, arg3, arg4, arg5) {
   return window['go']['main']['App']['RenameColumn'](arg1, arg2, arg3, arg4, arg5);
 }
@@ -92,6 +96,10 @@ export function SaveHttpClientData(arg1) {
 
 export function SaveSQLDumpDialog(arg1, arg2) {
   return window['go']['main']['App']['SaveSQLDumpDialog'](arg1, arg2);
+}
+
+export function SaveSqlQueriesData(arg1) {
+  return window['go']['main']['App']['SaveSqlQueriesData'](arg1);
 }
 
 export function TestConnection(arg1) {

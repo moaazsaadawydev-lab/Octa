@@ -40,6 +40,8 @@ export function ImportSQLScript(arg1:main.ConnectionConfig,arg2:string,arg3:stri
 
 export function LoadHttpClientData():Promise<string>;
 
+export function LoadSqlQueriesData():Promise<string>;
+
 export function RenameColumn(arg1:main.ConnectionConfig,arg2:string,arg3:string,arg4:string,arg5:string):Promise<boolean>;
 
 export function SaveConnection(arg1:main.ConnectionConfig):Promise<boolean|string>;
@@ -47,6 +49,8 @@ export function SaveConnection(arg1:main.ConnectionConfig):Promise<boolean|strin
 export function SaveHttpClientData(arg1:string):Promise<void>;
 
 export function SaveSQLDumpDialog(arg1:string,arg2:string):Promise<string>;
+
+export function SaveSqlQueriesData(arg1:string):Promise<void>;
 
 export function TestConnection(arg1:main.ConnectionConfig):Promise<boolean|string>;
 

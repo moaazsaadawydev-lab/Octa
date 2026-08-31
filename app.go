@@ -321,6 +321,58 @@ func (a *App) LoadHttpClientData() (string, error) {
 	return string(data), nil
 }
 
+// getSqlQueriesDataFilePath returns the full path to sql_queries.json in the user's config directory.
+func getSqlQueriesDataFilePath() (string, error) {
+	configDir, err := os.UserConfigDir()
+	if err != nil {
+		configDir = "."
+	}
+	appDir := filepath.Join(configDir, "octa")
+	if err = os.MkdirAll(appDir, 0755); err != nil {
+		return "", err
+	}
+	return filepath.Join(appDir, "sql_queries.json"), nil
+}
+
+// SaveSqlQueriesData writes the SQL queries and folders tree JSON data to disk.
+func (a *App) SaveSqlQueriesData(jsonData string) error {
+	filePath, err := getSqlQueriesDataFilePath()
+	if err != nil {
+		return fmt.Errorf("failed to get SQL queries data file path: %w", err)
+	}
+
+	trimmed := strings.TrimSpace(jsonData)
+	if trimmed == "" {
+		trimmed = "[]"
+	}
+
+	if err := os.WriteFile(filePath, []byte(trimmed), 0644); err != nil {
+		return fmt.Errorf("failed to write SQL queries data: %w", err)
+	}
+
+	return nil
+}
+
+// LoadSqlQueriesData reads the saved SQL queries JSON data from disk.
+// Returns an empty string "" if the file does not exist.
+func (a *App) LoadSqlQueriesData() (string, error) {
+	filePath, err := getSqlQueriesDataFilePath()
+	if err != nil {
+		return "", fmt.Errorf("failed to get SQL queries data file path: %w", err)
+	}
+
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		return "", nil
+	}
+
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read SQL queries data: %w", err)
+	}
+
+	return string(data), nil
+}
+
 // TestConnection establishes a test connection to PostgreSQL with a 5-second timeout.
 func (a *App) TestConnection(config ConnectionConfig) (bool, string) {
 	if config.Type == "" {

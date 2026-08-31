@@ -25,6 +25,8 @@ import {
   ExplainQuery,
   SaveHttpClientData,
   LoadHttpClientData,
+  SaveSqlQueriesData,
+  LoadSqlQueriesData,
 } from '../../wailsjs/go/main/App';
 import { main } from '../../wailsjs/go/models';
 import {
@@ -544,5 +546,28 @@ export async function loadHttpClientData(): Promise<string> {
   }
   return '';
 }
+
+export async function saveSqlQueriesData(jsonData: string): Promise<void> {
+  try {
+    if (typeof SaveSqlQueriesData === 'function') {
+      await SaveSqlQueriesData(jsonData);
+    }
+  } catch (err: any) {
+    console.error('Failed to save SQL queries data via backend:', err);
+    throw err;
+  }
+}
+
+export async function loadSqlQueriesData(): Promise<string> {
+  try {
+    if (typeof LoadSqlQueriesData === 'function') {
+      return await LoadSqlQueriesData();
+    }
+  } catch (err: any) {
+    console.error('Failed to load SQL queries data via backend:', err);
+  }
+  return '';
+}
+
 
 

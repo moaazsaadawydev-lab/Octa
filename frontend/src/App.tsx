@@ -9,7 +9,7 @@ import { HttpClientWorkspace } from './components/HttpClientWorkspace';
 import { SettingsView } from './components/SettingsView';
 import { NewConnectionModal } from './components/NewConnectionModal';
 import { ImportSqlModal } from './components/ImportSqlModal';
-import { ConnectionConfig, ActiveSession } from './types/connection';
+import { ConnectionConfig, ActiveSession, QueryTab, SqlQueryItem } from './types/connection';
 import {
   getSavedConnections,
   getDatabases,
@@ -20,6 +20,15 @@ import {
 } from './services/api';
 import { AlertCircle, CheckCircle2, X, Table, Terminal, Layers } from 'lucide-react';
 
+const DEFAULT_PLAYGROUND_QUERY = `-- Octa SQL Playground
+-- Press Ctrl + Enter to run selected text or full query
+
+SELECT 
+  'Octa' AS application,
+  'Database Management & SQL Workspace' AS milestone,
+  NOW() AS executed_at;
+`;
+
 export function App() {
   const [activeModule, setActiveModule] = useState<ActiveModule>('databases');
   const [dbSubView, setDbSubView] = useState<'tables' | 'playground' | 'erd'>('tables');
@@ -27,6 +36,42 @@ export function App() {
   const [connections, setConnections] = useState<ConnectionConfig[]>([]);
   const [activeSession, setActiveSession] = useState<ActiveSession | null>(null);
   const [sidebarImportSession, setSidebarImportSession] = useState<ActiveSession | null>(null);
+
+  // Query Playground Tabs State
+  const [queryTabs, setQueryTabs] = useState<QueryTab[]>(() => {
+    try {
+      const saved = localStorage.getItem('octa_query_tabs');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map((t: any) => ({
+            ...t,
+            isDirty: false,
+            results: null,
+            isExecuting: false,
+          }));
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to parse query tabs from localStorage', e);
+    }
+    return [
+      {
+        id: 'tab-1',
+        title: 'Query 1.sql',
+        query: DEFAULT_PLAYGROUND_QUERY,
+        isDirty: false,
+        results: null,
+        activeResultIndex: 0,
+        isExecuting: false,
+      },
+    ];
+  });
+
+  const [activeQueryTabId, setActiveQueryTabId] = useState<string | null>(() => {
+    const savedActiveId = localStorage.getItem('octa_active_query_tab_id');
+    return savedActiveId || (queryTabs[0]?.id || null);
+  });
 
   // Cached databases per connection ID: { [connId]: ["postgres", "mydb", ...] }
   const [databasesMap, setDatabasesMap] = useState<Record<string, string[]>>({});
@@ -204,6 +249,33 @@ export function App() {
     });
   };
 
+  // Handle opening a saved query from Sidebar into QueryPlayground
+  const handleSelectQueryFromSidebar = (query: SqlQueryItem) => {
+    setActiveModule('databases');
+    setDbSubView('playground');
+
+    setQueryTabs((prev) => {
+      const existing = prev.find((t) => t.id === query.id);
+      if (existing) {
+        return prev;
+      }
+      const newTab: QueryTab = {
+        id: query.id,
+        title: query.name,
+        query: query.content,
+        isDirty: false,
+        results: null,
+        activeResultIndex: 0,
+        isExecuting: false,
+        activeConnectionName: activeSession?.connection.name || 'Local Postgres',
+        activeDatabaseName: activeSession?.activeDatabase || 'postgres',
+      };
+      return [...prev, newTab];
+    });
+
+    setActiveQueryTabId(query.id);
+  };
+
   // Global Keyboard Shortcuts for Module Switching
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -241,7 +313,7 @@ export function App() {
           <SettingsView showToast={showToast} />
         ) : (
           <div className="flex-1 flex overflow-hidden">
-            {/* Main Secondary Sidebar (Server Explorer) */}
+            {/* Main Secondary Sidebar (Server Explorer & Queries) */}
             <Sidebar
               connections={connections}
               activeSession={activeSession}
@@ -255,6 +327,8 @@ export function App() {
               onDeleteConnection={handleDeleteConnection}
               onExportDatabase={handleExportDatabase}
               onImportSQL={handleImportSQL}
+              onSelectQuery={handleSelectQueryFromSidebar}
+              activeQueryId={activeQueryTabId}
             />
 
             {/* Database Workspace Views (Tables vs Monaco SQL Playground vs Schema ERD) */}
@@ -306,6 +380,10 @@ export function App() {
                   activeSession={activeSession}
                   onOpenNewModal={() => setIsModalOpen(true)}
                   showToast={showToast}
+                  tabs={queryTabs}
+                  activeTabId={activeQueryTabId}
+                  onTabsChange={setQueryTabs}
+                  onActiveTabChange={setActiveQueryTabId}
                 />
               ) : dbSubView === 'erd' ? (
                 <ErdVisualizer
@@ -354,22 +432,22 @@ export function App() {
 
       {/* Toast Notification */}
       {toast.show && (
-        <div className="fixed bottom-5 right-5 z-50 animate-bounce-in">
+        <div className="fixed bottom-5 right-5 z-50 animate-bounce-in select-none">
           <div
-            className={`flex items-center gap-3 px-4 py-3 rounded-xl border shadow-2xl backdrop-blur-md text-xs font-medium ${
+            className={`flex items-center gap-3 px-4 py-2.5 rounded-xl border shadow-2xl backdrop-blur-md text-xs font-medium ${
               toast.type === 'success'
-                ? 'bg-surface-850/95 border-emerald-500/40 text-emerald-300'
+                ? 'bg-zinc-900/95 border-emerald-500/50 text-emerald-300 shadow-emerald-950/40'
                 : toast.type === 'error'
-                ? 'bg-surface-850/95 border-rose-500/40 text-rose-300'
-                : 'bg-surface-850/95 border-border text-gray-200'
+                ? 'bg-zinc-900/95 border-rose-500/50 text-rose-300 shadow-rose-950/40'
+                : 'bg-zinc-900/95 border-zinc-700/80 text-zinc-100 shadow-black/50'
             }`}
           >
-            {toast.type === 'success' && <CheckCircle2 className="w-4 h-4 text-emerald-400" />}
-            {toast.type === 'error' && <AlertCircle className="w-4 h-4 text-rose-400" />}
-            <span className="max-w-xs truncate">{toast.message}</span>
+            {toast.type === 'success' && <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />}
+            {toast.type === 'error' && <AlertCircle className="w-4 h-4 text-rose-400 flex-shrink-0" />}
+            <span className="max-w-sm text-zinc-100 font-medium select-text">{toast.message}</span>
             <button
               onClick={() => setToast((prev) => ({ ...prev, show: false }))}
-              className="text-gray-400 hover:text-gray-200 p-0.5 rounded"
+              className="text-zinc-400 hover:text-zinc-100 p-0.5 rounded transition-colors cursor-pointer ml-1"
             >
               <X className="w-3.5 h-3.5" />
             </button>

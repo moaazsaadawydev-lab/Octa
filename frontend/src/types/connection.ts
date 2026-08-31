@@ -80,7 +80,30 @@ export interface QueryTab {
   explainPlan?: ExplainPlanResult | null;
   activeViewMode?: 'results' | 'explain';
   isExecuting?: boolean;
+  activeConnectionName?: string;
+  activeDatabaseName?: string;
 }
+
+export interface SqlQueryItem {
+  id: string;
+  type: 'query';
+  name: string;
+  content: string;
+  database?: string;
+  createdAt?: number;
+  updatedAt?: number;
+}
+
+export interface SqlQueryFolder {
+  id: string;
+  type: 'folder';
+  name: string;
+  isOpen?: boolean;
+  items: (SqlQueryFolder | SqlQueryItem)[];
+}
+
+export type SqlTreeItem = SqlQueryFolder | SqlQueryItem;
+
 
 export interface QueryHistoryEntry {
   id: string;

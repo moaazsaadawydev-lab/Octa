@@ -462,3 +462,55 @@ func TestHttpClientDataPersistence(t *testing.T) {
 		t.Fatalf("Expected '[]' for empty save, got: %s", loadedData)
 	}
 }
+
+func TestSqlQueriesDataPersistence(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "octa-sql-queries-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	t.Setenv("APPDATA", tmpDir)
+	t.Setenv("XDG_CONFIG_HOME", tmpDir)
+	t.Setenv("USERPROFILE", tmpDir)
+
+	app := NewApp()
+
+	// Initial load when file does not exist should return empty string and no error
+	initialData, err := app.LoadSqlQueriesData()
+	if err != nil {
+		t.Fatalf("LoadSqlQueriesData returned error on initial load: %v", err)
+	}
+	if initialData != "" {
+		t.Fatalf("Expected empty initial data, got: %s", initialData)
+	}
+
+	// Save test queries JSON
+	sampleJSON := `[{"id":"q-1","name":"Get User Payments.sql","type":"query","content":"SELECT * FROM payments;"}]`
+	err = app.SaveSqlQueriesData(sampleJSON)
+	if err != nil {
+		t.Fatalf("SaveSqlQueriesData failed: %v", err)
+	}
+
+	// Load saved JSON and verify content
+	loadedData, err := app.LoadSqlQueriesData()
+	if err != nil {
+		t.Fatalf("LoadSqlQueriesData failed: %v", err)
+	}
+	if loadedData != sampleJSON {
+		t.Fatalf("Loaded data mismatch.\nExpected: %s\nGot: %s", sampleJSON, loadedData)
+	}
+
+	// Test saving empty string saves "[]"
+	err = app.SaveSqlQueriesData("")
+	if err != nil {
+		t.Fatalf("SaveSqlQueriesData with empty string failed: %v", err)
+	}
+	loadedData, err = app.LoadSqlQueriesData()
+	if err != nil {
+		t.Fatalf("LoadSqlQueriesData failed: %v", err)
+	}
+	if loadedData != "[]" {
+		t.Fatalf("Expected '[]' for empty save, got: %s", loadedData)
+	}
+}
