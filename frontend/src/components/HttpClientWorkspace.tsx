@@ -111,6 +111,7 @@ export interface FormFileMeta {
   name: string;
   size: number;
   type: string;
+  file?: File | Blob | any;
   fileObj?: File | Blob | any;
   filePath?: string;
   base64?: string;
@@ -122,6 +123,10 @@ export interface FormDataField {
   value: string;
   type: 'text' | 'file';
   enabled: boolean;
+  file?: File | Blob | any;
+  fileName?: string;
+  filePath?: string;
+  base64Data?: string;
   files?: FormFileMeta[];
 }
 
@@ -1378,8 +1383,8 @@ export const HttpClientWorkspace: React.FC<{
     setDragOverTarget(null);
   };
 
-  // Helper to convert File / Blob to base64 string asynchronously
-  const readFileAsBase64 = (file: File | Blob | any): Promise<string> => {
+  // Helper to convert browser File / Blob object to Base64 string
+  const fileToBase64 = (file: File | Blob | any): Promise<string> => {
     return new Promise((resolve) => {
       if (!file) {
         resolve('');
@@ -1406,6 +1411,7 @@ export const HttpClientWorkspace: React.FC<{
       const isBlob =
         typeof Blob !== 'undefined' &&
         (file instanceof Blob ||
+          file instanceof File ||
           (typeof file === 'object' && file !== null && typeof file.slice === 'function' && typeof file.size === 'number'));
 
       if (isBlob) {
@@ -1417,7 +1423,10 @@ export const HttpClientWorkspace: React.FC<{
             const clean = commaIdx !== -1 ? res.substring(commaIdx + 1) : res;
             resolve(clean);
           };
-          reader.onerror = () => resolve('');
+          reader.onerror = (err) => {
+            console.warn('FileReader error:', err);
+            resolve('');
+          };
           reader.readAsDataURL(file);
           return;
         } catch (err) {
@@ -1431,7 +1440,7 @@ export const HttpClientWorkspace: React.FC<{
     });
   };
 
-  const fileToBase64 = readFileAsBase64;
+  const readFileAsBase64 = fileToBase64;
 
   // Send HTTP Request Dispatcher with Native Go Backend, Cookie Jar & Auto-Generated Headers Integration
   const handleSendRequest = async () => {
@@ -1489,37 +1498,61 @@ export const HttpClientWorkspace: React.FC<{
               const fileNames: string[] = [];
               const filePaths: string[] = [];
               const fileBase64: string[] = [];
-              if (row.files && row.files.length > 0) {
-                for (const f of row.files) {
+
+              const rawFilesList: FormFileMeta[] =
+                row.files && row.files.length > 0
+                  ? row.files
+                  : (row as any).file
+                  ? [{
+                      id: 'file-single',
+                      name: (row as any).fileName || 'upload.bin',
+                      size: (row as any).file?.size || 0,
+                      type: (row as any).file?.type || 'application/octet-stream',
+                      file: (row as any).file,
+                      fileObj: (row as any).file,
+                      filePath: (row as any).filePath || '',
+                      base64: (row as any).base64Data || '',
+                    }]
+                  : [];
+
+              if (rawFilesList.length > 0) {
+                for (const f of rawFilesList) {
                   fileNames.push(f.name || 'file');
-                  const path = f.filePath || (f.fileObj && (f.fileObj as any).path) || '';
+                  const path = f.filePath || (f.file && (f.file as any).path) || (f.fileObj && (f.fileObj as any).path) || '';
                   filePaths.push(path);
 
                   let b64 = f.base64 || '';
-                  // Check live file ref map
-                  if (!b64 && f.id && liveFileObjectsRef.current.has(f.id)) {
-                    b64 = await readFileAsBase64(liveFileObjectsRef.current.get(f.id)!);
+                  if (!b64) {
+                    const candidateFile = (f.id && liveFileObjectsRef.current.get(f.id)) || f.file || f.fileObj || (row as any).file;
+                    if (candidateFile && (candidateFile instanceof File || candidateFile instanceof Blob || typeof candidateFile === 'object')) {
+                      try {
+                        b64 = await fileToBase64(candidateFile);
+                      } catch (readErr) {
+                        console.warn('Failed to read candidate file as base64:', readErr);
+                      }
+                    }
                   }
-                  // Check DOM file object
-                  if (!b64 && (f.fileObj || typeof f === 'object')) {
-                    b64 = await readFileAsBase64(f.fileObj || f);
-                  }
-                  if (b64.startsWith('data:')) {
+
+                  if (b64 && b64.startsWith('data:')) {
                     const cIdx = b64.indexOf(',');
                     b64 = cIdx !== -1 ? b64.substring(cIdx + 1) : b64;
                   }
                   fileBase64.push(b64);
                 }
               }
+
               const firstFilePath = filePaths[0] || (row.value ? String(row.value).trim() : '');
+              const firstBase64 = fileBase64[0] || (row as any).base64Data || '';
+              const firstFileName = fileNames[0] || (row as any).fileName || (row.value ? row.value : 'upload.bin');
+
               formDataPayload.push({
                 key: row.key.trim(),
                 value: row.value || '',
                 type: 'file',
-                fileName: fileNames[0] || '',
+                fileName: firstFileName,
                 filePath: firstFilePath,
-                base64Data: fileBase64[0] || '',
-                contentType: (row.files && row.files[0]?.type) || 'application/octet-stream',
+                base64Data: firstBase64,
+                contentType: (rawFilesList[0]?.type) || 'application/octet-stream',
                 fileNames,
                 filePaths,
                 fileBase64,
@@ -1541,6 +1574,8 @@ export const HttpClientWorkspace: React.FC<{
           }
         }
       }
+
+      console.log('Prepared Form Data to send:', formDataPayload);
 
       // Diagnostic Logging for Multipart & Request Payload
       if (activeRequest.bodyType === 'form-data') {
