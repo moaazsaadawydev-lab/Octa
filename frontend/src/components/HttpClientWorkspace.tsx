@@ -4,6 +4,8 @@ import Editor, { loader } from '@monaco-editor/react';
 import * as monaco from 'monaco-editor';
 import {
   Send,
+  Sliders,
+  Key,
   Plus,
   FolderPlus,
   Search,
@@ -38,7 +40,9 @@ import {
   Cookie as CookieIcon
 } from 'lucide-react';
 import interfaceSvg from '../assets/interface.svg';
-import { saveHttpClientData, loadHttpClientData, executeHttpRequest, selectFilesDialog, HttpRequestPayload, FormFieldPayload, HttpResponsePayload } from '../services/api';
+import { saveHttpClientData, loadHttpClientData, executeHttpRequest, selectFilesDialog, saveEnvironmentsData, loadEnvironmentsData, HttpRequestPayload, FormFieldPayload, HttpResponsePayload } from '../services/api';
+import { Environment, EnvironmentVariable, EnvironmentVariableType } from '../types/environments';
+import { resolveTemplate, getAvailableVariablesMap } from '../utils/templateResolver';
 
 // Configure Monaco to use locally bundled version
 loader.config({ monaco });
@@ -649,6 +653,9 @@ const HttpMethodDropdown: React.FC<HttpMethodDropdownProps> = ({ value, onChange
           ))}
         </div>
       )}
+
+
+
     </div>
   );
 };
@@ -722,6 +729,183 @@ export const HttpClientWorkspace: React.FC<{
   showToast: (message: string, type?: 'success' | 'error' | 'info') => void;
 }> = ({ showToast }) => {
   const liveFileObjectsRef = useRef<Map<string, File>>(new Map());
+
+  // --- Environments & Variables State ---
+  const [environments, setEnvironments] = useState<Environment[]>(() => {
+    try {
+      const saved = localStorage.getItem('octa_http_environments');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {
+      console.warn('Failed to parse environments from localStorage', e);
+    }
+    return [
+      {
+        id: 'env-localhost',
+        name: 'Localhost',
+        variables: [
+          { id: 'v-1', key: 'baseUrl', value: 'http://localhost:3000/api/v1', enabled: true, type: 'default' },
+          { id: 'v-2', key: 'token', value: 'mock_jwt_token_123', enabled: true, type: 'secret' },
+        ],
+      },
+      {
+        id: 'env-staging',
+        name: 'Staging',
+        variables: [
+          { id: 'v-3', key: 'baseUrl', value: 'https://staging.api.example.com/v1', enabled: true, type: 'default' },
+        ],
+      },
+    ];
+  });
+
+  const [activeEnvironmentId, setActiveEnvironmentId] = useState<string | null>(() => {
+    try {
+      const saved = localStorage.getItem('octa_http_active_env_id');
+      if (saved === 'null') return null;
+      return saved || 'env-localhost';
+    } catch {
+      return 'env-localhost';
+    }
+  });
+
+  const [globalVariables, setGlobalVariables] = useState<EnvironmentVariable[]>(() => {
+    try {
+      const saved = localStorage.getItem('octa_http_global_vars');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (e) {
+      console.warn('Failed to parse global variables from localStorage', e);
+    }
+    return [
+      { id: 'gv-1', key: 'appVersion', value: '1.0.0', enabled: true, type: 'default' },
+    ];
+  });
+
+  const [isEnvModalOpen, setIsEnvModalOpen] = useState(false);
+  const [selectedEnvIdInModal, setSelectedEnvIdInModal] = useState<string | 'globals'>('env-localhost');
+  const [isEnvDropdownOpen, setIsEnvDropdownOpen] = useState(false);
+  const [revealedSecrets, setRevealedSecrets] = useState<Record<string, boolean>>({});
+  const envDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Sync environments to localStorage & desktop storage
+  useEffect(() => {
+    try {
+      const json = JSON.stringify(environments);
+      localStorage.setItem('octa_http_environments', json);
+      saveEnvironmentsData(json);
+    } catch (e) {
+      console.warn('Failed to save environments:', e);
+    }
+  }, [environments]);
+
+  // Sync active environment ID
+  useEffect(() => {
+    try {
+      localStorage.setItem('octa_http_active_env_id', activeEnvironmentId ? activeEnvironmentId : 'null');
+    } catch (e) {
+      console.warn('Failed to save activeEnvironmentId:', e);
+    }
+  }, [activeEnvironmentId]);
+
+  // Sync global variables
+  useEffect(() => {
+    try {
+      localStorage.setItem('octa_http_global_vars', JSON.stringify(globalVariables));
+    } catch (e) {
+      console.warn('Failed to save globalVariables:', e);
+    }
+  }, [globalVariables]);
+
+  // Load environments from desktop storage on mount
+  useEffect(() => {
+    async function loadDesktopEnvs() {
+      try {
+        const data = await loadEnvironmentsData();
+        if (data && data.trim() !== '' && data !== '[]') {
+          const parsed = JSON.parse(data);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setEnvironments(parsed);
+          }
+        }
+      } catch (err) {
+        console.warn('Error loading desktop environments:', err);
+      }
+    }
+    loadDesktopEnvs();
+  }, []);
+
+  // Close environment dropdown on click outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (envDropdownRef.current && !envDropdownRef.current.contains(event.target as Node)) {
+        setIsEnvDropdownOpen(false);
+      }
+    }
+    if (isEnvDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [isEnvDropdownOpen]);
+
+  // Active Environment Helper
+  const activeEnvironment = environments.find((e) => e.id === activeEnvironmentId) || null;
+
+  // Environment CRUD Handlers
+  const handleCreateEnvironment = () => {
+    const newId = 'env-' + Date.now();
+    const newEnv: Environment = {
+      id: newId,
+      name: 'New Environment',
+      variables: [
+        { id: 'var-' + Date.now(), key: '', value: '', enabled: true, type: 'default' },
+      ],
+    };
+    setEnvironments([...environments, newEnv]);
+    setSelectedEnvIdInModal(newId);
+    showToast('Created new environment', 'success');
+  };
+
+  const handleDuplicateEnvironment = (id: string) => {
+    const target = environments.find((e) => e.id === id);
+    if (!target) return;
+    const newId = 'env-' + Date.now();
+    const duplicated: Environment = {
+      id: newId,
+      name: target.name + ' (Copy)',
+      variables: target.variables.map((v) => ({ ...v, id: 'var-' + Math.random().toString(36).substring(2, 8) })),
+    };
+    setEnvironments([...environments, duplicated]);
+    setSelectedEnvIdInModal(newId);
+    showToast('Duplicated environment', 'info');
+  };
+
+  const handleDeleteEnvironment = (id: string) => {
+    if (environments.length <= 1) {
+      showToast('Cannot delete the only environment', 'error');
+      return;
+    }
+    const filtered = environments.filter((e) => e.id !== id);
+    setEnvironments(filtered);
+    if (activeEnvironmentId === id) {
+      setActiveEnvironmentId(filtered[0]?.id || null);
+    }
+    if (selectedEnvIdInModal === id) {
+      setSelectedEnvIdInModal(filtered[0]?.id || 'globals');
+    }
+    showToast('Deleted environment', 'info');
+  };
+
+  const handleUpdateCurrentEnv = (updated: Partial<Environment>) => {
+    if (selectedEnvIdInModal === 'globals') return;
+    setEnvironments(
+      environments.map((e) => (e.id === selectedEnvIdInModal ? { ...e, ...updated } : e))
+    );
+  };
+
   // 1. Collections & Requests Tree State
   const [collections, setCollections] = useState<HttpFolderItem[]>(() => {
     try {
@@ -1455,10 +1639,25 @@ export const HttpClientWorkspace: React.FC<{
     const reqId = activeRequest.id;
 
     try {
-      let targetUrl = activeRequest.url.trim();
+      const activeEnv = environments.find((e) => e.id === activeEnvironmentId) || null;
+      const rawUrl = activeRequest.url.trim();
+      if (!rawUrl) {
+        showToast('Please enter a request URL', 'error');
+        setIsSending(false);
+        return;
+      }
+
+      // 1. Resolve variables and dynamic macros in URL FIRST
+      let targetUrl = resolveTemplate(rawUrl, activeEnv, globalVariables).trim();
+
+      // 2. Prepend protocol if not specified
       if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
         targetUrl = 'https://' + targetUrl;
       }
+
+      console.log('[DEBUG] Raw Request URL:', rawUrl);
+      console.log('[DEBUG] Resolved Target URL:', targetUrl);
+      console.log('[DEBUG] Active Environment:', activeEnv?.name || 'No Environment');
 
       // Query Params
       const queryParamsObj: Record<string, string> = {};
@@ -1478,10 +1677,14 @@ export const HttpClientWorkspace: React.FC<{
         }
       }
 
-      // 2. Custom headers override auto headers
+      // 2. Custom headers override auto headers (with template resolution)
       activeRequest.headers.forEach((h) => {
         if (h.enabled && h.key.trim()) {
-          reqHeaders[h.key.trim()] = h.value;
+          const resolvedHeaderKey = resolveTemplate(h.key.trim(), activeEnvironment, globalVariables);
+          const resolvedHeaderVal = resolveTemplate(h.value, activeEnvironment, globalVariables);
+          if (resolvedHeaderKey) {
+            reqHeaders[resolvedHeaderKey] = resolvedHeaderVal;
+          }
         }
       });
 
@@ -1604,9 +1807,16 @@ export const HttpClientWorkspace: React.FC<{
           headers: reqHeaders,
           queryParams: queryParamsObj,
           bodyType: activeRequest.bodyType,
-          bodyContent: activeRequest.bodyContent || '',
-          formData: formDataPayload,
-          urlEncoded: urlEncodedPayload,
+          bodyContent: resolveTemplate(activeRequest.bodyContent || '', activeEnvironment, globalVariables),
+          formData: formDataPayload.map((field) => ({
+            ...field,
+            key: resolveTemplate(field.key, activeEnvironment, globalVariables),
+            value: resolveTemplate(field.value, activeEnvironment, globalVariables),
+          })),
+          urlEncoded: Object.entries(urlEncodedPayload).reduce((acc, [k, v]) => {
+            acc[resolveTemplate(k, activeEnvironment, globalVariables)] = resolveTemplate(v, activeEnvironment, globalVariables);
+            return acc;
+          }, {} as Record<string, string>),
         });
       } catch (backendErr) {
         // Fallback to fetch if running outside Wails desktop runtime
@@ -2186,8 +2396,89 @@ export const HttpClientWorkspace: React.FC<{
               </button>
             </div>
 
-            {/* Top Right Controls (Cookie Jar Trigger + Layout Switcher) */}
+            {/* Top Right Controls (Environment Selector + Cookie Jar + Layout Switcher) */}
             <div className="flex items-center gap-1.5 pl-2 border-l border-zinc-800 flex-shrink-0">
+              {/* Environment Selector Dropdown */}
+              <div className="relative" ref={envDropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => setIsEnvDropdownOpen(!isEnvDropdownOpen)}
+                  title="Select active environment or manage variables"
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium text-emerald-400 hover:text-emerald-300 bg-emerald-950/40 hover:bg-emerald-950/70 border border-emerald-500/30 transition-colors cursor-pointer"
+                >
+                  <Globe className="w-3.5 h-3.5 text-emerald-400" />
+                  <span className="text-[11px] font-medium truncate max-w-[110px]">
+                    {activeEnvironment ? activeEnvironment.name : 'No Environment'}
+                  </span>
+                  <ChevronDown className="w-3 h-3 text-emerald-500" />
+                </button>
+
+                {isEnvDropdownOpen && (
+                  <div className="absolute right-0 top-full mt-1.5 w-64 rounded-xl bg-[#18181b] border border-zinc-700/80 shadow-2xl z-50 p-1.5 animate-in fade-in zoom-in-95 duration-100 font-sans">
+                    <div className="px-2 py-1 text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">
+                      Environments
+                    </div>
+
+                    {/* No Environment */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveEnvironmentId(null);
+                        setIsEnvDropdownOpen(false);
+                      }}
+                      className={`w-full flex items-center justify-between px-2.5 py-1.5 text-xs rounded-lg transition-colors text-left cursor-pointer ${
+                        activeEnvironmentId === null
+                          ? 'bg-emerald-950/60 text-emerald-300 font-medium'
+                          : 'text-zinc-300 hover:bg-zinc-800 hover:text-white'
+                      }`}
+                    >
+                      <span className="truncate">No Environment</span>
+                      {activeEnvironmentId === null && <Check className="w-3.5 h-3.5 text-emerald-400" />}
+                    </button>
+
+                    {/* Available Environments */}
+                    {environments.map((env) => (
+                      <button
+                        key={env.id}
+                        type="button"
+                        onClick={() => {
+                          setActiveEnvironmentId(env.id);
+                          setIsEnvDropdownOpen(false);
+                        }}
+                        className={`w-full flex items-center justify-between px-2.5 py-1.5 text-xs rounded-lg transition-colors text-left cursor-pointer ${
+                          activeEnvironmentId === env.id
+                            ? 'bg-emerald-950/60 text-emerald-300 font-medium'
+                            : 'text-zinc-300 hover:bg-zinc-800 hover:text-white'
+                        }`}
+                      >
+                        <div className="flex items-center gap-1.5 truncate">
+                          <span className="truncate">{env.name}</span>
+                          <span className="text-[10px] text-zinc-500 font-mono">
+                            ({env.variables.filter((v) => v.enabled).length})
+                          </span>
+                        </div>
+                        {activeEnvironmentId === env.id && <Check className="w-3.5 h-3.5 text-emerald-400" />}
+                      </button>
+                    ))}
+
+                    <div className="h-px bg-zinc-800 my-1" />
+
+                    {/* Manage Environments Trigger */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsEnvDropdownOpen(false);
+                        setIsEnvModalOpen(true);
+                      }}
+                      className="w-full flex items-center gap-2 px-2.5 py-1.5 text-xs rounded-lg text-brand-400 hover:bg-brand-950/40 hover:text-brand-300 transition-colors text-left cursor-pointer font-medium"
+                    >
+                      <Sliders className="w-3.5 h-3.5 text-brand-400" />
+                      <span>Manage Environments...</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+
               {/* Cookie Jar Trigger Button */}
               <button
                 type="button"
@@ -3365,6 +3656,429 @@ export const HttpClientWorkspace: React.FC<{
               >
                 Close
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Manage Environments Modal */}
+      {isEnvModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm animate-in fade-in duration-150 p-4">
+          <div className="bg-[#141416] border border-zinc-800 rounded-2xl w-full max-w-4xl h-[620px] shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-150">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800 bg-[#18181b]/60 flex-shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-emerald-950/60 border border-emerald-500/30 text-emerald-400">
+                  <Globe className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-base font-semibold text-zinc-100 flex items-center gap-2">
+                    <span>Environments & Variables</span>
+                  </h2>
+                  <p className="text-xs text-zinc-400 mt-0.5">
+                    Configure scoped environment variables and global variables referenced via <code className="text-brand-400 font-mono bg-zinc-800/80 px-1 py-0.5 rounded text-[11px]">&#123;&#123;variableName&#125;&#125;</code>
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsEnvModalOpen(false)}
+                className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Content Split Pane */}
+            <div className="flex-1 flex overflow-hidden">
+              {/* Left Pane: Environment List */}
+              <div className="w-64 border-r border-zinc-800 bg-[#121214] flex flex-col overflow-hidden">
+                <div className="p-3 border-b border-zinc-800/80 flex items-center justify-between">
+                  <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Scopes</span>
+                  <button
+                    type="button"
+                    onClick={handleCreateEnvironment}
+                    className="flex items-center gap-1 px-2 py-1 rounded bg-brand-500/10 hover:bg-brand-500/20 text-brand-400 hover:text-brand-300 border border-brand-500/30 text-xs font-medium transition-colors cursor-pointer"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>New</span>
+                  </button>
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-2 space-y-1">
+                  {/* Globals Scope Item */}
+                  <button
+                    type="button"
+                    onClick={() => setSelectedEnvIdInModal('globals')}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-all text-left cursor-pointer ${
+                      selectedEnvIdInModal === 'globals'
+                        ? 'bg-zinc-800 text-white shadow-sm border border-zinc-700'
+                        : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-850'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Key className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Globals</span>
+                    </div>
+                    <span className="text-[10px] font-mono text-zinc-500 bg-zinc-900 px-1.5 py-0.5 rounded">
+                      {globalVariables.filter((v) => v.enabled).length}
+                    </span>
+                  </button>
+
+                  <div className="h-px bg-zinc-800/80 my-1.5" />
+
+                  {/* Environments List */}
+                  {environments.map((env) => {
+                    const isSelected = selectedEnvIdInModal === env.id;
+                    const isActive = activeEnvironmentId === env.id;
+                    return (
+                      <div
+                        key={env.id}
+                        onClick={() => setSelectedEnvIdInModal(env.id)}
+                        className={`group flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer ${
+                          isSelected
+                            ? 'bg-zinc-800 text-white shadow-sm border border-zinc-700'
+                            : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-850'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 truncate">
+                          <Globe className={`w-3.5 h-3.5 ${isActive ? 'text-emerald-400' : 'text-zinc-500'}`} />
+                          <span className="truncate">{env.name}</span>
+                        </div>
+
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            type="button"
+                            title="Duplicate Environment"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDuplicateEnvironment(env.id);
+                            }}
+                            className="p-1 rounded hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 transition-colors"
+                          >
+                            <Copy className="w-3 h-3" />
+                          </button>
+                          <button
+                            type="button"
+                            title="Delete Environment"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteEnvironment(env.id);
+                            }}
+                            className="p-1 rounded hover:bg-rose-950/60 text-zinc-500 hover:text-rose-400 transition-colors"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Right Pane: Variable Editor Table */}
+              <div className="flex-1 flex flex-col bg-[#141416] overflow-hidden">
+                {selectedEnvIdInModal === 'globals' ? (
+                  /* Globals Editor */
+                  <div className="flex-1 flex flex-col p-6 overflow-hidden">
+                    <div className="flex items-center justify-between mb-4 flex-shrink-0">
+                      <div>
+                        <h3 className="text-sm font-semibold text-zinc-200">Global Variables</h3>
+                        <p className="text-xs text-zinc-500 mt-0.5">
+                          Variables available globally across all requests regardless of active environment.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newVar: EnvironmentVariable = {
+                            id: 'gv-' + Date.now(),
+                            key: '',
+                            value: '',
+                            enabled: true,
+                            type: 'default',
+                          };
+                          setGlobalVariables([...globalVariables, newVar]);
+                        }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-950/50 hover:bg-emerald-950/80 text-emerald-400 border border-emerald-500/30 text-xs font-medium transition-colors cursor-pointer"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Add Variable</span>
+                      </button>
+                    </div>
+
+                    {/* Table */}
+                    <div className="flex-1 border border-zinc-800 rounded-xl overflow-y-auto bg-[#18181b]/40">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="border-b border-zinc-800 bg-zinc-900/60 text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">
+                            <th className="py-2.5 px-3 w-10 text-center">Active</th>
+                            <th className="py-2.5 px-3 w-1/3">Variable (Key)</th>
+                            <th className="py-2.5 px-3 w-28">Type</th>
+                            <th className="py-2.5 px-3">Value</th>
+                            <th className="py-2.5 px-3 w-12 text-center"></th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-zinc-800/60 font-mono text-xs text-zinc-200">
+                          {globalVariables.map((v, idx) => {
+                            const isSecret = v.type === 'secret';
+                            const isRevealed = revealedSecrets[v.id];
+                            return (
+                              <tr key={v.id} className="hover:bg-zinc-850/40 transition-colors">
+                                <td className="py-2 px-3 text-center">
+                                  <input
+                                    type="checkbox"
+                                    checked={v.enabled}
+                                    onChange={(e) => {
+                                      const next = [...globalVariables];
+                                      next[idx].enabled = e.target.checked;
+                                      setGlobalVariables(next);
+                                    }}
+                                    className="accent-brand-500 rounded cursor-pointer"
+                                  />
+                                </td>
+                                <td className="py-2 px-3">
+                                  <input
+                                    type="text"
+                                    value={v.key}
+                                    onChange={(e) => {
+                                      const next = [...globalVariables];
+                                      next[idx].key = e.target.value;
+                                      setGlobalVariables(next);
+                                    }}
+                                    placeholder="e.g. appVersion"
+                                    className="w-full bg-transparent outline-none text-zinc-100 placeholder:text-zinc-600 focus:text-brand-400"
+                                  />
+                                </td>
+                                <td className="py-2 px-3">
+                                  <select
+                                    value={v.type || 'default'}
+                                    onChange={(e) => {
+                                      const next = [...globalVariables];
+                                      next[idx].type = e.target.value as EnvironmentVariableType;
+                                      setGlobalVariables(next);
+                                    }}
+                                    className="bg-zinc-900 border border-zinc-700/60 rounded px-2 py-0.5 text-[11px] text-zinc-300 outline-none cursor-pointer"
+                                  >
+                                    <option value="default">Default</option>
+                                    <option value="secret">Secret</option>
+                                  </select>
+                                </td>
+                                <td className="py-2 px-3">
+                                  <div className="flex items-center gap-1.5">
+                                    <input
+                                      type={isSecret && !isRevealed ? 'password' : 'text'}
+                                      value={v.value}
+                                      onChange={(e) => {
+                                        const next = [...globalVariables];
+                                        next[idx].value = e.target.value;
+                                        setGlobalVariables(next);
+                                      }}
+                                      placeholder="Value"
+                                      className="flex-1 bg-transparent outline-none text-zinc-100 placeholder:text-zinc-600"
+                                    />
+                                    {isSecret && (
+                                      <button
+                                        type="button"
+                                        onClick={() => setRevealedSecrets({ ...revealedSecrets, [v.id]: !isRevealed })}
+                                        className="p-1 text-zinc-500 hover:text-zinc-300 transition-colors cursor-pointer"
+                                      >
+                                        {isRevealed ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                                      </button>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="py-2 px-3 text-center">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setGlobalVariables(globalVariables.filter((_, i) => i !== idx));
+                                    }}
+                                    className="p-1 text-zinc-500 hover:text-rose-400 transition-colors cursor-pointer"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ) : (
+                  /* Environment Variables Editor */
+                  (() => {
+                    const currentEnv = environments.find((e) => e.id === selectedEnvIdInModal);
+                    if (!currentEnv) return null;
+                    return (
+                      <div className="flex-1 flex flex-col p-6 overflow-hidden">
+                        {/* Environment Header */}
+                        <div className="flex items-center justify-between mb-4 flex-shrink-0">
+                          <div className="flex-1 max-w-sm mr-4">
+                            <input
+                              type="text"
+                              value={currentEnv.name}
+                              onChange={(e) => handleUpdateCurrentEnv({ name: e.target.value })}
+                              placeholder="Environment Name"
+                              className="text-base font-semibold text-zinc-100 bg-transparent border-b border-transparent hover:border-zinc-700 focus:border-brand-500 outline-none pb-0.5 w-full transition-colors font-sans"
+                            />
+                            <p className="text-xs text-zinc-500 mt-0.5">
+                              Variables in this environment take precedence over global variables.
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {activeEnvironmentId !== currentEnv.id && (
+                              <button
+                                type="button"
+                                onClick={() => setActiveEnvironmentId(currentEnv.id)}
+                                className="px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-750 text-zinc-300 hover:text-white border border-zinc-700 text-xs font-medium transition-colors cursor-pointer"
+                              >
+                                Set as Active
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newVar: EnvironmentVariable = {
+                                  id: 'var-' + Date.now(),
+                                  key: '',
+                                  value: '',
+                                  enabled: true,
+                                  type: 'default',
+                                };
+                                handleUpdateCurrentEnv({ variables: [...currentEnv.variables, newVar] });
+                              }}
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-950/50 hover:bg-emerald-950/80 text-emerald-400 border border-emerald-500/30 text-xs font-medium transition-colors cursor-pointer"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                              <span>Add Variable</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Table */}
+                        <div className="flex-1 border border-zinc-800 rounded-xl overflow-y-auto bg-[#18181b]/40">
+                          <table className="w-full text-left border-collapse">
+                            <thead>
+                              <tr className="border-b border-zinc-800 bg-zinc-900/60 text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">
+                                <th className="py-2.5 px-3 w-10 text-center">Active</th>
+                                <th className="py-2.5 px-3 w-1/3">Variable (Key)</th>
+                                <th className="py-2.5 px-3 w-28">Type</th>
+                                <th className="py-2.5 px-3">Value</th>
+                                <th className="py-2.5 px-3 w-12 text-center"></th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-zinc-800/60 font-mono text-xs text-zinc-200">
+                              {currentEnv.variables.map((v, idx) => {
+                                const isSecret = v.type === 'secret';
+                                const isRevealed = revealedSecrets[v.id];
+                                return (
+                                  <tr key={v.id} className="hover:bg-zinc-850/40 transition-colors">
+                                    <td className="py-2 px-3 text-center">
+                                      <input
+                                        type="checkbox"
+                                        checked={v.enabled}
+                                        onChange={(e) => {
+                                          const next = [...currentEnv.variables];
+                                          next[idx].enabled = e.target.checked;
+                                          handleUpdateCurrentEnv({ variables: next });
+                                        }}
+                                        className="accent-brand-500 rounded cursor-pointer"
+                                      />
+                                    </td>
+                                    <td className="py-2 px-3">
+                                      <input
+                                        type="text"
+                                        value={v.key}
+                                        onChange={(e) => {
+                                          const next = [...currentEnv.variables];
+                                          next[idx].key = e.target.value;
+                                          handleUpdateCurrentEnv({ variables: next });
+                                        }}
+                                        placeholder="e.g. baseUrl"
+                                        className="w-full bg-transparent outline-none text-zinc-100 placeholder:text-zinc-600 focus:text-brand-400"
+                                      />
+                                    </td>
+                                    <td className="py-2 px-3">
+                                      <select
+                                        value={v.type || 'default'}
+                                        onChange={(e) => {
+                                          const next = [...currentEnv.variables];
+                                          next[idx].type = e.target.value as EnvironmentVariableType;
+                                          handleUpdateCurrentEnv({ variables: next });
+                                        }}
+                                        className="bg-zinc-900 border border-zinc-700/60 rounded px-2 py-0.5 text-[11px] text-zinc-300 outline-none cursor-pointer"
+                                      >
+                                        <option value="default">Default</option>
+                                        <option value="secret">Secret</option>
+                                      </select>
+                                    </td>
+                                    <td className="py-2 px-3">
+                                      <div className="flex items-center gap-1.5">
+                                        <input
+                                          type={isSecret && !isRevealed ? 'password' : 'text'}
+                                          value={v.value}
+                                          onChange={(e) => {
+                                            const next = [...currentEnv.variables];
+                                            next[idx].value = e.target.value;
+                                            handleUpdateCurrentEnv({ variables: next });
+                                          }}
+                                          placeholder="Value"
+                                          className="flex-1 bg-transparent outline-none text-zinc-100 placeholder:text-zinc-600"
+                                        />
+                                        {isSecret && (
+                                          <button
+                                            type="button"
+                                            onClick={() => setRevealedSecrets({ ...revealedSecrets, [v.id]: !isRevealed })}
+                                            className="p-1 text-zinc-500 hover:text-zinc-300 transition-colors cursor-pointer"
+                                          >
+                                            {isRevealed ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                                          </button>
+                                        )}
+                                      </div>
+                                    </td>
+                                    <td className="py-2 px-3 text-center">
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          handleUpdateCurrentEnv({
+                                            variables: currentEnv.variables.filter((_, i) => i !== idx),
+                                          });
+                                        }}
+                                        className="p-1 text-zinc-500 hover:text-rose-400 transition-colors cursor-pointer"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    );
+                  })()
+                )}
+
+                {/* Built-in Dynamic Macros Cheat Sheet */}
+                <div className="px-6 py-2.5 bg-[#121214] border-t border-zinc-800 flex items-center justify-between text-[11px] text-zinc-400 flex-shrink-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-semibold text-zinc-300 font-sans">Dynamic Macros:</span>
+                    <code className="bg-zinc-850 px-1.5 py-0.5 rounded text-amber-300 font-mono text-[10px]">&#123;&#123;$randomUUID&#125;&#125;</code>
+                    <code className="bg-zinc-850 px-1.5 py-0.5 rounded text-amber-300 font-mono text-[10px]">&#123;&#123;$timestamp&#125;&#125;</code>
+                    <code className="bg-zinc-850 px-1.5 py-0.5 rounded text-amber-300 font-mono text-[10px]">&#123;&#123;$isoTimestamp&#125;&#125;</code>
+                    <code className="bg-zinc-850 px-1.5 py-0.5 rounded text-amber-300 font-mono text-[10px]">&#123;&#123;$randomInt&#125;&#125;</code>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsEnvModalOpen(false)}
+                    className="px-4 py-1.5 rounded-lg bg-brand-500 hover:bg-brand-600 text-white font-medium text-xs shadow-sm transition-all cursor-pointer font-sans"
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>

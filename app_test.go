@@ -744,3 +744,22 @@ func TestExecuteHttpRequest(t *testing.T) {
 		t.Errorf("Expected status 0 on network failure, got: %d", badRes.Status)
 	}
 }
+
+func TestEnvironmentsDataPersistence(t *testing.T) {
+	app := &App{}
+	testJSON := `[{"id":"env-1","name":"Localhost","variables":[{"id":"v-1","key":"baseUrl","value":"http://localhost:3000","enabled":true}]}]`
+
+	err := app.SaveEnvironmentsData(testJSON)
+	if err != nil {
+		t.Fatalf("SaveEnvironmentsData failed: %v", err)
+	}
+
+	loaded, err := app.LoadEnvironmentsData()
+	if err != nil {
+		t.Fatalf("LoadEnvironmentsData failed: %v", err)
+	}
+
+	if loaded != testJSON {
+		t.Errorf("Loaded environments data mismatch. Expected: %s, Got: %s", testJSON, loaded)
+	}
+}

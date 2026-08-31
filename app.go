@@ -277,6 +277,52 @@ func getConnectionsFilePath() (string, error) {
 	return octaFile, nil
 }
 
+// getHttpEnvironmentsFilePath returns the full path to http_environments.json in the user's config directory.
+func getHttpEnvironmentsFilePath() (string, error) {
+	configDir, err := os.UserConfigDir()
+	if err != nil {
+		configDir = "."
+	}
+	appDir := filepath.Join(configDir, "octa")
+	if err = os.MkdirAll(appDir, 0755); err != nil {
+		return "", err
+	}
+	return filepath.Join(appDir, "http_environments.json"), nil
+}
+
+// SaveEnvironmentsData writes environments JSON data to disk.
+func (a *App) SaveEnvironmentsData(jsonData string) error {
+	filePath, err := getHttpEnvironmentsFilePath()
+	if err != nil {
+		return fmt.Errorf("failed to get environments data file path: %w", err)
+	}
+
+	trimmed := strings.TrimSpace(jsonData)
+	if trimmed == "" {
+		trimmed = "[]"
+	}
+
+	return os.WriteFile(filePath, []byte(trimmed), 0644)
+}
+
+// LoadEnvironmentsData reads environments JSON data from disk.
+func (a *App) LoadEnvironmentsData() (string, error) {
+	filePath, err := getHttpEnvironmentsFilePath()
+	if err != nil {
+		return "[]", nil
+	}
+
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "[]", nil
+		}
+		return "[]", err
+	}
+
+	return string(data), nil
+}
+
 // getHttpClientDataFilePath returns the full path to http_data.json in the user's config directory.
 func getHttpClientDataFilePath() (string, error) {
 	configDir, err := os.UserConfigDir()

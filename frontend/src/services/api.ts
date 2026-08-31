@@ -644,3 +644,28 @@ export async function selectFilesDialog(): Promise<Array<{ name: string; filePat
   }
   return [];
 }
+
+export async function saveEnvironmentsData(jsonData: string): Promise<void> {
+  try {
+    const w = window as any;
+    if (w && w.go && w.go.main && w.go.main.App && typeof w.go.main.App.SaveEnvironmentsData === 'function') {
+      await w.go.main.App.SaveEnvironmentsData(jsonData);
+      return;
+    }
+  } catch (e) {
+    console.warn('SaveEnvironmentsData binding error:', e);
+  }
+}
+
+export async function loadEnvironmentsData(): Promise<string> {
+  try {
+    const w = window as any;
+    if (w && w.go && w.go.main && w.go.main.App && typeof w.go.main.App.LoadEnvironmentsData === 'function') {
+      const res = await w.go.main.App.LoadEnvironmentsData();
+      return res || '[]';
+    }
+  } catch (e) {
+    console.warn('LoadEnvironmentsData binding error:', e);
+  }
+  return '[]';
+}
