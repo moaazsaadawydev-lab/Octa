@@ -410,3 +410,55 @@ func TestExplainQueryValidation(t *testing.T) {
 		t.Errorf("Expected unsupported database type to fail ExplainQuery")
 	}
 }
+
+func TestHttpClientDataPersistence(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "octa-http-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	t.Setenv("APPDATA", tmpDir)
+	t.Setenv("XDG_CONFIG_HOME", tmpDir)
+	t.Setenv("USERPROFILE", tmpDir)
+
+	app := NewApp()
+
+	// Initial load when file does not exist should return empty string and no error
+	initialData, err := app.LoadHttpClientData()
+	if err != nil {
+		t.Fatalf("LoadHttpClientData returned error on initial load: %v", err)
+	}
+	if initialData != "" {
+		t.Fatalf("Expected empty initial data, got: %s", initialData)
+	}
+
+	// Save test collections JSON
+	sampleJSON := `[{"id":"col-1","name":"User API","type":"collection","items":[{"id":"req-1","name":"Get Users","type":"request","method":"GET","url":"https://api.example.com/users","headers":[],"params":[],"bodyType":"none","bodyContent":""}]}]`
+	err = app.SaveHttpClientData(sampleJSON)
+	if err != nil {
+		t.Fatalf("SaveHttpClientData failed: %v", err)
+	}
+
+	// Load saved JSON and verify content
+	loadedData, err := app.LoadHttpClientData()
+	if err != nil {
+		t.Fatalf("LoadHttpClientData failed: %v", err)
+	}
+	if loadedData != sampleJSON {
+		t.Fatalf("Loaded data mismatch.\nExpected: %s\nGot: %s", sampleJSON, loadedData)
+	}
+
+	// Test saving empty string saves "[]"
+	err = app.SaveHttpClientData("")
+	if err != nil {
+		t.Fatalf("SaveHttpClientData with empty string failed: %v", err)
+	}
+	loadedData, err = app.LoadHttpClientData()
+	if err != nil {
+		t.Fatalf("LoadHttpClientData failed: %v", err)
+	}
+	if loadedData != "[]" {
+		t.Fatalf("Expected '[]' for empty save, got: %s", loadedData)
+	}
+}

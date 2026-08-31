@@ -38,9 +38,13 @@ export function GetTables(arg1:main.ConnectionConfig,arg2:string):Promise<Array<
 
 export function ImportSQLScript(arg1:main.ConnectionConfig,arg2:string,arg3:string):Promise<main.ImportResult>;
 
+export function LoadHttpClientData():Promise<string>;
+
 export function RenameColumn(arg1:main.ConnectionConfig,arg2:string,arg3:string,arg4:string,arg5:string):Promise<boolean>;
 
 export function SaveConnection(arg1:main.ConnectionConfig):Promise<boolean|string>;
+
+export function SaveHttpClientData(arg1:string):Promise<void>;
 
 export function SaveSQLDumpDialog(arg1:string,arg2:string):Promise<string>;
 

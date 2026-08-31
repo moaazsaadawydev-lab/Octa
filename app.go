@@ -269,6 +269,58 @@ func getConnectionsFilePath() (string, error) {
 	return octaFile, nil
 }
 
+// getHttpClientDataFilePath returns the full path to http_data.json in the user's config directory.
+func getHttpClientDataFilePath() (string, error) {
+	configDir, err := os.UserConfigDir()
+	if err != nil {
+		configDir = "."
+	}
+	appDir := filepath.Join(configDir, "octa")
+	if err = os.MkdirAll(appDir, 0755); err != nil {
+		return "", err
+	}
+	return filepath.Join(appDir, "http_data.json"), nil
+}
+
+// SaveHttpClientData writes the HTTP API Client collections/requests tree JSON data to disk.
+func (a *App) SaveHttpClientData(jsonData string) error {
+	filePath, err := getHttpClientDataFilePath()
+	if err != nil {
+		return fmt.Errorf("failed to get HTTP client data file path: %w", err)
+	}
+
+	trimmed := strings.TrimSpace(jsonData)
+	if trimmed == "" {
+		trimmed = "[]"
+	}
+
+	if err := os.WriteFile(filePath, []byte(trimmed), 0644); err != nil {
+		return fmt.Errorf("failed to write HTTP client data: %w", err)
+	}
+
+	return nil
+}
+
+// LoadHttpClientData reads the saved HTTP API Client JSON data from disk.
+// Returns an empty string "" if the file does not exist.
+func (a *App) LoadHttpClientData() (string, error) {
+	filePath, err := getHttpClientDataFilePath()
+	if err != nil {
+		return "", fmt.Errorf("failed to get HTTP client data file path: %w", err)
+	}
+
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		return "", nil
+	}
+
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read HTTP client data: %w", err)
+	}
+
+	return string(data), nil
+}
+
 // TestConnection establishes a test connection to PostgreSQL with a 5-second timeout.
 func (a *App) TestConnection(config ConnectionConfig) (bool, string) {
 	if config.Type == "" {

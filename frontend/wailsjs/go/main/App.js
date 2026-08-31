@@ -74,12 +74,20 @@ export function ImportSQLScript(arg1, arg2, arg3) {
   return window['go']['main']['App']['ImportSQLScript'](arg1, arg2, arg3);
 }
 
+export function LoadHttpClientData() {
+  return window['go']['main']['App']['LoadHttpClientData']();
+}
+
 export function RenameColumn(arg1, arg2, arg3, arg4, arg5) {
   return window['go']['main']['App']['RenameColumn'](arg1, arg2, arg3, arg4, arg5);
 }
 
 export function SaveConnection(arg1) {
   return window['go']['main']['App']['SaveConnection'](arg1);
+}
+
+export function SaveHttpClientData(arg1) {
+  return window['go']['main']['App']['SaveHttpClientData'](arg1);
 }
 
 export function SaveSQLDumpDialog(arg1, arg2) {

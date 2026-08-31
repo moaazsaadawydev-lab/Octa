@@ -23,6 +23,8 @@ import {
   ImportSQLScript,
   SaveSQLDumpDialog,
   ExplainQuery,
+  SaveHttpClientData,
+  LoadHttpClientData,
 } from '../../wailsjs/go/main/App';
 import { main } from '../../wailsjs/go/models';
 import {
@@ -519,6 +521,28 @@ export async function explainQuery(
     console.error('Failed to explain query:', err);
     throw err;
   }
+}
+
+export async function saveHttpClientData(jsonData: string): Promise<void> {
+  try {
+    if (typeof SaveHttpClientData === 'function') {
+      await SaveHttpClientData(jsonData);
+    }
+  } catch (err: any) {
+    console.error('Failed to save HTTP client data via backend:', err);
+    throw err;
+  }
+}
+
+export async function loadHttpClientData(): Promise<string> {
+  try {
+    if (typeof LoadHttpClientData === 'function') {
+      return await LoadHttpClientData();
+    }
+  } catch (err: any) {
+    console.error('Failed to load HTTP client data via backend:', err);
+  }
+  return '';
 }
 
 

@@ -16,6 +16,8 @@ frontend/dist/
 *.dylib
 *.test
 *.out
+*.txt
+
 
 # Local settings / connection passwords
 connections.json
@@ -28,3 +30,4 @@ connections.json
 
 untitled.af
 *.svg
+ 

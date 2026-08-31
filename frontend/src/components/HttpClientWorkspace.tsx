@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Send,
   Plus,
@@ -7,8 +7,19 @@ import {
   Copy,
   Trash2,
   Globe,
-  Edit2
+  Edit2,
+  ChevronRight,
+  ChevronDown,
+  Folder,
+  FolderOpen,
+  Layers,
+  MoreVertical,
+  Files,
+  FileCode,
+  Check,
+  X
 } from 'lucide-react';
+import { saveHttpClientData, loadHttpClientData } from '../services/api';
 
 export interface HttpHeader {
   key: string;
@@ -22,8 +33,9 @@ export interface HttpParam {
   enabled: boolean;
 }
 
-export interface HttpRequest {
+export interface HttpRequestItem {
   id: string;
+  type: 'request';
   name: string;
   method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   url: string;
@@ -33,11 +45,15 @@ export interface HttpRequest {
   bodyContent: string;
 }
 
-export interface CollectionFolder {
+export interface HttpFolderItem {
   id: string;
+  type: 'collection' | 'folder';
   name: string;
-  requests: HttpRequest[];
+  isOpen?: boolean;
+  items: (HttpFolderItem | HttpRequestItem)[];
 }
+
+export type HttpTreeItem = HttpFolderItem | HttpRequestItem;
 
 export interface HttpResponseState {
   status: number;
@@ -56,9 +72,10 @@ const METHOD_COLORS: Record<string, { badge: string; text: string }> = {
   DELETE: { badge: 'bg-rose-950/70 border-rose-500/40 text-rose-300', text: 'text-rose-400' },
 };
 
-const createDefaultRequest = (): HttpRequest => ({
-  id: 'req-' + Date.now(),
-  name: 'Untitled Request',
+const createDefaultRequest = (name: string = 'Untitled Request'): HttpRequestItem => ({
+  id: 'req-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7),
+  type: 'request',
+  name,
   method: 'GET',
   url: '',
   headers: [],
@@ -67,72 +84,634 @@ const createDefaultRequest = (): HttpRequest => ({
   bodyContent: '',
 });
 
+const createDefaultFolder = (name: string = 'New Folder'): HttpFolderItem => ({
+  id: 'folder-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7),
+  type: 'folder',
+  name,
+  isOpen: true,
+  items: [],
+});
+
+const createDefaultCollection = (name: string = 'Untitled Collection'): HttpFolderItem => ({
+  id: 'col-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7),
+  type: 'collection',
+  name,
+  isOpen: true,
+  items: [],
+});
+
+// Helper: Count total requests inside a folder / collection recursively
+function countRequests(item: HttpTreeItem): number {
+  if (item.type === 'request') return 1;
+  return item.items.reduce((sum, child) => sum + countRequests(child), 0);
+}
+
+// Helper: Find first request in tree
+function findFirstRequest(items: HttpTreeItem[]): HttpRequestItem | null {
+  for (const item of items) {
+    if (item.type === 'request') return item;
+    const nested = findFirstRequest(item.items);
+    if (nested) return nested;
+  }
+  return null;
+}
+
+// Helper: Check if targetId is a descendant of parentId
+function isDescendant(tree: HttpTreeItem[], parentId: string, targetId: string): boolean {
+  for (const item of tree) {
+    if (item.id === parentId) {
+      if (item.type === 'request') return false;
+      const searchDescendants = (children: HttpTreeItem[]): boolean => {
+        for (const child of children) {
+          if (child.id === targetId) return true;
+          if (child.type !== 'request' && searchDescendants(child.items)) return true;
+        }
+        return false;
+      };
+      return searchDescendants(item.items);
+    }
+    if (item.type !== 'request') {
+      if (isDescendant(item.items, parentId, targetId)) return true;
+    }
+  }
+  return false;
+}
+
+// Helper: Find item by ID
+function findItemById(tree: HttpTreeItem[], id: string): HttpTreeItem | null {
+  for (const item of tree) {
+    if (item.id === id) return item;
+    if (item.type !== 'request') {
+      const found = findItemById(item.items, id);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+// Helper: Find parent of an item
+function findParentOfItem(
+  tree: HttpFolderItem[],
+  id: string
+): { parent: HttpFolderItem | null; index: number } | null {
+  for (let i = 0; i < tree.length; i++) {
+    if (tree[i].id === id) {
+      return { parent: null, index: i };
+    }
+  }
+  for (const folder of tree) {
+    const res = findInFolder(folder, id);
+    if (res) return res;
+  }
+  function findInFolder(
+    parent: HttpFolderItem,
+    targetId: string
+  ): { parent: HttpFolderItem; index: number } | null {
+    for (let i = 0; i < parent.items.length; i++) {
+      if (parent.items[i].id === targetId) {
+        return { parent, index: i };
+      }
+      const child = parent.items[i];
+      if (child.type !== 'request') {
+        const nested = findInFolder(child, targetId);
+        if (nested) return nested;
+      }
+    }
+    return null;
+  }
+  return null;
+}
+
+// Helper: Migrate old format data if needed
+function normalizeCollections(data: any): HttpFolderItem[] {
+  if (!Array.isArray(data)) return [];
+  return data.map((col: any) => {
+    if (col.type === 'collection' || col.type === 'folder') {
+      return {
+        ...col,
+        isOpen: col.isOpen !== false,
+        items: Array.isArray(col.items) ? normalizeItems(col.items) : [],
+      };
+    }
+    // Old format: { id, name, requests: [] }
+    return {
+      id: col.id || 'col-' + Date.now(),
+      type: 'collection',
+      name: col.name || 'Untitled Collection',
+      isOpen: true,
+      items: Array.isArray(col.requests)
+        ? col.requests.map((r: any) => ({ ...r, type: 'request' }))
+        : [],
+    };
+  });
+}
+
+function normalizeItems(items: any[]): (HttpFolderItem | HttpRequestItem)[] {
+  return items.map((item) => {
+    if (item.type === 'collection' || item.type === 'folder') {
+      return {
+        ...item,
+        isOpen: item.isOpen !== false,
+        items: Array.isArray(item.items) ? normalizeItems(item.items) : [],
+      };
+    }
+    return {
+      ...item,
+      type: 'request',
+    };
+  });
+}
+
 interface HttpClientWorkspaceProps {
   showToast: (message: string, type?: 'success' | 'error' | 'info') => void;
 }
 
 export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({ showToast }) => {
-  // Collections loaded from localStorage (default: empty array)
-  const [collections, setCollections] = useState<CollectionFolder[]>(() => {
+  // Collections State
+  const [collections, setCollections] = useState<HttpFolderItem[]>(() => {
     try {
       const saved = localStorage.getItem('octa_http_collections');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
+          return normalizeCollections(parsed);
         }
       }
     } catch (e) {
-      console.warn('Failed to parse http collections from localStorage', e);
+      console.warn('Failed to parse collections from localStorage', e);
     }
     return [];
   });
 
   // Active Request State
-  const [activeRequest, setActiveRequest] = useState<HttpRequest>(() => {
-    try {
-      const savedCollections = localStorage.getItem('octa_http_collections');
-      if (savedCollections) {
-        const parsed = JSON.parse(savedCollections);
-        if (Array.isArray(parsed) && parsed.length > 0 && parsed[0]?.requests?.length > 0) {
-          return parsed[0].requests[0];
-        }
-      }
-    } catch {
-      // fallback
-    }
-    return createDefaultRequest();
+  const [activeRequest, setActiveRequest] = useState<HttpRequestItem>(() => {
+    const first = findFirstRequest(collections);
+    return first || createDefaultRequest();
   });
 
   const [requestTab, setRequestTab] = useState<'params' | 'headers' | 'body'>('params');
   const [searchQuery, setSearchQuery] = useState('');
   const [isSending, setIsSending] = useState(false);
-  const [editingReqId, setEditingReqId] = useState<string | null>(null);
-  const [editingReqName, setEditingReqName] = useState('');
 
-  // Response State (Starts null - zero pre-rendered mock data)
+  // In-place Editing / Naming State
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState('');
+  const editInputRef = useRef<HTMLInputElement>(null);
+
+  // Context Menu State
+  const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Drag and Drop State
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [dragOverTarget, setDragOverTarget] = useState<{
+    id: string;
+    position: 'inside' | 'before' | 'after';
+  } | null>(null);
+
+  // Response State
   const [responseState, setResponseState] = useState<HttpResponseState | null>(null);
 
-  // Persist collections to localStorage
+  // Load from Go backend on startup
   useEffect(() => {
-    try {
-      localStorage.setItem('octa_http_collections', JSON.stringify(collections));
-    } catch (e) {
-      console.warn('Failed to persist http collections', e);
-    }
-  }, [collections]);
+    let isMounted = true;
+    (async () => {
+      try {
+        const diskData = await loadHttpClientData();
+        if (diskData && diskData.trim() && isMounted) {
+          const parsed = JSON.parse(diskData);
+          if (Array.isArray(parsed)) {
+            const normalized = normalizeCollections(parsed);
+            setCollections(normalized);
+            const first = findFirstRequest(normalized);
+            if (first) {
+              setActiveRequest(first);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Could not load HTTP client data from backend disk file:', err);
+      }
+    })();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
-  // Sync active request changes back to collections
-  const updateActiveRequest = (updated: HttpRequest) => {
+  // Save to Go backend and localStorage on tree change
+  const saveTreeData = useCallback((nextTree: HttpFolderItem[]) => {
+    setCollections(nextTree);
+    try {
+      const jsonStr = JSON.stringify(nextTree);
+      localStorage.setItem('octa_http_collections', jsonStr);
+      saveHttpClientData(jsonStr).catch((err) => {
+        console.warn('Backend saveHttpClientData failed:', err);
+      });
+    } catch (e) {
+      console.warn('Failed to persist collections:', e);
+    }
+  }, []);
+
+  // Auto-focus and select all text when editing an item name
+  useEffect(() => {
+    if (editingId && editInputRef.current) {
+      editInputRef.current.focus();
+      editInputRef.current.select();
+    }
+  }, [editingId]);
+
+  // Close context menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpenId(null);
+      }
+    };
+    window.addEventListener('mousedown', handleClickOutside);
+    return () => window.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Update active request fields and sync into tree
+  const updateActiveRequest = (updated: HttpRequestItem) => {
     setActiveRequest(updated);
-    setCollections((prev) =>
-      prev.map((col) => ({
-        ...col,
-        requests: col.requests.map((r) => (r.id === updated.id ? updated : r)),
-      }))
-    );
+    const updateRecursively = (items: (HttpFolderItem | HttpRequestItem)[]): (HttpFolderItem | HttpRequestItem)[] => {
+      return items.map((item) => {
+        if (item.id === updated.id && item.type === 'request') {
+          return updated;
+        }
+        if (item.type !== 'request') {
+          return {
+            ...item,
+            items: updateRecursively(item.items),
+          };
+        }
+        return item;
+      });
+    };
+    saveTreeData(updateRecursively(collections) as HttpFolderItem[]);
   };
 
+  // Toggle folder / collection expanded state
+  const toggleFolderOpen = (folderId: string) => {
+    const toggleRecursively = (items: HttpFolderItem[]): HttpFolderItem[] => {
+      return items.map((col) => {
+        if (col.id === folderId) {
+          return { ...col, isOpen: !col.isOpen };
+        }
+        return {
+          ...col,
+          items: col.items.map((child) => {
+            if (child.type !== 'request') {
+              return toggleRecursively([child])[0];
+            }
+            return child;
+          }),
+        };
+      });
+    };
+    saveTreeData(toggleRecursively(collections));
+  };
+
+  // Commit in-place name change
+  const commitNameEdit = () => {
+    if (!editingId) return;
+    const finalName = editingName.trim();
+    if (!finalName) {
+      setEditingId(null);
+      return;
+    }
+
+    const renameRecursively = (items: (HttpFolderItem | HttpRequestItem)[]): (HttpFolderItem | HttpRequestItem)[] => {
+      return items.map((item) => {
+        if (item.id === editingId) {
+          return { ...item, name: finalName };
+        }
+        if (item.type !== 'request') {
+          return {
+            ...item,
+            items: renameRecursively(item.items),
+          };
+        }
+        return item;
+      });
+    };
+
+    saveTreeData(renameRecursively(collections) as HttpFolderItem[]);
+    if (activeRequest.id === editingId) {
+      setActiveRequest((prev) => ({ ...prev, name: finalName }));
+    }
+    setEditingId(null);
+  };
+
+  // 1. Create New Top-Level Collection
+  const handleCreateNewCollection = () => {
+    const newCol = createDefaultCollection('Untitled Collection');
+    const next = [...collections, newCol];
+    saveTreeData(next);
+    setEditingId(newCol.id);
+    setEditingName(newCol.name);
+    setMenuOpenId(null);
+    showToast('Created new collection', 'success');
+  };
+
+  // 2. Create Folder inside target parent (or root if null)
+  const handleCreateFolder = (parentId: string | null) => {
+    const newFolder = createDefaultFolder('New Folder');
+    if (!parentId || collections.length === 0) {
+      const newCol = createDefaultCollection('Untitled Collection');
+      newCol.items.push(newFolder);
+      saveTreeData([...collections, newCol]);
+      setEditingId(newFolder.id);
+      setEditingName(newFolder.name);
+      setMenuOpenId(null);
+      return;
+    }
+
+    const insertRecursively = (items: HttpFolderItem[]): HttpFolderItem[] => {
+      return items.map((folder) => {
+        if (folder.id === parentId) {
+          return {
+            ...folder,
+            isOpen: true,
+            items: [...folder.items, newFolder],
+          };
+        }
+        return {
+          ...folder,
+          items: folder.items.map((child) => {
+            if (child.type !== 'request') {
+              return insertRecursively([child])[0];
+            }
+            return child;
+          }),
+        };
+      });
+    };
+
+    saveTreeData(insertRecursively(collections));
+    setEditingId(newFolder.id);
+    setEditingName(newFolder.name);
+    setMenuOpenId(null);
+    showToast('Created new folder', 'info');
+  };
+
+  // 3. Create Request inside target parent (or root collection)
+  const handleCreateNewRequest = (parentId?: string | null) => {
+    const newReq = createDefaultRequest('Untitled Request');
+    if (collections.length === 0) {
+      const newCol = createDefaultCollection('My Collection');
+      newCol.items.push(newReq);
+      saveTreeData([newCol]);
+      setActiveRequest(newReq);
+      setEditingId(newReq.id);
+      setEditingName(newReq.name);
+      setResponseState(null);
+      return;
+    }
+
+    const targetParentId = parentId || collections[0].id;
+    const insertRecursively = (items: HttpFolderItem[]): HttpFolderItem[] => {
+      return items.map((folder) => {
+        if (folder.id === targetParentId) {
+          return {
+            ...folder,
+            isOpen: true,
+            items: [newReq, ...folder.items],
+          };
+        }
+        return {
+          ...folder,
+          items: folder.items.map((child) => {
+            if (child.type !== 'request') {
+              return insertRecursively([child])[0];
+            }
+            return child;
+          }),
+        };
+      });
+    };
+
+    saveTreeData(insertRecursively(collections));
+    setActiveRequest(newReq);
+    setEditingId(newReq.id);
+    setEditingName(newReq.name);
+    setResponseState(null);
+    setMenuOpenId(null);
+    showToast('Created new request', 'info');
+  };
+
+  // 4. Duplicate Request
+  const handleDuplicateRequest = (reqId: string) => {
+    const original = findItemById(collections, reqId) as HttpRequestItem;
+    if (!original || original.type !== 'request') return;
+
+    const duplicated: HttpRequestItem = {
+      ...original,
+      id: 'req-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7),
+      name: original.name + ' (Copy)',
+    };
+
+    const duplicateInTree = (items: (HttpFolderItem | HttpRequestItem)[]): (HttpFolderItem | HttpRequestItem)[] => {
+      const next: (HttpFolderItem | HttpRequestItem)[] = [];
+      for (const item of items) {
+        next.push(item);
+        if (item.id === reqId) {
+          next.push(duplicated);
+        } else if (item.type !== 'request') {
+          item.items = duplicateInTree(item.items);
+        }
+      }
+      return next;
+    };
+
+    saveTreeData(duplicateInTree(collections) as HttpFolderItem[]);
+    setActiveRequest(duplicated);
+    setMenuOpenId(null);
+    showToast('Request duplicated', 'success');
+  };
+
+  // 5. Delete Item (Collection, Folder, or Request)
+  const handleDeleteItem = (id: string) => {
+    const deleteRecursively = (items: (HttpFolderItem | HttpRequestItem)[]): (HttpFolderItem | HttpRequestItem)[] => {
+      return items
+        .filter((item) => item.id !== id)
+        .map((item) => {
+          if (item.type !== 'request') {
+            return {
+              ...item,
+              items: deleteRecursively(item.items),
+            };
+          }
+          return item;
+        });
+    };
+
+    const nextTree = deleteRecursively(collections) as HttpFolderItem[];
+    saveTreeData(nextTree);
+    if (activeRequest.id === id) {
+      const first = findFirstRequest(nextTree);
+      setActiveRequest(first || createDefaultRequest());
+      setResponseState(null);
+    }
+    setMenuOpenId(null);
+    showToast('Deleted successfully', 'info');
+  };
+
+  // 6. Tree Drag & Drop Logic
+  const handleDragStart = (e: React.DragEvent, id: string) => {
+    e.stopPropagation();
+    e.dataTransfer.setData('text/plain', id);
+    e.dataTransfer.effectAllowed = 'move';
+    setDraggedId(id);
+  };
+
+  const handleDragOver = (e: React.DragEvent, targetItem: HttpTreeItem) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!draggedId || draggedId === targetItem.id) return;
+    if (isDescendant(collections, draggedId, targetItem.id)) return;
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const offsetY = e.clientY - rect.top;
+    const height = rect.height;
+
+    let position: 'before' | 'inside' | 'after' = 'inside';
+
+    if (targetItem.type === 'request') {
+      position = offsetY < height / 2 ? 'before' : 'after';
+    } else {
+      if (offsetY < height * 0.25) {
+        position = 'before';
+      } else if (offsetY > height * 0.75) {
+        position = 'after';
+      } else {
+        position = 'inside';
+      }
+    }
+
+    setDragOverTarget({ id: targetItem.id, position });
+  };
+
+  const handleDragLeave = (e: React.DragEvent, id: string) => {
+    e.stopPropagation();
+    if (dragOverTarget?.id === id) {
+      setDragOverTarget(null);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent, targetItem: HttpTreeItem) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!draggedId || draggedId === targetItem.id || !dragOverTarget) {
+      setDraggedId(null);
+      setDragOverTarget(null);
+      return;
+    }
+
+    if (isDescendant(collections, draggedId, targetItem.id)) {
+      setDraggedId(null);
+      setDragOverTarget(null);
+      return;
+    }
+
+    // 1. Extract dragged item from tree
+    const extractedItem = findItemById(collections, draggedId);
+    if (!extractedItem) return;
+
+    const removeDragged = (items: (HttpFolderItem | HttpRequestItem)[]): (HttpFolderItem | HttpRequestItem)[] => {
+      return items
+        .filter((item) => item.id !== draggedId)
+        .map((item) => {
+          if (item.type !== 'request') {
+            return {
+              ...item,
+              items: removeDragged(item.items),
+            };
+          }
+          return item;
+        });
+    };
+
+    const treeWithoutDragged = removeDragged(collections) as HttpFolderItem[];
+
+    // 2. Insert into new location
+    const { position } = dragOverTarget;
+
+    if (position === 'inside' && targetItem.type !== 'request') {
+      // Drop inside folder/collection
+      const insertInside = (items: HttpFolderItem[]): HttpFolderItem[] => {
+        return items.map((folder) => {
+          if (folder.id === targetItem.id) {
+            return {
+              ...folder,
+              isOpen: true,
+              items: [...folder.items, extractedItem],
+            };
+          }
+          return {
+            ...folder,
+            items: folder.items.map((child) => {
+              if (child.type !== 'request') {
+                return insertInside([child])[0];
+              }
+              return child;
+            }),
+          };
+        });
+      };
+      saveTreeData(insertInside(treeWithoutDragged));
+    } else {
+      // Insert before or after targetItem
+      const parentInfo = findParentOfItem(treeWithoutDragged, targetItem.id);
+      if (!parentInfo) {
+        // Target is at top-level collections
+        const targetIdx = treeWithoutDragged.findIndex((c) => c.id === targetItem.id);
+        const insertIdx = position === 'before' ? targetIdx : targetIdx + 1;
+        const newCols = [...treeWithoutDragged];
+        newCols.splice(insertIdx, 0, extractedItem as HttpFolderItem);
+        saveTreeData(newCols);
+      } else {
+        const { parent, index } = parentInfo;
+        const insertIdx = position === 'before' ? index : index + 1;
+
+        if (parent === null) {
+          const newCols = [...treeWithoutDragged];
+          newCols.splice(insertIdx, 0, extractedItem as HttpFolderItem);
+          saveTreeData(newCols);
+        } else {
+          const insertInParent = (items: HttpFolderItem[]): HttpFolderItem[] => {
+            return items.map((folder) => {
+              if (folder.id === parent.id) {
+                const newItems = [...folder.items];
+                newItems.splice(insertIdx, 0, extractedItem);
+                return {
+                  ...folder,
+                  items: newItems,
+                };
+              }
+              return {
+                ...folder,
+                items: folder.items.map((child) => {
+                  if (child.type !== 'request') {
+                    return insertInParent([child])[0];
+                  }
+                  return child;
+                }),
+              };
+            });
+          };
+          saveTreeData(insertInParent(treeWithoutDragged));
+        }
+      }
+    }
+
+    setDraggedId(null);
+    setDragOverTarget(null);
+  };
+
+  // Handle Send Request Execution
   const handleSendRequest = async () => {
     if (!activeRequest.url.trim()) {
       showToast('Please enter a request URL', 'error');
@@ -210,74 +789,282 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({ showTo
     }
   };
 
-  const handleCreateNewCollection = () => {
-    const newReq = createDefaultRequest();
-    const newCol: CollectionFolder = {
-      id: 'col-' + Date.now(),
-      name: 'Collection ' + (collections.length + 1),
-      requests: [newReq],
-    };
-    setCollections((prev) => [...prev, newCol]);
-    setActiveRequest(newReq);
-    setResponseState(null);
-    showToast('Created "' + newCol.name + '"', 'success');
-  };
-
-  const handleCreateNewRequest = () => {
-    const newReq = createDefaultRequest();
-    if (collections.length === 0) {
-      const newCol: CollectionFolder = {
-        id: 'col-' + Date.now(),
-        name: 'My Collection',
-        requests: [newReq],
-      };
-      setCollections([newCol]);
-    } else {
-      setCollections((prev) => [
-        {
-          ...prev[0],
-          requests: [newReq, ...prev[0].requests],
-        },
-        ...prev.slice(1),
-      ]);
+  // Filter matches helper
+  const matchesSearch = (item: HttpTreeItem): boolean => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    if (item.name.toLowerCase().includes(q)) return true;
+    if (item.type === 'request' && item.url.toLowerCase().includes(q)) return true;
+    if (item.type !== 'request') {
+      return item.items.some((child) => matchesSearch(child));
     }
-    setActiveRequest(newReq);
-    setResponseState(null);
-    showToast('New request created', 'info');
+    return false;
   };
 
-  const handleDeleteRequest = (reqId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setCollections((prev) =>
-      prev.map((col) => ({
-        ...col,
-        requests: col.requests.filter((r) => r.id !== reqId),
-      }))
+  // Recursive Tree Item Renderer
+  const renderTreeItem = (item: HttpTreeItem, depth: number = 0) => {
+    if (!matchesSearch(item)) return null;
+
+    const isFolder = item.type === 'collection' || item.type === 'folder';
+    const isCollection = item.type === 'collection';
+    const isSelected = !isFolder && activeRequest.id === item.id;
+    const isEditing = editingId === item.id;
+    const isMenuOpen = menuOpenId === item.id;
+
+    // Drag over state styling
+    const isDragTarget = dragOverTarget?.id === item.id;
+    const dropPosition = isDragTarget ? dragOverTarget.position : null;
+
+    return (
+      <div key={item.id} className="relative select-none">
+        {/* Drop Line: Before */}
+        {dropPosition === 'before' && (
+          <div className="h-0.5 w-full bg-brand-400 my-0.5 rounded shadow-[0_0_8px_rgba(56,189,248,0.8)]" />
+        )}
+
+        {/* Item Row */}
+        <div
+          draggable={!isEditing}
+          onDragStart={(e) => handleDragStart(e, item.id)}
+          onDragOver={(e) => handleDragOver(e, item)}
+          onDragLeave={(e) => handleDragLeave(e, item.id)}
+          onDrop={(e) => handleDrop(e, item)}
+          onClick={() => {
+            if (isFolder) {
+              toggleFolderOpen(item.id);
+            } else {
+              setActiveRequest(item as HttpRequestItem);
+              setResponseState(null);
+            }
+          }}
+          style={{ paddingLeft: depth * 14 + 8 }}
+          className={
+            'w-full pr-2 py-1.5 rounded-lg flex items-center gap-1.5 text-left transition-all cursor-pointer group/row ' +
+            (isSelected
+              ? 'bg-surface-800 text-white font-medium shadow-sm border-l-2 border-brand-400'
+              : 'text-zinc-300 hover:text-zinc-100 hover:bg-[#1a1a1a]') +
+            (dropPosition === 'inside'
+              ? ' ring-1 ring-brand-400 bg-brand-500/10 border-brand-500/50'
+              : '')
+          }
+        >
+          {/* Chevron / Toggle for Folders & Collections */}
+          {isFolder ? (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleFolderOpen(item.id);
+              }}
+              className="p-0.5 text-zinc-500 hover:text-zinc-300 rounded cursor-pointer"
+            >
+              {item.isOpen ? (
+                <ChevronDown className="w-3.5 h-3.5 text-zinc-400" />
+              ) : (
+                <ChevronRight className="w-3.5 h-3.5 text-zinc-500" />
+              )}
+            </button>
+          ) : (
+            <span className="w-3.5" />
+          )}
+
+          {/* Type Icon */}
+          {isCollection ? (
+            <Layers className="w-3.5 h-3.5 text-brand-400 flex-shrink-0" />
+          ) : isFolder ? (
+            item.isOpen ? (
+              <FolderOpen className="w-3.5 h-3.5 text-amber-400/90 flex-shrink-0" />
+            ) : (
+              <Folder className="w-3.5 h-3.5 text-amber-400/70 flex-shrink-0" />
+            )
+          ) : (
+            <span
+              className={
+                'text-[9px] font-bold font-mono px-1.5 py-0.2 rounded border flex-shrink-0 ' +
+                (METHOD_COLORS[(item as HttpRequestItem).method]?.badge || METHOD_COLORS.GET.badge)
+              }
+            >
+              {(item as HttpRequestItem).method}
+            </span>
+          )}
+
+          {/* Name or In-Place Input */}
+          {isEditing ? (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                commitNameEdit();
+              }}
+              onClick={(e) => e.stopPropagation()}
+              className="flex-1 flex items-center gap-1 min-w-0"
+            >
+              <input
+                ref={editInputRef}
+                type="text"
+                value={editingName}
+                onChange={(e) => setEditingName(e.target.value)}
+                onBlur={commitNameEdit}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') setEditingId(null);
+                }}
+                className="w-full px-1.5 py-0.5 text-xs font-medium bg-[#222222] border border-brand-500 rounded text-white outline-none"
+              />
+            </form>
+          ) : (
+            <span
+              onDoubleClick={(e) => {
+                e.stopPropagation();
+                setEditingId(item.id);
+                setEditingName(item.name);
+              }}
+              className={'text-xs truncate flex-1 ' + (isCollection ? 'font-semibold text-zinc-200' : isFolder ? 'font-medium text-zinc-300' : 'text-zinc-400 group-hover/row:text-zinc-200')}
+            >
+              {item.name}
+            </span>
+          )}
+
+          {/* Request Count Badge for Collections / Folders */}
+          {isFolder && !isEditing && (
+            <span className="text-[10px] text-zinc-600 font-mono pr-1">
+              {countRequests(item)}
+            </span>
+          )}
+
+          {/* 3-Dot Action Menu Button */}
+          {!isEditing && (
+            <div className="relative">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMenuOpenId(isMenuOpen ? null : item.id);
+                }}
+                title="Options"
+                className="opacity-0 group-hover/row:opacity-100 p-1 text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 rounded transition-all cursor-pointer"
+              >
+                <MoreVertical className="w-3.5 h-3.5" />
+              </button>
+
+              {/* Context / 3-Dot Dropdown Menu */}
+              {isMenuOpen && (
+                <div
+                  ref={menuRef}
+                  onClick={(e) => e.stopPropagation()}
+                  className="absolute right-0 top-full mt-1 w-44 bg-[#181818] border border-[#2b2b2b] rounded-lg shadow-2xl py-1 z-50 text-xs text-zinc-300 backdrop-blur-md"
+                >
+                  {isFolder ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => handleCreateNewRequest(item.id)}
+                        className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-zinc-800/80 hover:text-white transition-colors cursor-pointer"
+                      >
+                        <Plus className="w-3.5 h-3.5 text-brand-400" />
+                        <span>Add Request</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleCreateFolder(item.id)}
+                        className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-zinc-800/80 hover:text-white transition-colors cursor-pointer"
+                      >
+                        <FolderPlus className="w-3.5 h-3.5 text-amber-400" />
+                        <span>Add Folder</span>
+                      </button>
+                      <div className="h-px bg-[#262626] my-1" />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingId(item.id);
+                          setEditingName(item.name);
+                          setMenuOpenId(null);
+                        }}
+                        className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-zinc-800/80 hover:text-white transition-colors cursor-pointer"
+                      >
+                        <Edit2 className="w-3.5 h-3.5 text-zinc-400" />
+                        <span>Rename</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteItem(item.id)}
+                        className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-rose-950/40 text-rose-400 hover:text-rose-300 transition-colors cursor-pointer"
+                      >
+                        <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                        <span>Delete</span>
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => handleDuplicateRequest(item.id)}
+                        className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-zinc-800/80 hover:text-white transition-colors cursor-pointer"
+                      >
+                        <Files className="w-3.5 h-3.5 text-brand-400" />
+                        <span>Duplicate</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingId(item.id);
+                          setEditingName(item.name);
+                          setMenuOpenId(null);
+                        }}
+                        className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-zinc-800/80 hover:text-white transition-colors cursor-pointer"
+                      >
+                        <Edit2 className="w-3.5 h-3.5 text-zinc-400" />
+                        <span>Rename</span>
+                      </button>
+                      <div className="h-px bg-[#262626] my-1" />
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteItem(item.id)}
+                        className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-rose-950/40 text-rose-400 hover:text-rose-300 transition-colors cursor-pointer"
+                      >
+                        <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                        <span>Delete</span>
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Drop Line: After */}
+        {dropPosition === 'after' && (
+          <div className="h-0.5 w-full bg-brand-400 my-0.5 rounded shadow-[0_0_8px_rgba(56,189,248,0.8)]" />
+        )}
+
+        {/* Render Children for Open Folders */}
+        {isFolder && item.isOpen && item.items.length > 0 && (
+          <div className="space-y-0.5">
+            {item.items.map((child) => renderTreeItem(child, depth + 1))}
+          </div>
+        )}
+
+        {/* Render Empty State for Empty Open Folders */}
+        {isFolder && item.isOpen && item.items.length === 0 && (
+          <div
+            style={{ paddingLeft: (depth + 1) * 14 + 12 }}
+            className="py-1 text-[11px] text-zinc-600 italic select-none"
+          >
+            Empty folder
+          </div>
+        )}
+      </div>
     );
-    if (activeRequest.id === reqId) {
-      setActiveRequest(createDefaultRequest());
-      setResponseState(null);
-    }
-    showToast('Request deleted', 'info');
-  };
-
-  const handleDeleteCollection = (colId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setCollections((prev) => prev.filter((c) => c.id !== colId));
-    setActiveRequest(createDefaultRequest());
-    setResponseState(null);
-    showToast('Collection deleted', 'info');
   };
 
   return (
     <div className="flex-1 flex h-full bg-[#121212] text-zinc-100 overflow-hidden select-none font-sans">
-      {/* 1. HTTP Collections & History Sidebar */}
-      <div className="w-64 border-r border-[#262626] bg-[#161616] flex flex-col flex-shrink-0">
+      {/* 1. Request Explorer Tree Sidebar */}
+      <div className="w-68 border-r border-[#262626] bg-[#161616] flex flex-col flex-shrink-0">
         {/* Sidebar Header */}
         <div className="p-3 border-b border-[#262626] flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Globe className="w-4 h-4 text-brand-400" />
-            <span className="text-xs font-bold text-zinc-200 uppercase tracking-wider">API Client</span>
+            <span className="text-xs font-bold text-zinc-200 uppercase tracking-wider">Explorer</span>
           </div>
           <div className="flex items-center gap-1">
             <button
@@ -290,7 +1077,7 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({ showTo
             </button>
             <button
               type="button"
-              onClick={handleCreateNewRequest}
+              onClick={() => handleCreateNewRequest()}
               title="New HTTP Request"
               className="p-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 text-white shadow-sm transition-colors cursor-pointer"
             >
@@ -299,7 +1086,7 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({ showTo
           </div>
         </div>
 
-        {/* Filter Input (only when collections exist) */}
+        {/* Filter Input */}
         {collections.length > 0 && (
           <div className="px-3 py-2 border-b border-[#262626]">
             <div className="relative">
@@ -308,15 +1095,15 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({ showTo
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Filter requests..."
+                placeholder="Filter requests & folders..."
                 className="w-full pl-8 pr-2.5 py-1 text-xs bg-[#1a1a1a] border border-[#2b2b2b] rounded-md text-zinc-200 placeholder-zinc-500 focus:border-brand-500 outline-none font-mono"
               />
             </div>
           </div>
         )}
 
-        {/* Collections Tree or Clean Empty State */}
-        <div className="flex-1 overflow-y-auto p-2 space-y-3">
+        {/* Tree View Area */}
+        <div className="flex-1 overflow-y-auto p-2 space-y-1">
           {collections.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center p-4 text-center select-none text-zinc-500">
               <div className="w-10 h-10 rounded-xl bg-surface-800 border border-[#2b2b2b] flex items-center justify-center mb-3 text-zinc-400">
@@ -324,12 +1111,12 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({ showTo
               </div>
               <span className="text-xs font-semibold text-zinc-300">No Collections</span>
               <span className="text-[11px] text-zinc-500 mt-1 mb-4 leading-normal">
-                Create a collection to organize and save your API endpoints.
+                Create a collection to organize and save your API endpoints in folders.
               </span>
               <div className="flex flex-col gap-2 w-full">
                 <button
                   type="button"
-                  onClick={handleCreateNewRequest}
+                  onClick={() => handleCreateNewRequest()}
                   className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 text-white font-medium text-xs shadow-sm transition-colors cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5" />
@@ -346,101 +1133,39 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({ showTo
               </div>
             </div>
           ) : (
-            collections.map((col) => (
-              <div key={col.id} className="space-y-1">
-                <div className="px-2 py-1 flex items-center justify-between text-[11px] font-bold text-zinc-400 uppercase tracking-wider group/col">
-                  <span className="truncate">{col.name}</span>
-                  <div className="flex items-center gap-1">
-                    <span className="text-zinc-600 font-mono text-[10px]">{col.requests.length}</span>
-                    <button
-                      type="button"
-                      onClick={(e) => handleDeleteCollection(col.id, e)}
-                      title="Delete Collection"
-                      className="opacity-0 group-hover/col:opacity-100 p-0.5 text-zinc-500 hover:text-rose-400 transition-opacity cursor-pointer"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </button>
-                  </div>
-                </div>
-                <div className="space-y-0.5">
-                  {col.requests
-                    .filter(
-                      (r) =>
-                        r.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                        r.url.toLowerCase().includes(searchQuery.toLowerCase())
-                    )
-                    .map((req) => {
-                      const isSelected = activeRequest.id === req.id;
-                      const methodColor = METHOD_COLORS[req.method] || METHOD_COLORS.GET;
-                      return (
-                        <div
-                          key={req.id}
-                          onClick={() => {
-                            setActiveRequest(req);
-                            setResponseState(null);
-                          }}
-                          className={'w-full px-2.5 py-1.5 rounded-md flex items-center gap-2 text-left transition-colors cursor-pointer group/req ' + (isSelected ? 'bg-surface-800 text-white font-medium shadow-sm' : 'text-zinc-400 hover:text-zinc-200 hover:bg-[#1f1f1f]')}
-                        >
-                          <span
-                            className={'text-[10px] font-bold font-mono px-1.5 py-0.2 rounded border ' + methodColor.badge}
-                          >
-                            {req.method}
-                          </span>
-                          <span className="text-xs truncate flex-1">{req.name}</span>
-                          <button
-                            type="button"
-                            onClick={(e) => handleDeleteRequest(req.id, e)}
-                            title="Delete Request"
-                            className="opacity-0 group-hover/req:opacity-100 p-0.5 text-zinc-500 hover:text-rose-400 transition-opacity cursor-pointer"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </button>
-                        </div>
-                      );
-                    })}
-                </div>
-              </div>
-            ))
+            collections.map((col) => renderTreeItem(col, 0))
           )}
         </div>
       </div>
 
-      {/* 2. Main HTTP Workspace Area */}
+      {/* 2. Main Request & Response Workspace Area */}
       <div className="flex-1 flex flex-col h-full overflow-hidden bg-[#121212]">
         {/* Top Request Title & URL Bar */}
         <div className="p-3 border-b border-[#262626] bg-[#171717] flex flex-col gap-2 flex-shrink-0">
           {/* Request Name Header */}
           <div className="flex items-center gap-2">
-            {editingReqId === activeRequest.id ? (
+            {editingId === activeRequest.id ? (
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
-                  if (editingReqName.trim()) {
-                    updateActiveRequest({ ...activeRequest, name: editingReqName.trim() });
-                  }
-                  setEditingReqId(null);
+                  commitNameEdit();
                 }}
                 className="flex items-center gap-1.5"
               >
                 <input
+                  ref={editInputRef}
                   type="text"
-                  value={editingReqName}
-                  onChange={(e) => setEditingReqName(e.target.value)}
-                  autoFocus
-                  onBlur={() => {
-                    if (editingReqName.trim()) {
-                      updateActiveRequest({ ...activeRequest, name: editingReqName.trim() });
-                    }
-                    setEditingReqId(null);
-                  }}
+                  value={editingName}
+                  onChange={(e) => setEditingName(e.target.value)}
+                  onBlur={commitNameEdit}
                   className="px-2 py-0.5 text-xs font-semibold bg-[#1f1f1f] border border-cyan-500 rounded text-white outline-none"
                 />
               </form>
             ) : (
               <div
                 onClick={() => {
-                  setEditingReqId(activeRequest.id);
-                  setEditingReqName(activeRequest.name);
+                  setEditingId(activeRequest.id);
+                  setEditingName(activeRequest.name);
                 }}
                 title="Click to rename request"
                 className="flex items-center gap-1.5 text-xs font-semibold text-zinc-200 hover:text-white cursor-pointer group"
@@ -683,7 +1408,12 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({ showTo
                 {responseState && (
                   <div className="flex items-center gap-2">
                     <span
-                      className={'text-xs font-mono font-bold px-2 py-0.5 rounded border ' + (responseState.status >= 200 && responseState.status < 300 ? 'bg-emerald-950/70 border-emerald-500/40 text-emerald-300' : 'bg-rose-950/70 border-rose-500/40 text-rose-300')}
+                      className={
+                        'text-xs font-mono font-bold px-2 py-0.5 rounded border ' +
+                        (responseState.status >= 200 && responseState.status < 300
+                          ? 'bg-emerald-950/70 border-emerald-500/40 text-emerald-300'
+                          : 'bg-rose-950/70 border-rose-500/40 text-rose-300')
+                      }
                     >
                       {responseState.status} {responseState.statusText}
                     </span>
