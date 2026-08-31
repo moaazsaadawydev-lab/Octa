@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { ActivityBar } from './components/ActivityBar';
+import { ActivityBar, ActiveModule } from './components/ActivityBar';
 import { Sidebar } from './components/Sidebar';
 import { Workspace } from './components/Workspace';
 import { QueryPlayground } from './components/QueryPlayground';
 import { ErdVisualizer } from './components/ErdVisualizer';
+import { HttpClientWorkspace } from './components/HttpClientWorkspace';
+import { SettingsView } from './components/SettingsView';
 import { NewConnectionModal } from './components/NewConnectionModal';
 import { ImportSqlModal } from './components/ImportSqlModal';
 import { ConnectionConfig, ActiveSession } from './types/connection';
@@ -15,10 +17,11 @@ import {
   saveSQLDumpDialog,
   downloadSQLFile,
 } from './services/api';
-import { AlertCircle, CheckCircle2, X } from 'lucide-react';
+import { AlertCircle, CheckCircle2, X, Table, Terminal, Layers } from 'lucide-react';
 
 export function App() {
-  const [activeTab, setActiveTab] = useState<'explorer' | 'editor' | 'erd' | 'settings'>('explorer');
+  const [activeModule, setActiveModule] = useState<ActiveModule>('databases');
+  const [dbSubView, setDbSubView] = useState<'tables' | 'playground' | 'erd'>('tables');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [connections, setConnections] = useState<ConnectionConfig[]>([]);
   const [activeSession, setActiveSession] = useState<ActiveSession | null>(null);
@@ -113,63 +116,57 @@ export function App() {
       fetchDatabasesForServer(server);
     }
 
-    showToast(`Connected to ${server.name} (${databaseName})`, 'success');
+    showToast(`Connected to database "${databaseName}" on ${server.name}`, 'success');
   };
 
-  // Delete saved connection profile
-  const handleDeleteConnection = async (id: string, name: string) => {
-    if (!confirm(`Are you sure you want to delete connection "${name}"?`)) {
-      return;
-    }
-
-    const success = await deleteConnection(id);
-    if (success) {
-      showToast(`Deleted connection "${name}"`, 'info');
-      if (activeSession?.connection.id === id) {
-        setActiveSession(null);
-      }
-      loadConnections();
-    } else {
-      showToast(`Failed to delete connection "${name}"`, 'error');
-    }
-  };
-
-  // Handle saving from Modal
-  const handleSaved = async (savedConfig: ConnectionConfig) => {
-    await loadConnections();
-    showToast(`Connection "${savedConfig.name}" saved successfully`, 'success');
-
-    // Auto expand and fetch databases
-    const connId = savedConfig.id || savedConfig.name;
-    setExpandedServers((prev) => ({ ...prev, [connId]: true }));
-    fetchDatabasesForServer(savedConfig);
-  };
-
-  // Handle direct connect from Modal
-  const handleConnectDirect = async (config: ConnectionConfig) => {
-    await loadConnections();
-    const connId = config.id || config.name;
-
+  // Direct connection from modal test/connect
+  const handleConnectDirect = (config: ConnectionConfig) => {
     setActiveSession({
       connection: config,
       activeDatabase: config.database || 'postgres',
       connectedAt: new Date(),
     });
-
-    setExpandedServers((prev) => ({ ...prev, [connId]: true }));
-    fetchDatabasesForServer(config);
-    showToast(`Connected to ${config.name}`, 'success');
+    showToast(`Connected to ${config.database || 'postgres'}`, 'success');
   };
 
-  // Handle Export Database Dump from Sidebar
+  // Delete saved connection
+  const handleDeleteConnection = async (id: string, name: string) => {
+    try {
+      await deleteConnection(id);
+      showToast(`Deleted connection "${name}"`, 'info');
+
+      // If active session was this connection, disconnect
+      if (activeSession?.connection.id === id) {
+        setActiveSession(null);
+      }
+
+      await loadConnections();
+    } catch (err: any) {
+      console.error('Failed to delete connection:', err);
+      showToast(`Failed to delete connection: ${err?.message || err}`, 'error');
+    }
+  };
+
+  const handleSaved = async () => {
+    setIsModalOpen(false);
+    showToast('Connection configuration saved', 'success');
+    await loadConnections();
+  };
+
+  // Handle Export Database Trigger from Sidebar
   const handleExportDatabase = async (
     server: ConnectionConfig,
     databaseName: string,
     exportData: boolean
   ) => {
+    const sessionConfig: ConnectionConfig = {
+      ...server,
+      database: databaseName,
+    };
+
     try {
-      showToast(`Generating SQL dump for "${databaseName}"...`, 'info');
-      const sql = await exportDatabaseSQL(server, databaseName, exportData);
+      showToast(`Exporting database "${databaseName}"...`, 'info');
+      const sql = await exportDatabaseSQL(sessionConfig, databaseName, exportData);
       const filename = `db_${databaseName}_${exportData ? 'dump' : 'schema'}_${Date.now()}.sql`;
 
       try {
@@ -206,46 +203,119 @@ export function App() {
     });
   };
 
+  // Global Keyboard Shortcuts for Module Switching
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey) {
+        if (e.key === '1') {
+          e.preventDefault();
+          setActiveModule('databases');
+        } else if (e.key === '2') {
+          e.preventDefault();
+          setActiveModule('http');
+        } else if (e.key === ',') {
+          e.preventDefault();
+          setActiveModule('settings');
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   return (
     <div className="flex h-screen w-screen bg-surface-950 text-gray-100 font-sans overflow-hidden select-none">
       {/* Activity Bar (VS Code style slim left rail) */}
-      <ActivityBar activeTab={activeTab} setActiveTab={setActiveTab} />
+      <ActivityBar activeModule={activeModule} setActiveModule={setActiveModule} />
 
-      {/* Main Secondary Sidebar (Server Explorer) */}
-      <Sidebar
-        connections={connections}
-        activeSession={activeSession}
-        databasesMap={databasesMap}
-        loadingMap={loadingMap}
-        expandedServers={expandedServers}
-        onToggleExpand={handleToggleExpand}
-        onOpenNewModal={() => setIsModalOpen(true)}
-        onRefreshConnections={loadConnections}
-        onConnectToDatabase={handleConnectToDatabase}
-        onDeleteConnection={handleDeleteConnection}
-        onExportDatabase={handleExportDatabase}
-        onImportSQL={handleImportSQL}
-      />
-
-      {/* Main Workspace / Playground / ERD Visualizer View */}
-      {activeTab === 'editor' ? (
-        <QueryPlayground
-          activeSession={activeSession}
-          onOpenNewModal={() => setIsModalOpen(true)}
-          showToast={showToast}
-        />
-      ) : activeTab === 'erd' ? (
-        <ErdVisualizer
-          activeSession={activeSession}
-          onOpenNewModal={() => setIsModalOpen(true)}
-          showToast={showToast}
-        />
+      {/* Dynamic Module Content */}
+      {activeModule === 'http' ? (
+        <HttpClientWorkspace showToast={showToast} />
+      ) : activeModule === 'settings' ? (
+        <SettingsView showToast={showToast} />
       ) : (
-        <Workspace
-          activeSession={activeSession}
-          onOpenNewModal={() => setIsModalOpen(true)}
-          showToast={showToast}
-        />
+        <div className="flex-1 flex overflow-hidden">
+          {/* Main Secondary Sidebar (Server Explorer) */}
+          <Sidebar
+            connections={connections}
+            activeSession={activeSession}
+            databasesMap={databasesMap}
+            loadingMap={loadingMap}
+            expandedServers={expandedServers}
+            onToggleExpand={handleToggleExpand}
+            onOpenNewModal={() => setIsModalOpen(true)}
+            onRefreshConnections={loadConnections}
+            onConnectToDatabase={handleConnectToDatabase}
+            onDeleteConnection={handleDeleteConnection}
+            onExportDatabase={handleExportDatabase}
+            onImportSQL={handleImportSQL}
+          />
+
+          {/* Database Workspace Views (Tables vs Monaco SQL Playground vs Schema ERD) */}
+          <div className="flex-1 flex flex-col overflow-hidden relative">
+            {/* View Switcher Segmented Pill Toggle (Visible when connected) */}
+            {activeSession && (
+              <div className="absolute right-4 top-2 z-40 flex items-center bg-[#141414] border border-[#2b2b2b] p-0.5 rounded-lg shadow-md">
+                <button
+                  type="button"
+                  onClick={() => setDbSubView('tables')}
+                  className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs transition-colors cursor-pointer ${
+                    dbSubView === 'tables'
+                      ? 'bg-zinc-700 text-white font-medium shadow-sm'
+                      : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40'
+                  }`}
+                >
+                  <Table className="w-3.5 h-3.5 text-brand-400" />
+                  <span>Tables</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDbSubView('playground')}
+                  className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs transition-colors cursor-pointer ${
+                    dbSubView === 'playground'
+                      ? 'bg-zinc-700 text-white font-medium shadow-sm'
+                      : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40'
+                  }`}
+                >
+                  <Terminal className="w-3.5 h-3.5 text-amber-400" />
+                  <span>SQL Playground</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDbSubView('erd')}
+                  className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs transition-colors cursor-pointer ${
+                    dbSubView === 'erd'
+                      ? 'bg-zinc-700 text-white font-medium shadow-sm'
+                      : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40'
+                  }`}
+                >
+                  <Layers className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>ERD</span>
+                </button>
+              </div>
+            )}
+
+            {dbSubView === 'playground' ? (
+              <QueryPlayground
+                activeSession={activeSession}
+                onOpenNewModal={() => setIsModalOpen(true)}
+                showToast={showToast}
+              />
+            ) : dbSubView === 'erd' ? (
+              <ErdVisualizer
+                activeSession={activeSession}
+                onOpenNewModal={() => setIsModalOpen(true)}
+                showToast={showToast}
+              />
+            ) : (
+              <Workspace
+                activeSession={activeSession}
+                onOpenNewModal={() => setIsModalOpen(true)}
+                showToast={showToast}
+              />
+            )}
+          </div>
+        </div>
       )}
 
       {/* New Connection Modal */}

@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   ReactFlow,
   Background,
@@ -316,7 +316,7 @@ const ErdCanvas: React.FC<ErdVisualizerProps> = ({
         </div>
 
         {/* Search & Actions Bar */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 mr-72">
           {/* Table Search */}
           <form onSubmit={handleSearch} className="relative">
             <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-2.5 top-1/2 -translate-y-1/2" />

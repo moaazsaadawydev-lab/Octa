@@ -7,8 +7,7 @@ import {
   Copy,
   Check,
   CheckCircle2,
-  AlertCircle,
-  Clock
+  AlertCircle
 } from 'lucide-react';
 import { QueryLog } from '../types/connection';
 import { getQueryLogs, clearQueryLogs } from '../services/api';
@@ -19,11 +18,22 @@ interface QueryConsoleProps {
   onToggleExpand: () => void;
 }
 
+interface HttpLog {
+  id: string;
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
+  url: string;
+  status: number;
+  durationMs: number;
+  timestamp: string;
+}
+
 export const QueryConsole: React.FC<QueryConsoleProps> = ({
   isExpanded,
   onToggleExpand,
 }) => {
+  const [activeConsoleTab, setActiveConsoleTab] = useState<'sql' | 'http'>('sql');
   const [logs, setLogs] = useState<QueryLog[]>([]);
+  const [httpLogs, setHttpLogs] = useState<HttpLog[]>([]);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -99,12 +109,16 @@ export const QueryConsole: React.FC<QueryConsoleProps> = ({
     if (isExpanded && scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [logs, isExpanded]);
+  }, [logs, httpLogs, isExpanded, activeConsoleTab]);
 
   const handleClear = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    await clearQueryLogs();
-    setLogs([]);
+    if (activeConsoleTab === 'sql') {
+      await clearQueryLogs();
+      setLogs([]);
+    } else {
+      setHttpLogs([]);
+    }
   };
 
   const handleCopy = (e: React.MouseEvent, id: string, query: string) => {
@@ -120,87 +134,131 @@ export const QueryConsole: React.FC<QueryConsoleProps> = ({
       'SELECT',
       'FROM',
       'WHERE',
-      'ORDER BY',
-      'GROUP BY',
-      'LIMIT',
-      'OFFSET',
-      'ALTER TABLE',
-      'ADD COLUMN',
-      'DROP COLUMN',
-      'RENAME COLUMN',
-      'TO',
-      'CASCADE',
-      'NOT NULL',
-      'INSERT INTO',
+      'INSERT',
+      'INTO',
+      'VALUES',
       'UPDATE',
+      'SET',
       'DELETE',
       'JOIN',
-      'LEFT JOIN',
-      'RIGHT JOIN',
-      'INNER JOIN',
+      'LEFT',
+      'RIGHT',
+      'INNER',
+      'OUTER',
+      'GROUP',
+      'BY',
+      'ORDER',
+      'ASC',
+      'DESC',
+      'LIMIT',
+      'OFFSET',
       'AND',
       'OR',
+      'NOT',
       'IN',
-      'AS',
-      'COUNT',
-      'LIKE',
-      'ILIKE',
+      'IS',
+      'NULL',
+      'CREATE',
+      'TABLE',
+      'ALTER',
+      'DROP',
+      'EXPLAIN',
+      'ANALYZE',
+      'COSTS',
+      'VERBOSE',
+      'BUFFERS',
+      'FORMAT',
+      'JSON'
     ];
 
-    // Simple regex highlighter
-    const pattern = new RegExp(`\\b(${keywords.join('|')})\\b`, 'gi');
-    const parts = query.split(pattern);
+    const regex = new RegExp(`\\b(${keywords.join('|')})\\b`, 'gi');
+    const parts = query.split(regex);
 
     return parts.map((part, i) => {
       if (keywords.some((kw) => kw.toLowerCase() === part.toLowerCase())) {
         return (
-          <span key={i} className="text-brand-400 font-semibold">
-            {part.toUpperCase()}
+          <span key={i} className="text-cyan-400 font-semibold">
+            {part}
           </span>
         );
       }
-      return <span key={i} className="text-gray-300">{part}</span>;
+      return <span key={i}>{part}</span>;
     });
   };
 
   return (
-    <div className="border-t border-border-subtle bg-surface-950 flex flex-col z-10 select-none relative flex-shrink-0 group/console">
-      {/* Horizontal Drag-to-Resize Splitter Handle */}
-      <div
-        onMouseDown={handleResizeStart}
-        className="absolute left-0 right-0 -top-1 h-2.5 cursor-row-resize select-none flex items-center justify-center group/resizer z-20 hover:bg-brand-500/10 active:bg-brand-500/20"
-      >
-        <div className="h-[2px] w-full group-hover/resizer:bg-brand-400 group-active/resizer:bg-brand-500 bg-transparent transition-colors" />
-      </div>
+    <div className="flex-shrink-0 flex flex-col bg-surface-950 border-t border-[#262626] transition-all duration-200 select-none z-10">
+      {/* Resizable handle line */}
+      {isExpanded && (
+        <div
+          onMouseDown={handleResizeStart}
+          title="Drag to resize console"
+          className="h-1.5 w-full cursor-row-resize bg-transparent hover:bg-brand-500/40 active:bg-brand-500 transition-colors z-20 flex-shrink-0"
+        />
+      )}
 
-      {/* Console Header Bar */}
+      {/* Header Bar */}
       <div
         onClick={onToggleExpand}
-        className="px-4 py-2 bg-surface-900/90 hover:bg-surface-850 border-b border-border/40 flex items-center justify-between cursor-pointer text-xs"
+        className="px-3 py-1.5 bg-[#141414] hover:bg-[#181818] cursor-pointer flex items-center justify-between border-b border-[#262626] text-xs transition-colors"
       >
-        <div className="flex items-center gap-2.5">
-          <div className="flex items-center gap-1.5 text-gray-300 font-medium">
-            <Terminal className="w-3.5 h-3.5 text-brand-400" />
-            <span className="font-mono">SQL Query Log</span>
-          </div>
+        {/* Tabs: SQL Logs & HTTP Network */}
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setActiveConsoleTab('sql');
+              if (!isExpanded) onToggleExpand();
+            }}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md transition-colors cursor-pointer ${
+              activeConsoleTab === 'sql'
+                ? 'bg-surface-800 text-brand-400 font-semibold shadow-sm'
+                : 'text-zinc-400 hover:text-zinc-200'
+            }`}
+          >
+            <Terminal className="w-3.5 h-3.5" />
+            <span className="font-mono text-[11px]">SQL Logs</span>
+            <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-zinc-800 text-zinc-300 font-mono">
+              {logs.length}
+            </span>
+          </button>
 
-          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-surface-800 text-gray-400 border border-border/50 font-mono">
-            {logs.length}
-          </span>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setActiveConsoleTab('http');
+              if (!isExpanded) onToggleExpand();
+            }}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md transition-colors cursor-pointer ${
+              activeConsoleTab === 'http'
+                ? 'bg-surface-800 text-cyan-400 font-semibold shadow-sm'
+                : 'text-zinc-400 hover:text-zinc-200'
+            }`}
+          >
+            <span className="text-xs">🌐</span>
+            <span className="font-mono text-[11px]">HTTP Network</span>
+            <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-zinc-800 text-zinc-300 font-mono">
+              {httpLogs.length}
+            </span>
+          </button>
         </div>
 
+        {/* Right Actions */}
         <div className="flex items-center gap-2">
-          {logs.length > 0 && (
+          {((activeConsoleTab === 'sql' && logs.length > 0) || (activeConsoleTab === 'http' && httpLogs.length > 0)) && (
             <button
+              type="button"
               onClick={handleClear}
-              title="Clear Logs"
-              className="p-1 rounded text-gray-400 hover:text-rose-400 hover:bg-surface-750 transition-colors"
+              title={`Clear ${activeConsoleTab === 'sql' ? 'SQL' : 'HTTP'} Logs`}
+              className="p-1 rounded text-zinc-400 hover:text-rose-400 hover:bg-surface-750 transition-colors cursor-pointer"
             >
               <Trash2 className="w-3.5 h-3.5" />
             </button>
           )}
 
-          <div className="text-gray-400 hover:text-gray-200 p-0.5 rounded">
+          <div className="text-zinc-400 hover:text-zinc-200 p-0.5 rounded">
             {isExpanded ? (
               <ChevronDown className="w-4 h-4" />
             ) : (
@@ -217,69 +275,95 @@ export const QueryConsole: React.FC<QueryConsoleProps> = ({
           style={{ height: consoleHeight }}
           className="overflow-y-auto p-3 font-mono text-[11px] leading-relaxed space-y-1.5 bg-[#0d0d0d] select-text"
         >
-          {logs.length === 0 ? (
-            <div className="text-gray-600 italic py-4 text-center select-none">
-              No SQL queries executed yet. Query executions and schema modifications will appear here in real time.
-            </div>
-          ) : (
-            logs.map((log) => {
-              const isError = log.status === 'ERROR';
+          {activeConsoleTab === 'sql' ? (
+            logs.length === 0 ? (
+              <div className="text-zinc-600 italic py-4 text-center select-none font-sans">
+                No SQL queries executed yet. Query executions and schema modifications will appear here in real time.
+              </div>
+            ) : (
+              logs.map((log) => {
+                const isError = log.status === 'ERROR';
 
-              return (
-                <div
-                  key={log.id}
-                  className={`flex items-start gap-2.5 p-1.5 rounded hover:bg-surface-850/60 group transition-colors ${
-                    isError ? 'bg-rose-950/20 border-l-2 border-rose-500 pl-2' : ''
-                  }`}
-                >
-                  {/* Status & Timestamp */}
-                  <div className="flex items-center gap-1.5 text-gray-500 flex-shrink-0 pt-0.5">
-                    {isError ? (
-                      <AlertCircle className="w-3.5 h-3.5 text-rose-400" />
-                    ) : (
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500/80" />
-                    )}
-                    <span className="text-[10px] text-gray-400 font-mono">{log.timestamp}</span>
-                  </div>
-
-                  {/* Duration Badge */}
-                  <span
-                    className={`text-[10px] px-1.5 py-0.2 rounded font-mono font-medium flex-shrink-0 ${
-                      isError
-                        ? 'text-rose-400 bg-rose-950/50'
-                        : log.durationMs > 100
-                        ? 'text-amber-400 bg-amber-950/40'
-                        : 'text-emerald-400 bg-emerald-950/40'
+                return (
+                  <div
+                    key={log.id}
+                    className={`flex items-start gap-2.5 p-1.5 rounded hover:bg-surface-850/60 group transition-colors ${
+                      isError ? 'bg-rose-950/20 border-l-2 border-rose-500 pl-2' : ''
                     }`}
                   >
-                    {log.durationMs.toFixed(2)}ms
-                  </span>
+                    {/* Status & Timestamp */}
+                    <div className="flex items-center gap-1.5 text-zinc-500 flex-shrink-0 pt-0.5">
+                      {isError ? (
+                        <AlertCircle className="w-3.5 h-3.5 text-rose-400" />
+                      ) : (
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500/80" />
+                      )}
+                      <span className="text-[10px] text-zinc-400 font-mono">{log.timestamp}</span>
+                    </div>
 
-                  {/* SQL Statement / Error */}
-                  <div className="flex-1 break-all font-mono">
-                    <div className="whitespace-pre-wrap">{highlightSQL(log.query)}</div>
-                    {isError && log.error && (
-                      <div className="text-rose-400 mt-1 font-sans text-[11px] bg-rose-950/30 p-1.5 rounded border border-rose-900/40">
-                        Error: {log.error}
-                      </div>
-                    )}
+                    {/* Duration Badge */}
+                    <span
+                      className={`text-[10px] px-1.5 py-0.2 rounded font-mono font-medium flex-shrink-0 ${
+                        isError
+                          ? 'text-rose-400 bg-rose-950/50'
+                          : log.durationMs > 100
+                          ? 'text-amber-400 bg-amber-950/40'
+                          : 'text-emerald-400 bg-emerald-950/40'
+                      }`}
+                    >
+                      {log.durationMs.toFixed(2)}ms
+                    </span>
+
+                    {/* SQL Statement / Error */}
+                    <div className="flex-1 break-all font-mono">
+                      <div className="whitespace-pre-wrap">{highlightSQL(log.query)}</div>
+                      {isError && log.error && (
+                        <div className="text-rose-400 mt-1 font-sans text-[11px] bg-rose-950/30 p-1.5 rounded border border-rose-900/40">
+                          Error: {log.error}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Copy Button */}
+                    <button
+                      type="button"
+                      onClick={(e) => handleCopy(e, log.id, log.query)}
+                      title="Copy Query"
+                      className="opacity-0 group-hover:opacity-100 p-1 text-zinc-500 hover:text-zinc-300 hover:bg-surface-750 rounded transition-opacity flex-shrink-0 cursor-pointer"
+                    >
+                      {copiedId === log.id ? (
+                        <Check className="w-3 h-3 text-emerald-400" />
+                      ) : (
+                        <Copy className="w-3 h-3" />
+                      )}
+                    </button>
                   </div>
-
-                  {/* Copy Button */}
-                  <button
-                    onClick={(e) => handleCopy(e, log.id, log.query)}
-                    title="Copy Query"
-                    className="opacity-0 group-hover:opacity-100 p-1 text-gray-500 hover:text-gray-300 hover:bg-surface-750 rounded transition-opacity flex-shrink-0"
-                  >
-                    {copiedId === log.id ? (
-                      <Check className="w-3 h-3 text-emerald-400" />
-                    ) : (
-                      <Copy className="w-3 h-3" />
-                    )}
-                  </button>
+                );
+              })
+            )
+          ) : (
+            httpLogs.length === 0 ? (
+              <div className="text-zinc-600 italic py-4 text-center select-none font-sans">
+                No HTTP network requests recorded yet.
+              </div>
+            ) : (
+              httpLogs.map((req) => (
+                <div
+                  key={req.id}
+                  className="flex items-center gap-2.5 p-1.5 rounded hover:bg-surface-850/60 transition-colors font-mono text-[11px]"
+                >
+                  <span className="text-[10px] text-zinc-500">{req.timestamp}</span>
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-950/70 border border-emerald-500/40 text-emerald-300">
+                    {req.method}
+                  </span>
+                  <span className="text-[10px] px-1.5 py-0.2 rounded bg-zinc-800 text-zinc-300">
+                    {req.status}
+                  </span>
+                  <span className="text-zinc-300 truncate flex-1">{req.url}</span>
+                  <span className="text-zinc-500 text-[10px]">{req.durationMs}ms</span>
                 </div>
-              );
-            })
+              ))
+            )
           )}
         </div>
       )}

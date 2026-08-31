@@ -17,6 +17,7 @@ import {
   Download,
   Upload,
   ChevronDown,
+  ChevronRight,
   FileCode
 } from 'lucide-react';
 import { ActiveSession, TableColumn, TableDataResult, RowUpdate } from '../types/connection';
@@ -495,8 +496,8 @@ export const Workspace: React.FC<WorkspaceProps> = ({
 
   return (
     <div className="flex-1 bg-surface-950 flex flex-col h-full overflow-hidden select-none">
-      {/* 1. Header Bar & Quick Action Controls */}
-      <div className="px-5 py-2.5 border-b border-border-subtle bg-surface-900/90 backdrop-blur flex flex-wrap items-center justify-between gap-3 flex-shrink-0 relative z-30">
+      {/* 1. Top Breadcrumb & Connection Status Header Bar */}
+      <div className="px-5 py-2.5 border-b border-border-subtle bg-surface-900/90 backdrop-blur flex items-center justify-between gap-3 flex-shrink-0 relative z-30">
         {/* Left Status & Breadcrumb */}
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 text-xs">
@@ -518,153 +519,19 @@ export const Workspace: React.FC<WorkspaceProps> = ({
               </>
             )}
           </div>
-
-          <button
-            onClick={handleRefresh}
-            title="Refresh Data and Schema"
-            className="p-1.5 rounded-lg bg-surface-800 hover:bg-surface-750 text-gray-300 border border-border/60 transition-colors cursor-pointer"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${loadingData || loadingTables ? 'animate-spin text-brand-400' : ''}`} />
-          </button>
         </div>
 
-        {/* Right Top Action Bar: Export / Import & Quick "Add Column" Controls */}
-        <div className="flex items-center gap-2 text-xs">
-          {/* Import SQL Script Button */}
+        {/* Right Top Actions */}
+        <div className="flex items-center gap-2 text-xs mr-72">
           <button
             type="button"
-            onClick={() => setIsImportModalOpen(true)}
-            title="Import SQL script (.sql) into active database"
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-surface-800 hover:bg-surface-750 text-cyan-300 border border-cyan-500/30 font-medium text-xs shadow-sm transition-all cursor-pointer"
+            onClick={handleRefresh}
+            title="Refresh Data and Schema"
+            className="flex items-center gap-1.5 p-1.5 px-2.5 rounded-lg bg-surface-800 hover:bg-surface-750 text-gray-300 border border-border/60 transition-colors cursor-pointer"
           >
-            <Upload className="w-3.5 h-3.5 text-cyan-400" />
-            <span className="hidden md:inline">Import SQL</span>
+            <RefreshCw className={`w-3.5 h-3.5 ${loadingData || loadingTables ? 'animate-spin text-brand-400' : ''}`} />
+            <span className="text-xs hidden sm:inline">Refresh</span>
           </button>
-
-          {/* Export SQL Dropdown */}
-          <div className="relative" ref={exportDropdownRef}>
-            <button
-              type="button"
-              onClick={() => setShowExportMenu(!showExportMenu)}
-              disabled={isExporting}
-              title="Export database or table SQL dump"
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-surface-800 hover:bg-surface-750 text-emerald-300 border border-emerald-500/30 font-medium text-xs shadow-sm transition-all disabled:opacity-50 cursor-pointer"
-            >
-              {isExporting ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-400" />
-              ) : (
-                <Download className="w-3.5 h-3.5 text-emerald-400" />
-              )}
-              <span className="hidden md:inline">Export SQL</span>
-              <ChevronDown className="w-3 h-3 text-gray-400" />
-            </button>
-
-            {showExportMenu && (
-              <div className="absolute right-0 top-full mt-1.5 w-56 bg-[#1f1f1f] border border-zinc-700/80 rounded-md shadow-2xl py-1.5 z-[100] animate-fade-in select-none">
-                {selectedTable && (
-                  <>
-                    <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-zinc-500 font-mono">
-                      Table: {selectedTable}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handleExportTable(false)}
-                      className="w-full px-3 py-1.5 text-xs text-left text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors flex items-center gap-2 cursor-pointer"
-                    >
-                      <FileCode className="w-3.5 h-3.5 text-zinc-400" />
-                      <span>Structure only (.sql)</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleExportTable(true)}
-                      className="w-full px-3 py-1.5 text-xs text-left text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors flex items-center gap-2 cursor-pointer"
-                    >
-                      <Download className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>Structure + Data (.sql)</span>
-                    </button>
-                    <div className="my-1 border-t border-zinc-800" />
-                  </>
-                )}
-
-                <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-zinc-500 font-mono">
-                  Database: {activeSession.activeDatabase}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleExportDatabase(false)}
-                  className="w-full px-3 py-1.5 text-xs text-left text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors flex items-center gap-2 cursor-pointer"
-                >
-                  <FileCode className="w-3.5 h-3.5 text-zinc-400" />
-                  <span>Database Structure only (.sql)</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleExportDatabase(true)}
-                  className="w-full px-3 py-1.5 text-xs text-left text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors flex items-center gap-2 cursor-pointer"
-                >
-                  <Download className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Full Database Dump (.sql)</span>
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Quick "Add Column" Controls */}
-          {selectedTable && (
-            <form onSubmit={handleAddColumn} className="flex items-center gap-2 text-xs border-l border-border/60 pl-2">
-              <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider hidden lg:inline">
-                Add Column:
-              </span>
-
-              {/* Column Name Input */}
-              <input
-                type="text"
-                required
-                value={newColName}
-                onChange={(e) => setNewColName(e.target.value)}
-                placeholder="Column name"
-                className="px-2.5 py-1.5 bg-surface-800 border border-border/80 rounded-md text-xs text-gray-100 placeholder-gray-500 focus:outline-none focus:border-brand-500 w-28 font-mono"
-              />
-
-              {/* Column Type Select */}
-              <select
-                value={newColType}
-                onChange={(e) => setNewColType(e.target.value)}
-                className="px-2 py-1.5 bg-surface-800 border border-border/80 rounded-md text-xs text-gray-200 focus:outline-none focus:border-brand-500 font-mono"
-              >
-                {COMMON_COLUMN_TYPES.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
-
-              {/* Nullable Checkbox */}
-              <label className="flex items-center gap-1.5 text-[11px] text-gray-300 cursor-pointer bg-surface-800/80 px-2 py-1.5 rounded-md border border-border/60">
-                <input
-                  type="checkbox"
-                  checked={newColNullable}
-                  onChange={(e) => setNewColNullable(e.target.checked)}
-                  className="rounded border-border bg-surface-700 text-brand-600 focus:ring-0"
-                />
-                <span>Nullable</span>
-              </label>
-
-              {/* Submit Button */}
-              <button
-                type="submit"
-                disabled={addingCol || !newColName.trim()}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-md bg-brand-600 hover:bg-brand-500 text-white font-medium text-xs shadow-sm disabled:opacity-50 transition-all cursor-pointer"
-              >
-                {addingCol ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <Plus className="w-3.5 h-3.5" />
-                )}
-                <span>Add</span>
-              </button>
-            </form>
-          )}
         </div>
       </div>
 
@@ -738,6 +605,9 @@ export const Workspace: React.FC<WorkspaceProps> = ({
                       />
                       <span className="truncate font-mono text-[11px]">{tbl}</span>
                     </div>
+                    {isSelected && (
+                      <ChevronRight className="w-3.5 h-3.5 text-white flex-shrink-0" />
+                    )}
                   </button>
                 );
               })}
@@ -752,34 +622,172 @@ export const Workspace: React.FC<WorkspaceProps> = ({
           </div>
         </div>
 
-        {/* Data Grid Area */}
+        {/* Table Content Area */}
         <div className="flex-1 flex flex-col overflow-hidden">
           {selectedTable ? (
-            <DataGrid
-              tableName={selectedTable}
-              schema={schema}
-              dataResult={tableData}
-              loading={loadingData}
-              page={page}
-              limit={limit}
-              sortColumn={sortColumn}
-              sortOrder={sortOrder}
-              filterColumn={filterColumn}
-              filterOp={filterOp}
-              filterValue={filterValue}
-              onPageChange={(newPage) => setPage(newPage)}
-              onLimitChange={(newLimit) => {
-                setLimit(newLimit);
-                setPage(1);
-              }}
-              onSortChange={handleSortChange}
-              onApplyFilter={handleApplyFilter}
-              onClearFilter={handleClearFilter}
-              onDropColumn={handleDropColumn}
-              onRenameColumn={handleRenameColumn}
-              onSaveUpdates={handleSaveUpdates}
-              onDeleteRows={handleDeleteRows}
-            />
+            <div className="flex-1 flex flex-col overflow-hidden">
+              {/* Context-Aware Table Action Header */}
+              <div className="px-4 py-2 border-b border-border-subtle bg-[#161616] flex flex-wrap items-center justify-between gap-2 flex-shrink-0 relative z-20">
+                {/* Table Title & Column Count */}
+                <div className="flex items-center gap-2">
+                  <Table className="w-4 h-4 text-brand-400" />
+                  <span className="font-mono text-xs font-bold text-zinc-100">{selectedTable}</span>
+                  <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-zinc-800 text-zinc-400 font-mono">
+                    {schema.length} cols
+                  </span>
+                </div>
+
+                {/* Table Actions: Import, Export, Add Column */}
+                <div className="flex items-center gap-2 text-xs">
+                  {/* Import SQL */}
+                  <button
+                    type="button"
+                    onClick={() => setIsImportModalOpen(true)}
+                    title="Import SQL script (.sql)"
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-surface-800 hover:bg-surface-750 text-cyan-300 border border-cyan-500/30 font-medium text-xs shadow-sm transition-all cursor-pointer"
+                  >
+                    <Upload className="w-3.5 h-3.5 text-cyan-400" />
+                    <span className="hidden sm:inline">Import SQL</span>
+                  </button>
+
+                  {/* Export SQL Dropdown */}
+                  <div className="relative" ref={exportDropdownRef}>
+                    <button
+                      type="button"
+                      onClick={() => setShowExportMenu(!showExportMenu)}
+                      disabled={isExporting}
+                      title="Export table SQL dump"
+                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-surface-800 hover:bg-surface-750 text-emerald-300 border border-emerald-500/30 font-medium text-xs shadow-sm transition-all disabled:opacity-50 cursor-pointer"
+                    >
+                      {isExporting ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-400" />
+                      ) : (
+                        <Download className="w-3.5 h-3.5 text-emerald-400" />
+                      )}
+                      <span className="hidden sm:inline">Export SQL</span>
+                      <ChevronDown className="w-3 h-3 text-gray-400" />
+                    </button>
+
+                    {showExportMenu && (
+                      <div className="absolute right-0 top-full mt-1 w-56 bg-[#1f1f1f] border border-zinc-700/80 rounded-md shadow-2xl py-1.5 z-[100] animate-fade-in select-none">
+                        <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-zinc-500 font-mono">
+                          Table: {selectedTable}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleExportTable(false)}
+                          className="w-full px-3 py-1.5 text-xs text-left text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors flex items-center gap-2 cursor-pointer"
+                        >
+                          <FileCode className="w-3.5 h-3.5 text-zinc-400" />
+                          <span>Structure only (.sql)</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleExportTable(true)}
+                          className="w-full px-3 py-1.5 text-xs text-left text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors flex items-center gap-2 cursor-pointer"
+                        >
+                          <Download className="w-3.5 h-3.5 text-emerald-400" />
+                          <span>Structure + Data (.sql)</span>
+                        </button>
+                        <div className="my-1 border-t border-zinc-800" />
+                        <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-zinc-500 font-mono">
+                          Database: {activeSession.activeDatabase}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleExportDatabase(false)}
+                          className="w-full px-3 py-1.5 text-xs text-left text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors flex items-center gap-2 cursor-pointer"
+                        >
+                          <FileCode className="w-3.5 h-3.5 text-zinc-400" />
+                          <span>Database Structure (.sql)</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleExportDatabase(true)}
+                          className="w-full px-3 py-1.5 text-xs text-left text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors flex items-center gap-2 cursor-pointer"
+                        >
+                          <Download className="w-3.5 h-3.5 text-emerald-400" />
+                          <span>Full Database Dump (.sql)</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Add Column Form */}
+                  <form onSubmit={handleAddColumn} className="flex items-center gap-1.5 text-xs border-l border-border/60 pl-2">
+                    <input
+                      type="text"
+                      required
+                      value={newColName}
+                      onChange={(e) => setNewColName(e.target.value)}
+                      placeholder="Col name"
+                      className="px-2 py-1 bg-surface-800 border border-border/80 rounded-md text-xs text-gray-100 placeholder-gray-500 focus:outline-none focus:border-brand-500 w-24 font-mono"
+                    />
+                    <select
+                      value={newColType}
+                      onChange={(e) => setNewColType(e.target.value)}
+                      className="px-1.5 py-1 bg-surface-800 border border-border/80 rounded-md text-xs text-gray-200 focus:outline-none focus:border-brand-500 font-mono"
+                    >
+                      {COMMON_COLUMN_TYPES.map((t) => (
+                        <option key={t} value={t}>
+                          {t}
+                        </option>
+                      ))}
+                    </select>
+                    <label className="flex items-center gap-1 text-[11px] text-gray-300 cursor-pointer bg-surface-800/80 px-1.5 py-1 rounded-md border border-border/60">
+                      <input
+                        type="checkbox"
+                        checked={newColNullable}
+                        onChange={(e) => setNewColNullable(e.target.checked)}
+                        className="rounded border-border bg-surface-700 text-brand-600 focus:ring-0 w-3 h-3"
+                      />
+                      <span>Null</span>
+                    </label>
+                    <button
+                      type="submit"
+                      disabled={addingCol || !newColName.trim()}
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-brand-600 hover:bg-brand-500 text-white font-medium text-xs shadow-sm disabled:opacity-50 transition-all cursor-pointer"
+                    >
+                      {addingCol ? (
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                      ) : (
+                        <Plus className="w-3 h-3" />
+                      )}
+                      <span>Add</span>
+                    </button>
+                  </form>
+                </div>
+              </div>
+
+              {/* DataGrid */}
+              <div className="flex-1 overflow-hidden">
+                <DataGrid
+                  tableName={selectedTable}
+                  schema={schema}
+                  dataResult={tableData}
+                  loading={loadingData}
+                  page={page}
+                  limit={limit}
+                  sortColumn={sortColumn}
+                  sortOrder={sortOrder}
+                  filterColumn={filterColumn}
+                  filterOp={filterOp}
+                  filterValue={filterValue}
+                  onPageChange={(newPage) => setPage(newPage)}
+                  onLimitChange={(newLimit) => {
+                    setLimit(newLimit);
+                    setPage(1);
+                  }}
+                  onSortChange={handleSortChange}
+                  onApplyFilter={handleApplyFilter}
+                  onClearFilter={handleClearFilter}
+                  onDropColumn={handleDropColumn}
+                  onRenameColumn={handleRenameColumn}
+                  onSaveUpdates={handleSaveUpdates}
+                  onDeleteRows={handleDeleteRows}
+                />
+              </div>
+            </div>
           ) : (
             <div className="flex-1 bg-[#121212] flex flex-col items-center justify-center p-8 text-center select-none">
               <div className="w-48 h-48 max-w-[200px] max-h-[200px] flex items-center justify-center mb-3">

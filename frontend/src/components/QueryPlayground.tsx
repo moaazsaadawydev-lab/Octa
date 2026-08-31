@@ -721,7 +721,7 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
         </div>
 
         {/* Database Context Indicator */}
-        <div className="flex items-center gap-2 text-xs text-gray-400 pb-1.5 pr-2">
+        <div className="flex items-center gap-2 text-xs text-gray-400 pb-1.5 pr-2 mr-72">
           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-950/60 border border-emerald-500/30 text-emerald-300 font-medium text-[11px]">
             <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
             <span>{activeSession.connection.name}</span>

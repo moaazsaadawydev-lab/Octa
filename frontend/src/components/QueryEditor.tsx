@@ -226,6 +226,9 @@ export const QueryEditor: React.FC<QueryEditorProps> = ({
     editorRef.current = editor;
     monacoRef.current = monaco;
 
+    // Explicitly set vs-dark theme on editor mount
+    monaco.editor.setTheme('vs-dark');
+
     // Shortcut: Ctrl+Enter / Cmd+Enter runs query
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
       const model = editor.getModel();
@@ -250,16 +253,18 @@ export const QueryEditor: React.FC<QueryEditorProps> = ({
   };
 
   return (
-    <div className="flex-1 flex overflow-hidden bg-[#121212] relative">
+    <div className="flex-1 flex overflow-hidden bg-[#1e1e1e] relative">
       <Editor
         height="100%"
         defaultLanguage="sql"
         language="sql"
+        theme="vs-dark"
         value={value}
         onChange={(val) => onChange(val || '')}
         beforeMount={handleBeforeMount}
         onMount={handleEditorDidMount}
         options={{
+          theme: 'vs-dark',
           fontSize: 14,
           fontFamily: "Fira Code, MesloLGS NF, Menlo, Monaco, 'Courier New', monospace",
           fontLigatures: true,
