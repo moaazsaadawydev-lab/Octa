@@ -40,6 +40,16 @@ export interface TableDataResult {
   durationMs: number;
 }
 
+export interface DataQueryOptions {
+  page: number;
+  pageSize: number;
+  sortColumn?: string;
+  sortOrder?: 'ASC' | 'DESC' | '';
+  filterColumn?: string;
+  filterOp?: 'equals' | 'not_equals' | 'contains' | 'starts_with' | 'ends_with' | 'gt' | 'lt' | 'gte' | 'lte' | 'is_null' | 'is_not_null' | string;
+  filterValue?: string;
+}
+
 export interface QueryLog {
   id: string;
   timestamp: string;

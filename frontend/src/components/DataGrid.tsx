@@ -14,7 +14,12 @@ import {
   RotateCcw,
   Sparkles,
   CheckCircle2,
-  Layers
+  Layers,
+  Filter,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
+  Search,
 } from 'lucide-react';
 import { TableColumn, TableDataResult, RowUpdate } from '../types/connection';
 
@@ -25,8 +30,16 @@ interface DataGridProps {
   loading: boolean;
   page: number;
   limit: number;
+  sortColumn?: string;
+  sortOrder?: 'ASC' | 'DESC' | '';
+  filterColumn?: string;
+  filterOp?: string;
+  filterValue?: string;
   onPageChange: (newPage: number) => void;
   onLimitChange: (newLimit: number) => void;
+  onSortChange?: (colName: string, newOrder: 'ASC' | 'DESC' | '') => void;
+  onApplyFilter?: (column: string, op: string, value: string) => void;
+  onClearFilter?: () => void;
   onDropColumn: (colName: string) => Promise<void>;
   onRenameColumn: (oldName: string, newName: string) => Promise<void>;
   onSaveUpdates: (primaryKeyCol: string, updates: RowUpdate[]) => Promise<void>;
@@ -51,8 +64,16 @@ export const DataGrid: React.FC<DataGridProps> = ({
   loading,
   page,
   limit,
+  sortColumn = '',
+  sortOrder = '',
+  filterColumn = '',
+  filterOp = 'contains',
+  filterValue = '',
   onPageChange,
   onLimitChange,
+  onSortChange,
+  onApplyFilter,
+  onClearFilter,
   onDropColumn,
   onRenameColumn,
   onSaveUpdates,
@@ -82,6 +103,11 @@ export const DataGrid: React.FC<DataGridProps> = ({
   const inputRef = useRef<HTMLInputElement | HTMLSelectElement | null>(null);
   const headerCheckboxRef = useRef<HTMLInputElement | null>(null);
 
+  // Quick filter input states
+  const [inputFilterCol, setInputFilterCol] = useState<string>(filterColumn || '');
+  const [inputFilterOp, setInputFilterOp] = useState<string>(filterOp || 'contains');
+  const [inputFilterVal, setInputFilterVal] = useState<string>(filterValue || '');
+
   // Derive column list from schema if available, else from dataResult columns
   const columns: TableColumn[] =
     schema.length > 0
@@ -92,6 +118,15 @@ export const DataGrid: React.FC<DataGridProps> = ({
           isNullable: true,
           isPrimaryKey: false,
         }));
+
+  // Sync filter input states with props / columns
+  useEffect(() => {
+    if (columns.length > 0) {
+      setInputFilterCol((prev) => filterColumn || (prev && columns.some((c) => c.name === prev) ? prev : columns[0].name));
+    }
+    setInputFilterOp(filterOp || 'contains');
+    setInputFilterVal(filterValue || '');
+  }, [filterColumn, filterOp, filterValue, tableName, columns]);
 
   // Detect Primary Key Column
   const detectedPkCol = schema.find((c) => c.isPrimaryKey)?.name ||
@@ -521,6 +556,139 @@ const formatDisplayType = (type?: string, enumValues?: string[]): string => {
 
   return (
     <div className="flex-1 flex flex-col h-full bg-[#141414] overflow-hidden select-none relative">
+      {/* Quick Filter & Sort Toolbar */}
+      <div className="px-3.5 py-2 bg-[#171717] border-b border-[#292929] flex flex-wrap items-center justify-between gap-2 z-20 text-xs select-none">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (inputFilterCol && onApplyFilter) {
+              onApplyFilter(inputFilterCol, inputFilterOp, inputFilterVal);
+            }
+          }}
+          className="flex flex-wrap items-center gap-2"
+        >
+          <div className="flex items-center gap-1.5 text-zinc-400 font-medium mr-1">
+            <Filter className="w-3.5 h-3.5 text-cyan-400" />
+            <span className="text-[11px] uppercase tracking-wider text-zinc-400 font-semibold hidden sm:inline">
+              Filter:
+            </span>
+          </div>
+
+          {/* Column Selector */}
+          <select
+            value={inputFilterCol}
+            onChange={(e) => setInputFilterCol(e.target.value)}
+            className="bg-zinc-900 border border-zinc-700 text-xs px-2.5 py-1 rounded text-zinc-200 focus:border-cyan-500 outline-none font-mono cursor-pointer transition-colors"
+          >
+            {columns.map((c) => (
+              <option key={c.name} value={c.name}>
+                {c.name} {c.type ? `(${formatDisplayType(c.type, c.enumValues)})` : ''}
+              </option>
+            ))}
+          </select>
+
+          {/* Condition / Operator Dropdown */}
+          <select
+            value={inputFilterOp}
+            onChange={(e) => setInputFilterOp(e.target.value)}
+            className="bg-zinc-900 border border-zinc-700 text-xs px-2.5 py-1 rounded text-zinc-200 focus:border-cyan-500 outline-none font-mono cursor-pointer transition-colors"
+          >
+            <option value="contains">contains</option>
+            <option value="equals">equals</option>
+            <option value="starts_with">starts_with</option>
+            <option value="gt">&gt;</option>
+            <option value="lt">&lt;</option>
+            <option value="is_null">is_null</option>
+          </select>
+
+          {/* Value Input */}
+          {inputFilterOp !== 'is_null' && (
+            <div className="relative flex items-center">
+              <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-2.5 pointer-events-none" />
+              <input
+                type="text"
+                value={inputFilterVal}
+                onChange={(e) => setInputFilterVal(e.target.value)}
+                placeholder="Filter value..."
+                className="bg-zinc-900 border border-zinc-700 text-xs pl-8 pr-6 py-1 rounded text-zinc-200 focus:border-cyan-500 outline-none font-mono w-40 sm:w-48 placeholder-zinc-500"
+              />
+              {inputFilterVal && (
+                <button
+                  type="button"
+                  onClick={() => setInputFilterVal('')}
+                  className="absolute right-2 text-zinc-500 hover:text-zinc-300"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Apply Button */}
+          <button
+            type="submit"
+            className="bg-cyan-600 hover:bg-cyan-500 text-white text-xs px-2.5 py-1 rounded transition-colors font-medium shadow-sm cursor-pointer flex items-center gap-1"
+          >
+            <span>Apply</span>
+          </button>
+
+          {/* Clear Button */}
+          {(filterColumn || filterValue) && onClearFilter && (
+            <button
+              type="button"
+              onClick={() => {
+                setInputFilterVal('');
+                onClearFilter();
+              }}
+              title="Clear Filter"
+              className="px-2 py-1 bg-zinc-800 hover:bg-zinc-750 text-zinc-300 border border-zinc-700 rounded transition-colors text-xs flex items-center gap-1 cursor-pointer"
+            >
+              <X className="w-3 h-3 text-zinc-400" />
+              <span>Clear</span>
+            </button>
+          )}
+        </form>
+
+        {/* Active Filter & Sort Badges */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {filterColumn && onClearFilter && (
+            <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-cyan-950/70 border border-cyan-500/40 text-cyan-300 text-[11px] font-mono shadow-sm animate-fade-in">
+              <span>
+                Filtered by <strong className="text-cyan-200">{filterColumn}</strong> {filterOp}{' '}
+                {filterOp !== 'is_null' && `"${filterValue}"`}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setInputFilterVal('');
+                  onClearFilter();
+                }}
+                title="Clear filter"
+                className="text-cyan-400 hover:text-white p-0.5 rounded-full hover:bg-cyan-900/60 transition-colors ml-0.5"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+          )}
+
+          {sortColumn && onSortChange && (
+            <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-brand-950/70 border border-brand-500/40 text-brand-300 text-[11px] font-mono shadow-sm animate-fade-in">
+              <span>
+                Sorted by <strong className="text-brand-200">{sortColumn}</strong> ({sortOrder})
+              </span>
+              <button
+                type="button"
+                onClick={() => onSortChange('', '')}
+                title="Clear sort"
+                className="text-brand-400 hover:text-white p-0.5 rounded-full hover:bg-brand-900/60 transition-colors ml-0.5"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* 1. Staged Changes Action Banner (when edits exist) */}
       {totalStagedEditsCount > 0 && (
         <div className="px-4 py-2 bg-amber-950/80 border-b border-amber-500/40 backdrop-blur-md flex items-center justify-between z-30 animate-fade-in">
@@ -656,21 +824,54 @@ const formatDisplayType = (type?: string, enumValues?: string[]): string => {
 
               {columns.map((col) => {
                 const width = getColumnWidth(col.name);
+                const isColSorted = sortColumn === col.name;
 
                 return (
                   <th
                     key={col.name}
                     style={{ width, minWidth: width, maxWidth: width }}
-                    className="px-4 py-2.5 font-medium border-r border-[#2D2D2D] text-gray-200 group/col hover:bg-[#252525] transition-colors relative select-none whitespace-nowrap"
+                    className={`px-4 py-2.5 font-medium border-r border-[#2D2D2D] group/col transition-colors relative select-none whitespace-nowrap ${
+                      isColSorted ? 'bg-[#242424] text-cyan-300' : 'text-gray-200 hover:bg-[#252525]'
+                    }`}
                   >
                     <div className="flex items-center justify-between gap-1.5 pr-2 overflow-hidden">
-                      <div className="flex items-center gap-1.5 min-w-0 truncate flex-1">
+                      <div
+                        onClick={() => {
+                          if (!onSortChange) return;
+                          let nextOrder: 'ASC' | 'DESC' | '' = 'ASC';
+                          if (sortColumn === col.name) {
+                            if (sortOrder === 'ASC') nextOrder = 'DESC';
+                            else if (sortOrder === 'DESC') nextOrder = '';
+                          }
+                          onSortChange(col.name, nextOrder);
+                        }}
+                        className="flex items-center gap-1.5 min-w-0 truncate flex-1 cursor-pointer hover:text-cyan-300 transition-colors"
+                        title={`Click to sort by "${col.name}"`}
+                      >
                         {col.isPrimaryKey && (
                           <span title="Primary Key" className="inline-flex flex-shrink-0">
                             <Key className="w-3 h-3 text-amber-400" />
                           </span>
                         )}
-                        <span className="font-semibold text-gray-100 truncate">{col.name}</span>
+                        <span
+                          className={`font-semibold truncate ${
+                            isColSorted ? 'text-cyan-300' : 'text-gray-100'
+                          }`}
+                        >
+                          {col.name}
+                        </span>
+
+                        {/* Sort Indicator */}
+                        {isColSorted ? (
+                          sortOrder === 'ASC' ? (
+                            <ArrowUp className="w-3.5 h-3.5 text-cyan-400 flex-shrink-0" />
+                          ) : (
+                            <ArrowDown className="w-3.5 h-3.5 text-cyan-400 flex-shrink-0" />
+                          )
+                        ) : (
+                          <ArrowUpDown className="w-3 h-3 text-zinc-500 opacity-0 group-hover/col:opacity-60 flex-shrink-0 transition-opacity" />
+                        )}
+
                         {col.type && (
                           <span
                             className="text-[10px] text-zinc-500 font-normal font-mono flex-shrink-0"
@@ -685,7 +886,10 @@ const formatDisplayType = (type?: string, enumValues?: string[]): string => {
                       <div className="flex items-center gap-0.5 opacity-0 group-hover/col:opacity-100 transition-opacity flex-shrink-0">
                         <button
                           type="button"
-                          onClick={() => setColumnToRename({ oldName: col.name, newName: col.name })}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setColumnToRename({ oldName: col.name, newName: col.name });
+                          }}
                           title="Rename Column"
                           className="p-1 rounded text-gray-400 hover:text-brand-300 hover:bg-surface-700 transition-colors"
                         >
@@ -693,7 +897,10 @@ const formatDisplayType = (type?: string, enumValues?: string[]): string => {
                         </button>
                         <button
                           type="button"
-                          onClick={() => setColumnToDrop(col.name)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setColumnToDrop(col.name);
+                          }}
                           title="Drop Column"
                           className="p-1 rounded text-gray-400 hover:text-rose-400 hover:bg-surface-700 transition-colors"
                         >

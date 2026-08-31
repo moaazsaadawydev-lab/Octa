@@ -99,6 +99,17 @@ type DatabaseSchema struct {
 	Relationships []ForeignKeyRelationship `json:"relationships"`
 }
 
+// DataQueryOptions defines pagination, sorting, and filtering parameters for table queries.
+type DataQueryOptions struct {
+	Page         int    `json:"page"`
+	PageSize     int    `json:"pageSize"`
+	SortColumn   string `json:"sortColumn"`
+	SortOrder    string `json:"sortOrder"`    // "ASC" | "DESC" | ""
+	FilterColumn string `json:"filterColumn"`
+	FilterOp     string `json:"filterOp"`     // "equals", "contains", "starts_with", "gt", "lt", "gte", "lte", "is_null", "is_not_null"
+	FilterValue  string `json:"filterValue"`
+}
+
 // QueryLog represents an executed SQL statement with metadata.
 type QueryLog struct {
 	ID         string  `json:"id"`
@@ -706,18 +717,21 @@ func cleanRowID(rowID any) any {
 	}
 }
 
-// GetTableData retrieves paginated table rows and logs the query execution.
-func (a *App) GetTableData(config ConnectionConfig, dbName string, tableName string, limit int, offset int) (TableDataResult, error) {
+// GetTableData retrieves paginated table rows with optional filtering and sorting, and logs the query execution.
+func (a *App) GetTableData(config ConnectionConfig, dbName string, tableName string, options DataQueryOptions) (TableDataResult, error) {
 	var result TableDataResult
 	result.Columns = []string{}
 	result.Rows = []map[string]any{}
 
+	limit := options.PageSize
 	if limit <= 0 {
 		limit = 50
 	}
-	if offset < 0 {
-		offset = 0
+	page := options.Page
+	if page <= 0 {
+		page = 1
 	}
+	offset := (page - 1) * limit
 
 	if config.Type == "" {
 		config.Type = "postgres"
@@ -742,21 +756,74 @@ func (a *App) GetTableData(config ConnectionConfig, dbName string, tableName str
 	}
 	defer conn.Close(ctx)
 
-	// 1. Get total row count
-	countQuery := fmt.Sprintf(`SELECT count(*) FROM %q;`, tableName)
+	// Build WHERE filter clause and arguments safely
+	whereClause := ""
+	var filterArgs []any
+
+	if options.FilterColumn != "" && options.FilterOp != "" {
+		colIdent := fmt.Sprintf("%q", options.FilterColumn)
+		op := strings.ToLower(strings.TrimSpace(options.FilterOp))
+
+		switch op {
+		case "equals", "=":
+			whereClause = fmt.Sprintf(" WHERE %s::text = $1", colIdent)
+			filterArgs = append(filterArgs, options.FilterValue)
+		case "not_equals", "!=", "<>":
+			whereClause = fmt.Sprintf(" WHERE %s::text != $1", colIdent)
+			filterArgs = append(filterArgs, options.FilterValue)
+		case "contains", "like":
+			whereClause = fmt.Sprintf(" WHERE %s::text ILIKE $1", colIdent)
+			filterArgs = append(filterArgs, "%"+options.FilterValue+"%")
+		case "starts_with":
+			whereClause = fmt.Sprintf(" WHERE %s::text ILIKE $1", colIdent)
+			filterArgs = append(filterArgs, options.FilterValue+"%")
+		case "ends_with":
+			whereClause = fmt.Sprintf(" WHERE %s::text ILIKE $1", colIdent)
+			filterArgs = append(filterArgs, "%"+options.FilterValue)
+		case "gt", ">":
+			whereClause = fmt.Sprintf(" WHERE %s > $1", colIdent)
+			filterArgs = append(filterArgs, options.FilterValue)
+		case "lt", "<":
+			whereClause = fmt.Sprintf(" WHERE %s < $1", colIdent)
+			filterArgs = append(filterArgs, options.FilterValue)
+		case "gte", ">=":
+			whereClause = fmt.Sprintf(" WHERE %s >= $1", colIdent)
+			filterArgs = append(filterArgs, options.FilterValue)
+		case "lte", "<=":
+			whereClause = fmt.Sprintf(" WHERE %s <= $1", colIdent)
+			filterArgs = append(filterArgs, options.FilterValue)
+		case "is_null":
+			whereClause = fmt.Sprintf(" WHERE %s IS NULL", colIdent)
+		case "is_not_null":
+			whereClause = fmt.Sprintf(" WHERE %s IS NOT NULL", colIdent)
+		}
+	}
+
+	// 1. Get total row count (filtered)
+	countQuery := fmt.Sprintf(`SELECT count(*) FROM %q%s;`, tableName, whereClause)
 	startCount := time.Now()
 	var totalRows int64
-	if err := conn.QueryRow(ctx, countQuery).Scan(&totalRows); err != nil {
+	if err := conn.QueryRow(ctx, countQuery, filterArgs...).Scan(&totalRows); err != nil {
 		durationMs := float64(time.Since(startCount).Microseconds()) / 1000.0
 		a.logQuery(countQuery, durationMs, "ERROR", err.Error())
 		return result, fmt.Errorf("failed to count rows: %w", err)
 	}
 	result.TotalRows = totalRows
 
+	// Build ORDER BY clause
+	orderClause := ""
+	if options.SortColumn != "" {
+		sortDir := "ASC"
+		if strings.ToUpper(strings.TrimSpace(options.SortOrder)) == "DESC" {
+			sortDir = "DESC"
+		}
+		orderClause = fmt.Sprintf(" ORDER BY %q %s", options.SortColumn, sortDir)
+	}
+
 	// 2. Fetch paginated data rows
-	dataQuery := fmt.Sprintf(`SELECT * FROM %q LIMIT %d OFFSET %d;`, tableName, limit, offset)
+	dataQuery := fmt.Sprintf(`SELECT * FROM %q%s%s LIMIT %d OFFSET %d;`, tableName, whereClause, orderClause, limit, offset)
 	start := time.Now()
-	rows, err := conn.Query(ctx, dataQuery)
+	rows, err := conn.Query(ctx, dataQuery, filterArgs...)
 	durationMs := float64(time.Since(start).Microseconds()) / 1000.0
 	result.DurationMs = durationMs
 

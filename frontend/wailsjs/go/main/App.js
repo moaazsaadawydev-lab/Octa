@@ -46,8 +46,8 @@ export function GetSavedConnections() {
   return window['go']['main']['App']['GetSavedConnections']();
 }
 
-export function GetTableData(arg1, arg2, arg3, arg4, arg5) {
-  return window['go']['main']['App']['GetTableData'](arg1, arg2, arg3, arg4, arg5);
+export function GetTableData(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['GetTableData'](arg1, arg2, arg3, arg4);
 }
 
 export function GetTableSchema(arg1, arg2, arg3) {

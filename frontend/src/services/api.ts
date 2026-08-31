@@ -28,6 +28,7 @@ import {
   RowUpdate,
   QueryResult,
   DatabaseSchema,
+  DataQueryOptions,
 } from '../types/connection';
 
 function toModelConfig(config: ConnectionConfig): main.ConnectionConfig {
@@ -187,12 +188,20 @@ export async function getTableData(
   config: ConnectionConfig,
   dbName: string,
   tableName: string,
-  limit: number = 50,
-  offset: number = 0
+  options: DataQueryOptions
 ): Promise<TableDataResult> {
   try {
     const model = toModelConfig(config);
-    const res = await GetTableData(model, dbName, tableName, limit, offset);
+    const queryOpts = main.DataQueryOptions.createFrom({
+      page: options.page || 1,
+      pageSize: options.pageSize || 50,
+      sortColumn: options.sortColumn || '',
+      sortOrder: options.sortOrder || '',
+      filterColumn: options.filterColumn || '',
+      filterOp: options.filterOp || '',
+      filterValue: options.filterValue || '',
+    });
+    const res = await GetTableData(model, dbName, tableName, queryOpts);
     return {
       columns: res.columns || [],
       rows: res.rows || [],

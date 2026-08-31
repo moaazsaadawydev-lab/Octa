@@ -316,3 +316,36 @@ func TestGetDatabaseSchemaDetailsValidation(t *testing.T) {
 		t.Errorf("Expected unreachable host to return error")
 	}
 }
+
+func TestGetTableDataWithOptionsValidation(t *testing.T) {
+	app := NewApp()
+
+	// Invalid DB type
+	badTypeConfig := ConnectionConfig{Type: "redis"}
+	_, err := app.GetTableData(badTypeConfig, "testdb", "users", DataQueryOptions{
+		Page:         1,
+		PageSize:     50,
+		SortColumn:   "id",
+		SortOrder:    "ASC",
+		FilterColumn: "name",
+		FilterOp:     "contains",
+		FilterValue:  "alice",
+	})
+	if err == nil {
+		t.Errorf("Expected invalid DB type to fail GetTableData")
+	}
+
+	// Unreachable host
+	badConnConfig := ConnectionConfig{
+		Type: "postgres",
+		Host: "127.0.0.1",
+		Port: 59999,
+	}
+	_, err = app.GetTableData(badConnConfig, "testdb", "users", DataQueryOptions{
+		Page:     1,
+		PageSize: 10,
+	})
+	if err == nil {
+		t.Errorf("Expected unreachable host to return error")
+	}
+}

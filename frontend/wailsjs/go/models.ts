@@ -50,6 +50,30 @@ export namespace main {
 	        this.ssl = source["ssl"];
 	    }
 	}
+	export class DataQueryOptions {
+	    page: number;
+	    pageSize: number;
+	    sortColumn: string;
+	    sortOrder: string;
+	    filterColumn: string;
+	    filterOp: string;
+	    filterValue: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new DataQueryOptions(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.page = source["page"];
+	        this.pageSize = source["pageSize"];
+	        this.sortColumn = source["sortColumn"];
+	        this.sortOrder = source["sortOrder"];
+	        this.filterColumn = source["filterColumn"];
+	        this.filterOp = source["filterOp"];
+	        this.filterValue = source["filterValue"];
+	    }
+	}
 	export class ForeignKeyRelationship {
 	    constraintName: string;
 	    sourceTable: string;

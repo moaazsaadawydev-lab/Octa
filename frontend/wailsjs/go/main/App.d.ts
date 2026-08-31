@@ -24,7 +24,7 @@ export function GetQueryLogs():Promise<Array<main.QueryLog>>;
 
 export function GetSavedConnections():Promise<Array<main.ConnectionConfig>>;
 
-export function GetTableData(arg1:main.ConnectionConfig,arg2:string,arg3:string,arg4:number,arg5:number):Promise<main.TableDataResult>;
+export function GetTableData(arg1:main.ConnectionConfig,arg2:string,arg3:string,arg4:main.DataQueryOptions):Promise<main.TableDataResult>;
 
 export function GetTableSchema(arg1:main.ConnectionConfig,arg2:string,arg3:string):Promise<Array<main.TableColumn>>;
 

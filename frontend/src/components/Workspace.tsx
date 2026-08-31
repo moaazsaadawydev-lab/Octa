@@ -107,6 +107,13 @@ export const Workspace: React.FC<WorkspaceProps> = ({
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(50);
 
+  // Sorting & Filtering state
+  const [sortColumn, setSortColumn] = useState<string>('');
+  const [sortOrder, setSortOrder] = useState<'ASC' | 'DESC' | ''>('');
+  const [filterColumn, setFilterColumn] = useState<string>('');
+  const [filterOp, setFilterOp] = useState<string>('contains');
+  const [filterValue, setFilterValue] = useState<string>('');
+
   // Quick Add Column state
   const [newColName, setNewColName] = useState('');
   const [newColType, setNewColType] = useState('VARCHAR(255)');
@@ -155,48 +162,89 @@ export const Workspace: React.FC<WorkspaceProps> = ({
   }, [activeSession?.connection.id, activeSession?.activeDatabase]);
 
   // Load schema & data for the selected table
-  const loadTableDetails = useCallback(async (tblName: string, curPage: number = 1, curLimit: number = 50) => {
-    if (!activeSession || !tblName) return;
-    setLoadingData(true);
-    try {
-      const [schemaRes, dataRes] = await Promise.all([
-        getTableSchema(activeSession.connection, activeSession.activeDatabase, tblName),
-        getTableData(
-          activeSession.connection,
-          activeSession.activeDatabase,
-          tblName,
-          curLimit,
-          (curPage - 1) * curLimit
-        ),
-      ]);
+  const loadTableDetails = useCallback(
+    async (
+      tblName: string,
+      curPage: number = page,
+      curLimit: number = limit,
+      curSortCol: string = sortColumn,
+      curSortOrd: 'ASC' | 'DESC' | '' = sortOrder,
+      curFilterCol: string = filterColumn,
+      curFilterOp: string = filterOp,
+      curFilterVal: string = filterValue
+    ) => {
+      if (!activeSession || !tblName) return;
+      setLoadingData(true);
+      try {
+        const [schemaRes, dataRes] = await Promise.all([
+          getTableSchema(activeSession.connection, activeSession.activeDatabase, tblName),
+          getTableData(activeSession.connection, activeSession.activeDatabase, tblName, {
+            page: curPage,
+            pageSize: curLimit,
+            sortColumn: curSortCol,
+            sortOrder: curSortOrd,
+            filterColumn: curFilterCol,
+            filterOp: curFilterOp,
+            filterValue: curFilterVal,
+          }),
+        ]);
 
-      setSchema(schemaRes);
-      setTableData(dataRes);
-    } catch (err: any) {
-      console.error(`Failed to load details for ${tblName}:`, err);
-      showToast(`Failed to load data for ${tblName}: ${err?.message || err}`, 'error');
-    } finally {
-      setLoadingData(false);
-    }
-  }, [activeSession, showToast]);
+        setSchema(schemaRes);
+        setTableData(dataRes);
+      } catch (err: any) {
+        console.error(`Failed to load details for ${tblName}:`, err);
+        showToast(`Failed to load data for ${tblName}: ${err?.message || err}`, 'error');
+      } finally {
+        setLoadingData(false);
+      }
+    },
+    [activeSession, page, limit, sortColumn, sortOrder, filterColumn, filterOp, filterValue, showToast]
+  );
 
   useEffect(() => {
     if (selectedTable) {
-      loadTableDetails(selectedTable, page, limit);
+      loadTableDetails(selectedTable, page, limit, sortColumn, sortOrder, filterColumn, filterOp, filterValue);
     }
-  }, [selectedTable, page, limit, loadTableDetails]);
+  }, [selectedTable, page, limit, sortColumn, sortOrder, filterColumn, filterOp, filterValue, loadTableDetails]);
 
   // Table selection change
   const handleSelectTable = (tblName: string) => {
     if (selectedTable === tblName) return;
     setSelectedTable(tblName);
     setPage(1);
+    setSortColumn('');
+    setSortOrder('');
+    setFilterColumn('');
+    setFilterOp('contains');
+    setFilterValue('');
+  };
+
+  // Sort change handler
+  const handleSortChange = (colName: string, newOrder: 'ASC' | 'DESC' | '') => {
+    setSortColumn(newOrder === '' ? '' : colName);
+    setSortOrder(newOrder);
+    setPage(1);
+  };
+
+  // Filter change handlers
+  const handleApplyFilter = (col: string, op: string, val: string) => {
+    setFilterColumn(col);
+    setFilterOp(op);
+    setFilterValue(val);
+    setPage(1);
+  };
+
+  const handleClearFilter = () => {
+    setFilterColumn('');
+    setFilterOp('contains');
+    setFilterValue('');
+    setPage(1);
   };
 
   // Full refresh
   const handleRefresh = async () => {
     if (selectedTable) {
-      await loadTableDetails(selectedTable, page, limit);
+      await loadTableDetails(selectedTable, page, limit, sortColumn, sortOrder, filterColumn, filterOp, filterValue);
       showToast(`Refreshed table "${selectedTable}"`, 'info');
     } else {
       await loadTables();
@@ -527,11 +575,19 @@ export const Workspace: React.FC<WorkspaceProps> = ({
               loading={loadingData}
               page={page}
               limit={limit}
+              sortColumn={sortColumn}
+              sortOrder={sortOrder}
+              filterColumn={filterColumn}
+              filterOp={filterOp}
+              filterValue={filterValue}
               onPageChange={(newPage) => setPage(newPage)}
               onLimitChange={(newLimit) => {
                 setLimit(newLimit);
                 setPage(1);
               }}
+              onSortChange={handleSortChange}
+              onApplyFilter={handleApplyFilter}
+              onClearFilter={handleClearFilter}
               onDropColumn={handleDropColumn}
               onRenameColumn={handleRenameColumn}
               onSaveUpdates={handleSaveUpdates}
