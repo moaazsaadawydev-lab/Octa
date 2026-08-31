@@ -49,6 +49,8 @@ interface SidebarProps {
   onImportSQL?: (server: ConnectionConfig, databaseName: string) => void;
   onSelectQuery?: (query: SqlQueryItem) => void;
   activeQueryId?: string | null;
+  queriesTree?: (SqlQueryFolder | SqlQueryItem)[];
+  onSaveQueriesTree?: (tree: (SqlQueryFolder | SqlQueryItem)[]) => void;
 }
 
 const DEFAULT_INITIAL_QUERIES: (SqlQueryFolder | SqlQueryItem)[] = [
@@ -158,6 +160,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onImportSQL,
   onSelectQuery,
   activeQueryId,
+  queriesTree: propQueriesTree,
+  onSaveQueriesTree,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
@@ -166,8 +170,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [isExplorerOpen, setIsExplorerOpen] = useState(true);
   const [isQueriesOpen, setIsQueriesOpen] = useState(true);
 
-  // Queries Tree State
-  const [queriesTree, setQueriesTree] = useState<(SqlQueryFolder | SqlQueryItem)[]>(() => {
+  // Queries Tree State (Controlled with Fallback)
+  const [internalQueriesTree, setInternalQueriesTree] = useState<(SqlQueryFolder | SqlQueryItem)[]>(() => {
     try {
       const saved = localStorage.getItem('octa_sql_queries_tree');
       if (saved) {
@@ -181,6 +185,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }
     return DEFAULT_INITIAL_QUERIES;
   });
+
+  const queriesTree = propQueriesTree !== undefined ? propQueriesTree : internalQueriesTree;
 
   // Queries In-place Rename state
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -207,8 +213,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const resizingRef = useRef<{ startX: number; startWidth: number } | null>(null);
 
-  // Load queries from Go backend on mount
+  // Load queries from Go backend on mount if not controlled from props
   useEffect(() => {
+    if (propQueriesTree !== undefined) return;
     let isMounted = true;
     (async () => {
       try {
@@ -216,7 +223,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         if (diskData && diskData.trim() && isMounted) {
           const parsed = JSON.parse(diskData);
           if (Array.isArray(parsed) && parsed.length > 0) {
-            setQueriesTree(parsed);
+            setInternalQueriesTree(parsed);
           }
         }
       } catch (err) {
@@ -226,21 +233,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [propQueriesTree]);
 
   // Save queries tree helper
   const saveQueries = useCallback((nextTree: (SqlQueryFolder | SqlQueryItem)[]) => {
-    setQueriesTree(nextTree);
-    try {
-      const jsonStr = JSON.stringify(nextTree);
-      localStorage.setItem('octa_sql_queries_tree', jsonStr);
-      saveSqlQueriesData(jsonStr).catch((err) => {
-        console.warn('Backend saveSqlQueriesData failed:', err);
-      });
-    } catch (e) {
-      console.warn('Failed to persist SQL queries tree:', e);
+    if (onSaveQueriesTree) {
+      onSaveQueriesTree(nextTree);
+    } else {
+      setInternalQueriesTree(nextTree);
+      try {
+        const jsonStr = JSON.stringify(nextTree);
+        localStorage.setItem('octa_sql_queries_tree', jsonStr);
+        saveSqlQueriesData(jsonStr).catch((err) => {
+          console.warn('Backend saveSqlQueriesData failed:', err);
+        });
+      } catch (e) {
+        console.warn('Failed to persist SQL queries tree:', e);
+      }
     }
-  }, []);
+  }, [onSaveQueriesTree]);
 
   // Auto-focus and select all text on edit
   useEffect(() => {

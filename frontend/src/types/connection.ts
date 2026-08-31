@@ -75,6 +75,7 @@ export interface QueryTab {
   title: string;
   query: string;
   isDirty?: boolean;
+  savedQueryId?: string;
   results?: QueryResult[] | null;
   activeResultIndex?: number;
   explainPlan?: ExplainPlanResult | null;

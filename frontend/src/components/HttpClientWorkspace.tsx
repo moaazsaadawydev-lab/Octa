@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Group, Panel, Separator } from 'react-resizable-panels';
+import Editor, { loader } from '@monaco-editor/react';
+import * as monaco from 'monaco-editor';
 import {
   Send,
   Plus,
@@ -19,12 +21,26 @@ import {
   X,
   Check,
   Columns2,
-  Rows2
+  Rows2,
+  Sparkles,
+  Minimize2,
+  Upload,
+  Paperclip,
+  CheckCircle2,
+  AlertCircle,
+  Code2,
+  FileCode,
+  FileText,
+  File as FileIcon
 } from 'lucide-react';
 import interfaceSvg from '../assets/interface.svg';
 import { saveHttpClientData, loadHttpClientData } from '../services/api';
 
+// Configure Monaco to use locally bundled version
+loader.config({ monaco });
+
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'OPTIONS' | 'HEAD';
+export type HttpBodyType = 'none' | 'json' | 'form-data' | 'x-www-form-urlencoded';
 
 export interface HttpHeader {
   key: string;
@@ -38,6 +54,30 @@ export interface HttpParam {
   enabled: boolean;
 }
 
+export interface FormFileMeta {
+  id: string;
+  name: string;
+  size: number;
+  type: string;
+  fileObj?: File;
+}
+
+export interface FormDataField {
+  id: string;
+  key: string;
+  value: string;
+  type: 'text' | 'file';
+  enabled: boolean;
+  files?: FormFileMeta[];
+}
+
+export interface UrlEncodedField {
+  id: string;
+  key: string;
+  value: string;
+  enabled: boolean;
+}
+
 export interface HttpRequestItem {
   id: string;
   type: 'request';
@@ -46,8 +86,10 @@ export interface HttpRequestItem {
   url: string;
   headers: HttpHeader[];
   params: HttpParam[];
-  bodyType: 'json' | 'raw' | 'none';
+  bodyType: HttpBodyType;
   bodyContent: string;
+  bodyFormData?: FormDataField[];
+  bodyUrlEncoded?: UrlEncodedField[];
   isDirty?: boolean;
 }
 
@@ -85,6 +127,8 @@ export const METHOD_COLORS: Record<string, { badge: string; text: string }> = HT
   return acc;
 }, {} as Record<string, { badge: string; text: string }>);
 
+const DEFAULT_JSON_BODY = '{\n  "key": "value"\n}';
+
 const createDefaultRequest = (name: string = 'Untitled Request'): HttpRequestItem => ({
   id: 'req-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7),
   type: 'request',
@@ -94,7 +138,9 @@ const createDefaultRequest = (name: string = 'Untitled Request'): HttpRequestIte
   headers: [],
   params: [],
   bodyType: 'none',
-  bodyContent: '',
+  bodyContent: DEFAULT_JSON_BODY,
+  bodyFormData: [],
+  bodyUrlEncoded: [],
   isDirty: false,
 });
 
@@ -113,6 +159,14 @@ const createDefaultCollection = (name: string = 'Untitled Collection'): HttpFold
   isOpen: true,
   items: [],
 });
+
+// Helper: Format file size in human-readable units
+function formatFileSize(bytes: number): string {
+  if (!bytes || bytes <= 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  return (bytes / Math.pow(1024, i)).toFixed(1) + ' ' + units[i];
+}
 
 // Helper: Count total requests inside a folder / collection recursively
 function countRequests(item: HttpTreeItem): number {
@@ -221,6 +275,13 @@ function normalizeItems(items: any[]): (HttpFolderItem | HttpRequestItem)[] {
     return {
       ...item,
       type: 'request',
+      headers: Array.isArray(item.headers) ? item.headers : [],
+      params: Array.isArray(item.params) ? item.params : [],
+      bodyType: (item.bodyType as HttpBodyType) || (item.bodyContent ? 'json' : 'none'),
+      bodyContent: item.bodyContent || (item.bodyType === 'json' ? DEFAULT_JSON_BODY : ''),
+      bodyFormData: Array.isArray(item.bodyFormData) ? item.bodyFormData : [],
+      bodyUrlEncoded: Array.isArray(item.bodyUrlEncoded) ? item.bodyUrlEncoded : [],
+      isDirty: false,
     };
   });
 }
@@ -233,7 +294,6 @@ interface HttpMethodDropdownProps {
 
 const HttpMethodDropdown: React.FC<HttpMethodDropdownProps> = ({ value, onChange }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [focusedIndex, setFocusedIndex] = useState(0);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const selectedOption = HTTP_METHODS.find((m) => m.method === value) || HTTP_METHODS[0];
@@ -248,95 +308,51 @@ const HttpMethodDropdown: React.FC<HttpMethodDropdownProps> = ({ value, onChange
     return () => window.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (!isOpen) {
-      if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown') {
-        e.preventDefault();
-        setIsOpen(true);
-        const idx = HTTP_METHODS.findIndex((m) => m.method === value);
-        setFocusedIndex(idx >= 0 ? idx : 0);
-      }
-      return;
-    }
-
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      setFocusedIndex((prev) => (prev + 1) % HTTP_METHODS.length);
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      setFocusedIndex((prev) => (prev - 1 + HTTP_METHODS.length) % HTTP_METHODS.length);
-    } else if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      onChange(HTTP_METHODS[focusedIndex].method);
-      setIsOpen(false);
-    } else if (e.key === 'Escape') {
-      e.preventDefault();
-      setIsOpen(false);
-    }
-  };
-
   return (
-    <div ref={dropdownRef} className="relative select-none flex-shrink-0">
-      {/* Trigger Button */}
+    <div className="relative inline-block text-left" ref={dropdownRef}>
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        onKeyDown={handleKeyDown}
         className={
-          'flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-mono font-bold transition-all cursor-pointer bg-[#1a1a1c] hover:bg-[#222226] border-zinc-700/80 shadow-sm outline-none focus:border-brand-500 ' +
-          selectedOption.color
+          'flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-mono font-bold border transition-all cursor-pointer shadow-sm ' +
+          selectedOption.badge
         }
       >
-        <span>{selectedOption.method}</span>
-        <ChevronDown
-          className={'w-3.5 h-3.5 text-zinc-400 transition-transform duration-200 ' + (isOpen ? 'rotate-180' : '')}
-        />
+        <span>{selectedOption.label}</span>
+        <ChevronDown className="w-3 h-3 opacity-70" />
       </button>
 
-      {/* Floating Menu List */}
       {isOpen && (
-        <div className="absolute left-0 top-full mt-1.5 w-40 bg-[#161618] border border-zinc-800/90 shadow-2xl rounded-xl py-1.5 z-50 backdrop-blur-md animate-in fade-in zoom-in-95 duration-100">
-          <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-zinc-500 border-b border-zinc-800/60 mb-1">
-            HTTP Method
-          </div>
-          {HTTP_METHODS.map((item, index) => {
-            const isSelected = item.method === value;
-            const isFocused = index === focusedIndex;
-            return (
-              <button
-                key={item.method}
-                type="button"
-                onClick={() => {
-                  onChange(item.method);
-                  setIsOpen(false);
-                }}
-                onMouseEnter={() => setFocusedIndex(index)}
-                className={
-                  'w-full px-2.5 py-1.5 flex items-center justify-between text-xs font-mono transition-colors cursor-pointer ' +
-                  (isFocused ? 'bg-zinc-800/80 text-white' : 'text-zinc-300 hover:bg-zinc-800/50')
-                }
-              >
-                <div className="flex items-center gap-2">
-                  <span className={'px-1.5 py-0.5 rounded text-[10px] font-bold border ' + item.badge}>
-                    {item.method}
-                  </span>
-                </div>
-                {isSelected && <Check className="w-3.5 h-3.5 text-brand-400" />}
-              </button>
-            );
-          })}
+        <div className="absolute left-0 top-full mt-1.5 w-32 bg-[#18181b] border border-zinc-700/80 rounded-xl shadow-2xl py-1 z-50 animate-scale-up backdrop-blur-md">
+          {HTTP_METHODS.map((m) => (
+            <button
+              key={m.method}
+              type="button"
+              onClick={() => {
+                onChange(m.method);
+                setIsOpen(false);
+              }}
+              className={
+                'w-full flex items-center justify-between px-3 py-1.5 text-xs font-mono font-bold text-left transition-colors cursor-pointer ' +
+                (m.method === value
+                  ? 'bg-zinc-800 text-white'
+                  : 'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/60')
+              }
+            >
+              <span className={m.color}>{m.label}</span>
+              {m.method === value && <Check className="w-3 h-3 text-brand-400" />}
+            </button>
+          ))}
         </div>
       )}
     </div>
   );
 };
 
-interface HttpClientWorkspaceProps {
+export const HttpClientWorkspace: React.FC<{
   showToast: (message: string, type?: 'success' | 'error' | 'info') => void;
-}
-
-export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({ showToast }) => {
-  // Collections Tree State
+}> = ({ showToast }) => {
+  // 1. Collections & Requests Tree State
   const [collections, setCollections] = useState<HttpFolderItem[]>(() => {
     try {
       const saved = localStorage.getItem('octa_http_collections');
@@ -347,70 +363,49 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({ showTo
         }
       }
     } catch (e) {
-      console.warn('Failed to parse collections from localStorage', e);
+      console.warn('Failed to parse http collections from localStorage', e);
     }
-    return [];
+    return [
+      {
+        id: 'col-default',
+        type: 'collection',
+        name: 'My Collection',
+        isOpen: true,
+        items: [
+          {
+            id: 'req-users',
+            type: 'request',
+            name: 'Get Users List',
+            method: 'GET',
+            url: 'https://jsonplaceholder.typicode.com/users',
+            headers: [{ key: 'Accept', value: 'application/json', enabled: true }],
+            params: [{ key: 'page', value: '1', enabled: true }],
+            bodyType: 'none',
+            bodyContent: '',
+            bodyFormData: [],
+            bodyUrlEncoded: [],
+            isDirty: false,
+          },
+          {
+            id: 'req-create-user',
+            type: 'request',
+            name: 'Create User',
+            method: 'POST',
+            url: 'https://jsonplaceholder.typicode.com/users',
+            headers: [{ key: 'Content-Type', value: 'application/json', enabled: true }],
+            params: [],
+            bodyType: 'json',
+            bodyContent: '{\n  "name": "Alex Mercer",\n  "email": "alex@octa.dev"\n}',
+            bodyFormData: [],
+            bodyUrlEncoded: [],
+            isDirty: false,
+          },
+        ],
+      },
+    ];
   });
 
-  // Multi-Tab State (starts empty if no saved tabs exist)
-  const [openTabs, setOpenTabs] = useState<HttpRequestItem[]>(() => {
-    try {
-      const savedTabs = localStorage.getItem('octa_http_open_tabs');
-      if (savedTabs) {
-        const parsed = JSON.parse(savedTabs);
-        if (Array.isArray(parsed)) {
-          return parsed;
-        }
-      }
-    } catch {
-      // fallback
-    }
-    return [];
-  });
-
-  const [activeTabId, setActiveTabId] = useState<string>(() => {
-    const savedActiveId = localStorage.getItem('octa_http_active_tab_id');
-    if (savedActiveId && openTabs.some((t) => t.id === savedActiveId)) {
-      return savedActiveId;
-    }
-    return openTabs[0]?.id || '';
-  });
-
-  // Get active request from active tab (null if no tabs open)
-  const activeRequest: HttpRequestItem | null =
-    openTabs.find((t) => t.id === activeTabId) || (openTabs.length > 0 ? openTabs[0] : null);
-
-  // Layout Orientation State: 'horizontal' (side-by-side) vs 'vertical' (stacked)
-  const [layoutOrientation, setLayoutOrientation] = useState<'horizontal' | 'vertical'>(() => {
-    const saved = localStorage.getItem('octa_http_layout_orientation');
-    return saved === 'vertical' ? 'vertical' : 'horizontal';
-  });
-
-  const [requestTab, setRequestTab] = useState<'params' | 'headers' | 'body'>('params');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isSending, setIsSending] = useState(false);
-
-  // In-place Editing / Naming State
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editingName, setEditingName] = useState('');
-  const editInputRef = useRef<HTMLInputElement>(null);
-
-  // Context Menu State
-  const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  // Drag and Drop State
-  const [draggedId, setDraggedId] = useState<string | null>(null);
-  const [dragOverTarget, setDragOverTarget] = useState<{
-    id: string;
-    position: 'inside' | 'before' | 'after';
-  } | null>(null);
-
-  // Response State (mapped per request tab id)
-  const [responseMap, setResponseMap] = useState<Record<string, HttpResponseState>>({});
-  const activeResponseState = activeRequest ? responseMap[activeRequest.id] || null : null;
-
-  // Load from Go backend on startup
+  // Load from Go backend on mount
   useEffect(() => {
     let isMounted = true;
     (async () => {
@@ -418,13 +413,12 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({ showTo
         const diskData = await loadHttpClientData();
         if (diskData && diskData.trim() && isMounted) {
           const parsed = JSON.parse(diskData);
-          if (Array.isArray(parsed)) {
-            const normalized = normalizeCollections(parsed);
-            setCollections(normalized);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setCollections(normalizeCollections(parsed));
           }
         }
       } catch (err) {
-        console.warn('Could not load HTTP client data from backend disk file:', err);
+        console.warn('Failed to load HTTP client data from disk:', err);
       }
     })();
     return () => {
@@ -432,32 +426,57 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({ showTo
     };
   }, []);
 
-  // Persist open tabs and layout orientation
-  useEffect(() => {
+  // Persist tree helper
+  const saveTreeData = (nextCols: HttpFolderItem[]) => {
+    setCollections(nextCols);
     try {
-      localStorage.setItem('octa_http_open_tabs', JSON.stringify(openTabs));
-      localStorage.setItem('octa_http_active_tab_id', activeTabId);
-      localStorage.setItem('octa_http_layout_orientation', layoutOrientation);
-    } catch (e) {
-      console.warn('Failed to persist tabs state:', e);
-    }
-  }, [openTabs, activeTabId, layoutOrientation]);
-
-  // Save tree data to Go backend and localStorage
-  const saveTreeData = useCallback((nextTree: HttpFolderItem[]) => {
-    setCollections(nextTree);
-    try {
-      const jsonStr = JSON.stringify(nextTree);
+      const jsonStr = JSON.stringify(nextCols);
       localStorage.setItem('octa_http_collections', jsonStr);
       saveHttpClientData(jsonStr).catch((err) => {
         console.warn('Backend saveHttpClientData failed:', err);
       });
     } catch (e) {
-      console.warn('Failed to persist collections:', e);
+      console.warn('Failed to persist http collections:', e);
     }
-  }, []);
+  };
 
-  // Auto-focus and select all text when editing an item name
+  // 2. Multi-Tab State
+  const [openTabs, setOpenTabs] = useState<HttpRequestItem[]>(() => {
+    const firstReq = collections[0]?.items.find((i) => i.type === 'request') as HttpRequestItem | undefined;
+    return firstReq ? [firstReq] : [];
+  });
+
+  const [activeTabId, setActiveTabId] = useState<string>(() => {
+    return openTabs[0]?.id || '';
+  });
+
+  const activeRequest: HttpRequestItem | null =
+    openTabs.find((t) => t.id === activeTabId) || null;
+
+  // Active Request Sub-Tabs: params | headers | body
+  const [requestTab, setRequestTab] = useState<'params' | 'headers' | 'body'>('params');
+
+  // Layout Orientation: horizontal (side-by-side) vs vertical (stacked)
+  const [layoutOrientation, setLayoutOrientation] = useState<'horizontal' | 'vertical'>(() => {
+    const saved = localStorage.getItem('octa_http_layout_orientation');
+    return saved === 'vertical' ? 'vertical' : 'horizontal';
+  });
+
+  // Save orientation preference
+  useEffect(() => {
+    localStorage.setItem('octa_http_layout_orientation', layoutOrientation);
+  }, [layoutOrientation]);
+
+  // Request Execution & Response States
+  const [isSending, setIsSending] = useState(false);
+  const [responseMap, setResponseMap] = useState<Record<string, HttpResponseState>>({});
+  const activeResponseState = activeRequest ? responseMap[activeRequest.id] : null;
+
+  // In-Place Inline Naming State
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState<string>('');
+  const editInputRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
     if (editingId && editInputRef.current) {
       editInputRef.current.focus();
@@ -465,27 +484,39 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({ showTo
     }
   }, [editingId]);
 
-  // Close context menu when clicking outside
+  // Tree Action Context Menus
+  const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
+    const handleOutside = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         setMenuOpenId(null);
       }
     };
-    window.addEventListener('mousedown', handleClickOutside);
-    return () => window.removeEventListener('mousedown', handleClickOutside);
+    window.addEventListener('mousedown', handleOutside);
+    return () => window.removeEventListener('mousedown', handleOutside);
   }, []);
 
-  // Update active request in open tabs and sync into tree
-  const updateActiveRequest = (updated: HttpRequestItem) => {
-    // 1. Update open tabs
-    const nextTabs = openTabs.map((t) => (t.id === updated.id ? { ...updated, isDirty: true } : t));
-    setOpenTabs(nextTabs);
+  // Explorer Search Filter
+  const [searchQuery, setSearchQuery] = useState('');
 
-    // 2. Sync to collection tree
+  // Drag & Drop State
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [dragOverTarget, setDragOverTarget] = useState<{
+    id: string;
+    position: 'before' | 'inside' | 'after';
+  } | null>(null);
+
+  // Update active request in open tabs and in tree
+  const updateActiveRequest = (updated: HttpRequestItem) => {
+    setOpenTabs((prev) =>
+      prev.map((t) => (t.id === updated.id ? { ...updated, isDirty: true } : t))
+    );
+
     const updateRecursively = (items: (HttpFolderItem | HttpRequestItem)[]): (HttpFolderItem | HttpRequestItem)[] => {
       return items.map((item) => {
-        if (item.id === updated.id && item.type === 'request') {
+        if (item.id === updated.id) {
           return { ...updated, isDirty: true };
         }
         if (item.type !== 'request') {
@@ -497,7 +528,47 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({ showTo
         return item;
       });
     };
+
     saveTreeData(updateRecursively(collections) as HttpFolderItem[]);
+  };
+
+  // Body Type Switching Helper with Auto Content-Type Header Sync
+  const handleSwitchBodyType = (newType: HttpBodyType) => {
+    if (!activeRequest) return;
+    const currentHeaders = [...activeRequest.headers];
+    const contentTypeIdx = currentHeaders.findIndex(
+      (h) => h.key.toLowerCase() === 'content-type'
+    );
+
+    if (newType === 'json') {
+      if (contentTypeIdx >= 0) {
+        currentHeaders[contentTypeIdx].value = 'application/json';
+        currentHeaders[contentTypeIdx].enabled = true;
+      } else {
+        currentHeaders.push({ key: 'Content-Type', value: 'application/json', enabled: true });
+      }
+    } else if (newType === 'x-www-form-urlencoded') {
+      if (contentTypeIdx >= 0) {
+        currentHeaders[contentTypeIdx].value = 'application/x-www-form-urlencoded';
+        currentHeaders[contentTypeIdx].enabled = true;
+      } else {
+        currentHeaders.push({ key: 'Content-Type', value: 'application/x-www-form-urlencoded', enabled: true });
+      }
+    } else if (newType === 'form-data' || newType === 'none') {
+      // For form-data, browser automatically computes boundary; remove explicit json/urlencoded content-type
+      if (contentTypeIdx >= 0 && (
+        currentHeaders[contentTypeIdx].value.includes('application/json') ||
+        currentHeaders[contentTypeIdx].value.includes('application/x-www-form-urlencoded')
+      )) {
+        currentHeaders.splice(contentTypeIdx, 1);
+      }
+    }
+
+    updateActiveRequest({
+      ...activeRequest,
+      bodyType: newType,
+      headers: currentHeaders,
+    });
   };
 
   // Select / Open a request in tabs
@@ -509,7 +580,7 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({ showTo
     setActiveTabId(req.id);
   };
 
-  // Close a tab (Refactored: Does NOT spawn a default tab when closing the last one)
+  // Close a tab
   const handleCloseTab = (tabId: string, e?: React.MouseEvent) => {
     if (e) {
       e.stopPropagation();
@@ -532,7 +603,6 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({ showTo
   const handleNewTab = () => {
     const newReq = createDefaultRequest('Untitled Request');
     if (collections.length > 0) {
-      // Add to first collection
       const nextCols = [
         {
           ...collections[0],
@@ -595,7 +665,6 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({ showTo
     };
 
     saveTreeData(renameRecursively(collections) as HttpFolderItem[]);
-    // Update open tabs title as well
     setOpenTabs((prev) =>
       prev.map((t) => (t.id === editingId ? { ...t, name: finalName } : t))
     );
@@ -748,7 +817,6 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({ showTo
     const nextTree = deleteRecursively(collections) as HttpFolderItem[];
     saveTreeData(nextTree);
 
-    // If deleted item was open in tabs, close it
     if (openTabs.some((t) => t.id === id)) {
       handleCloseTab(id);
     }
@@ -904,7 +972,7 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({ showTo
     setDragOverTarget(null);
   };
 
-  // Send HTTP Request
+  // Send HTTP Request Dispatcher
   const handleSendRequest = async () => {
     if (!activeRequest) return;
     if (!activeRequest.url.trim()) {
@@ -922,6 +990,7 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({ showTo
         targetUrl = 'https://' + targetUrl;
       }
 
+      // Query Params
       const enabledParams = activeRequest.params.filter((p) => p.enabled && p.key);
       if (enabledParams.length > 0) {
         const queryStr = enabledParams
@@ -930,6 +999,7 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({ showTo
         targetUrl += (targetUrl.includes('?') ? '&' : '?') + queryStr;
       }
 
+      // Request Headers
       const reqHeaders: Record<string, string> = {};
       activeRequest.headers.forEach((h) => {
         if (h.enabled && h.key) reqHeaders[h.key] = h.value;
@@ -940,8 +1010,49 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({ showTo
         headers: reqHeaders,
       };
 
-      if (activeRequest.method !== 'GET' && activeRequest.method !== 'HEAD' && activeRequest.bodyContent && activeRequest.bodyType !== 'none') {
-        options.body = activeRequest.bodyContent;
+      // Request Body Construction
+      if (activeRequest.method !== 'GET' && activeRequest.method !== 'HEAD') {
+        if (activeRequest.bodyType === 'json') {
+          if (activeRequest.bodyContent?.trim()) {
+            options.body = activeRequest.bodyContent;
+            if (!reqHeaders['Content-Type'] && !reqHeaders['content-type']) {
+              reqHeaders['Content-Type'] = 'application/json';
+            }
+          }
+        } else if (activeRequest.bodyType === 'form-data') {
+          const formData = new FormData();
+          const rows = activeRequest.bodyFormData || [];
+          for (const row of rows) {
+            if (!row.enabled || !row.key.trim()) continue;
+            if (row.type === 'file') {
+              if (row.files && row.files.length > 0) {
+                for (const f of row.files) {
+                  if (f.fileObj) {
+                    formData.append(row.key, f.fileObj, f.name);
+                  }
+                }
+              }
+            } else {
+              formData.append(row.key, row.value || '');
+            }
+          }
+          options.body = formData;
+          // Let fetch manage Content-Type boundary automatically
+          delete reqHeaders['Content-Type'];
+          delete reqHeaders['content-type'];
+        } else if (activeRequest.bodyType === 'x-www-form-urlencoded') {
+          const urlParams = new URLSearchParams();
+          const rows = activeRequest.bodyUrlEncoded || [];
+          for (const row of rows) {
+            if (row.enabled && row.key.trim()) {
+              urlParams.append(row.key, row.value || '');
+            }
+          }
+          options.body = urlParams.toString();
+          if (!reqHeaders['Content-Type'] && !reqHeaders['content-type']) {
+            reqHeaders['Content-Type'] = 'application/x-www-form-urlencoded';
+          }
+        }
       }
 
       const res = await fetch(targetUrl, options);
@@ -987,7 +1098,50 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({ showTo
     }
   };
 
-  // Keyboard shortcut support (Ctrl+W, Ctrl+T)
+  // JSON Formatting action
+  const handleFormatJson = () => {
+    if (!activeRequest || !activeRequest.bodyContent?.trim()) return;
+    try {
+      const parsed = JSON.parse(activeRequest.bodyContent);
+      const formatted = JSON.stringify(parsed, null, 2);
+      updateActiveRequest({ ...activeRequest, bodyContent: formatted });
+      showToast('JSON Formatted', 'success');
+    } catch (e: any) {
+      showToast('Invalid JSON: ' + e?.message, 'error');
+    }
+  };
+
+  // JSON Minifying action
+  const handleMinifyJson = () => {
+    if (!activeRequest || !activeRequest.bodyContent?.trim()) return;
+    try {
+      const parsed = JSON.parse(activeRequest.bodyContent);
+      const minified = JSON.stringify(parsed);
+      updateActiveRequest({ ...activeRequest, bodyContent: minified });
+      showToast('JSON Minified', 'success');
+    } catch (e: any) {
+      showToast('Invalid JSON: ' + e?.message, 'error');
+    }
+  };
+
+  // Clear JSON
+  const handleClearJson = () => {
+    if (!activeRequest) return;
+    updateActiveRequest({ ...activeRequest, bodyContent: '' });
+  };
+
+  // JSON Validation Status
+  const getJsonValidity = (content: string): { isValid: boolean; error?: string } => {
+    if (!content || !content.trim()) return { isValid: true };
+    try {
+      JSON.parse(content);
+      return { isValid: true };
+    } catch (e: any) {
+      return { isValid: false, error: e?.message || 'Syntax Error' };
+    }
+  };
+
+  // Keyboard shortcut support (Ctrl+W, Ctrl+T, Ctrl+Enter)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey) {
@@ -999,52 +1153,58 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({ showTo
         } else if (e.key === 't' || e.key === 'T') {
           e.preventDefault();
           handleNewTab();
+        } else if (e.key === 'Enter') {
+          e.preventDefault();
+          handleSendRequest();
         }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeTabId, openTabs]);
+  }, [activeTabId, activeRequest]);
 
-  // Filter matches helper
-  const matchesSearch = (item: HttpTreeItem): boolean => {
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase();
-    if (item.name.toLowerCase().includes(q)) return true;
-    if (item.type === 'request' && item.url.toLowerCase().includes(q)) return true;
-    if (item.type !== 'request') {
-      return item.items.some((child) => matchesSearch(child));
-    }
-    return false;
-  };
-
-  // Recursive Tree Item Renderer
+  // Render Explorer Tree Item recursively
   const renderTreeItem = (item: HttpTreeItem, depth: number = 0) => {
-    if (!matchesSearch(item)) return null;
-
     const isFolder = item.type === 'collection' || item.type === 'folder';
     const isCollection = item.type === 'collection';
-    const isSelected = !isFolder && activeRequest?.id === item.id;
     const isEditing = editingId === item.id;
     const isMenuOpen = menuOpenId === item.id;
-
+    const isDragging = draggedId === item.id;
     const isDragTarget = dragOverTarget?.id === item.id;
     const dropPosition = isDragTarget ? dragOverTarget.position : null;
 
+    if (searchQuery.trim()) {
+      const matchSelf = item.name.toLowerCase().includes(searchQuery.toLowerCase());
+      if (item.type === 'request' && !matchSelf) return null;
+      if (isFolder && !matchSelf) {
+        const hasMatchingChild = (children: HttpTreeItem[]): boolean => {
+          return children.some((c) =>
+            c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (c.type !== 'request' && hasMatchingChild(c.items))
+          );
+        };
+        if (!hasMatchingChild(item.items)) return null;
+      }
+    }
+
     return (
-      <div key={item.id} className="relative select-none">
+      <div
+        key={item.id}
+        draggable
+        onDragStart={(e) => handleDragStart(e, item.id)}
+        onDragOver={(e) => handleDragOver(e, item)}
+        onDragLeave={(e) => handleDragLeave(e, item.id)}
+        onDrop={(e) => handleDrop(e, item)}
+        className={'relative transition-opacity select-none ' + (isDragging ? 'opacity-40' : 'opacity-100')}
+      >
         {/* Drop Line: Before */}
         {dropPosition === 'before' && (
           <div className="h-0.5 w-full bg-brand-400 my-0.5 rounded shadow-[0_0_8px_rgba(56,189,248,0.8)]" />
         )}
 
-        {/* Item Row */}
+        {/* Row Item Container */}
         <div
-          draggable={!isEditing}
-          onDragStart={(e) => handleDragStart(e, item.id)}
-          onDragOver={(e) => handleDragOver(e, item)}
-          onDragLeave={(e) => handleDragLeave(e, item.id)}
-          onDrop={(e) => handleDrop(e, item)}
+          style={{ paddingLeft: depth * 14 + 8 }}
           onClick={() => {
             if (isFolder) {
               toggleFolderOpen(item.id);
@@ -1052,134 +1212,109 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({ showTo
               handleOpenRequestInTab(item as HttpRequestItem);
             }
           }}
-          style={{ paddingLeft: depth * 14 + 8 }}
           className={
-            'w-full pr-2 py-1.5 rounded-lg flex items-center gap-1.5 text-left transition-all cursor-pointer group/row ' +
-            (isSelected
-              ? 'bg-surface-800 text-white font-medium shadow-sm border-l-2 border-brand-400'
-              : 'text-zinc-300 hover:text-zinc-100 hover:bg-[#1a1a1a]') +
-            (dropPosition === 'inside'
-              ? ' ring-1 ring-brand-400 bg-brand-500/10 border-brand-500/50'
-              : '')
+            'group relative flex items-center justify-between py-1.5 pr-2 rounded-lg text-xs cursor-pointer transition-all ' +
+            (dropPosition === 'inside' ? 'bg-brand-500/20 ring-1 ring-brand-400/50 ' : '') +
+            (!isFolder && activeTabId === item.id
+              ? 'bg-[#1f1f23] text-white font-medium shadow-sm border border-zinc-700/60'
+              : 'text-zinc-400 hover:text-zinc-200 hover:bg-[#18181b]')
           }
         >
-          {/* Chevron / Toggle for Folders & Collections */}
-          {isFolder ? (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                toggleFolderOpen(item.id);
-              }}
-              className="p-0.5 text-zinc-500 hover:text-zinc-300 rounded cursor-pointer"
-            >
-              {item.isOpen ? (
-                <ChevronDown className="w-3.5 h-3.5 text-zinc-400" />
-              ) : (
-                <ChevronRight className="w-3.5 h-3.5 text-zinc-500" />
-              )}
-            </button>
-          ) : (
-            <span className="w-3.5" />
-          )}
-
-          {/* Type Icon */}
-          {isCollection ? (
-            <Layers className="w-3.5 h-3.5 text-brand-400 flex-shrink-0" />
-          ) : isFolder ? (
-            item.isOpen ? (
-              <FolderOpen className="w-3.5 h-3.5 text-amber-400/90 flex-shrink-0" />
+          {/* Left Title & Icons */}
+          <div className="flex items-center gap-2 truncate flex-1 mr-1">
+            {isFolder ? (
+              <div className="flex items-center gap-1.5 flex-shrink-0">
+                {item.isOpen ? (
+                  <ChevronDown className="w-3.5 h-3.5 text-zinc-500" />
+                ) : (
+                  <ChevronRight className="w-3.5 h-3.5 text-zinc-500" />
+                )}
+                {isCollection ? (
+                  <Layers className="w-3.5 h-3.5 text-brand-400" />
+                ) : item.isOpen ? (
+                  <FolderOpen className="w-3.5 h-3.5 text-amber-400" />
+                ) : (
+                  <Folder className="w-3.5 h-3.5 text-amber-400/80" />
+                )}
+              </div>
             ) : (
-              <Folder className="w-3.5 h-3.5 text-amber-400/70 flex-shrink-0" />
-            )
-          ) : (
-            <span
-              className={
-                'text-[9px] font-bold font-mono px-1.5 py-0.2 rounded border flex-shrink-0 ' +
-                (METHOD_COLORS[(item as HttpRequestItem).method]?.badge || METHOD_COLORS.GET.badge)
-              }
-            >
-              {(item as HttpRequestItem).method}
-            </span>
-          )}
+              <span
+                className={
+                  'text-[9px] font-mono font-bold px-1 py-0.2 rounded border flex-shrink-0 ' +
+                  (METHOD_COLORS[(item as HttpRequestItem).method]?.badge || METHOD_COLORS.GET.badge)
+                }
+              >
+                {(item as HttpRequestItem).method}
+              </span>
+            )}
 
-          {/* Name or In-Place Input */}
-          {isEditing ? (
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                commitNameEdit();
-              }}
-              onClick={(e) => e.stopPropagation()}
-              className="flex-1 flex items-center gap-1 min-w-0"
-            >
-              <input
-                ref={editInputRef}
-                type="text"
-                value={editingName}
-                onChange={(e) => setEditingName(e.target.value)}
-                onBlur={commitNameEdit}
-                onKeyDown={(e) => {
-                  if (e.key === 'Escape') setEditingId(null);
+            {/* In-Place Name or Display Text */}
+            {isEditing ? (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  commitNameEdit();
                 }}
-                className="w-full px-1.5 py-0.5 text-xs font-medium bg-[#222222] border border-brand-500 rounded text-white outline-none"
-              />
-            </form>
-          ) : (
-            <span
-              onDoubleClick={(e) => {
-                e.stopPropagation();
-                setEditingId(item.id);
-                setEditingName(item.name);
-              }}
-              className={
-                'text-xs truncate flex-1 ' +
-                (isCollection
-                  ? 'font-semibold text-zinc-200'
-                  : isFolder
-                  ? 'font-medium text-zinc-300'
-                  : 'text-zinc-400 group-hover/row:text-zinc-200')
-              }
-            >
-              {item.name}
-            </span>
-          )}
+                onClick={(e) => e.stopPropagation()}
+                className="flex items-center flex-1"
+              >
+                <input
+                  ref={editInputRef}
+                  type="text"
+                  value={editingName}
+                  onChange={(e) => setEditingName(e.target.value)}
+                  onBlur={commitNameEdit}
+                  className="w-full px-1.5 py-0.5 text-xs bg-[#1f1f23] border border-brand-500 rounded text-white outline-none font-mono"
+                />
+              </form>
+            ) : (
+              <span
+                onDoubleClick={(e) => {
+                  e.stopPropagation();
+                  setEditingId(item.id);
+                  setEditingName(item.name);
+                }}
+                className="truncate select-none font-sans"
+              >
+                {item.name}
+              </span>
+            )}
+          </div>
 
-          {/* Request Count Badge for Collections / Folders */}
-          {isFolder && !isEditing && (
-            <span className="text-[10px] text-zinc-600 font-mono pr-1">
-              {countRequests(item)}
-            </span>
-          )}
-
-          {/* 3-Dot Action Menu Button */}
+          {/* Right Metrics / Quick Actions */}
           {!isEditing && (
-            <div className="relative">
+            <div className="flex items-center gap-1 flex-shrink-0">
+              {isFolder && (
+                <span className="text-[10px] text-zinc-600 font-mono group-hover:opacity-0 transition-opacity">
+                  {countRequests(item)}
+                </span>
+              )}
+
+              {/* Three-Dot Menu Trigger Button */}
               <button
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
                   setMenuOpenId(isMenuOpen ? null : item.id);
                 }}
-                title="Options"
-                className="opacity-0 group-hover/row:opacity-100 p-1 text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 rounded transition-all cursor-pointer"
+                className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-zinc-750 text-zinc-400 hover:text-white transition-opacity cursor-pointer"
               >
                 <MoreVertical className="w-3.5 h-3.5" />
               </button>
 
-              {/* Context / 3-Dot Dropdown Menu */}
+              {/* Context Dropdown Menu */}
               {isMenuOpen && (
                 <div
                   ref={menuRef}
                   onClick={(e) => e.stopPropagation()}
-                  className="absolute right-0 top-full mt-1 w-44 bg-[#181818] border border-[#2b2b2b] rounded-lg shadow-2xl py-1 z-50 text-xs text-zinc-300 backdrop-blur-md"
+                  className="absolute right-2 top-8 w-44 bg-[#18181b] border border-zinc-700/80 rounded-xl shadow-2xl py-1.5 z-50 animate-scale-up backdrop-blur-md text-xs"
                 >
-                  {isFolder ? (
+                  {isFolder && (
                     <>
                       <button
                         type="button"
                         onClick={() => handleCreateNewRequest(item.id)}
-                        className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-zinc-800/80 hover:text-white transition-colors cursor-pointer"
+                        className="w-full px-3 py-1.5 flex items-center gap-2 text-left hover:bg-zinc-800 text-zinc-300 hover:text-white transition-colors cursor-pointer"
                       >
                         <Plus className="w-3.5 h-3.5 text-brand-400" />
                         <span>Add Request</span>
@@ -1187,66 +1322,49 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({ showTo
                       <button
                         type="button"
                         onClick={() => handleCreateFolder(item.id)}
-                        className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-zinc-800/80 hover:text-white transition-colors cursor-pointer"
+                        className="w-full px-3 py-1.5 flex items-center gap-2 text-left hover:bg-zinc-800 text-zinc-300 hover:text-white transition-colors cursor-pointer"
                       >
                         <FolderPlus className="w-3.5 h-3.5 text-amber-400" />
                         <span>Add Folder</span>
                       </button>
-                      <div className="h-px bg-[#262626] my-1" />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEditingId(item.id);
-                          setEditingName(item.name);
-                          setMenuOpenId(null);
-                        }}
-                        className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-zinc-800/80 hover:text-white transition-colors cursor-pointer"
-                      >
-                        <Edit2 className="w-3.5 h-3.5 text-zinc-400" />
-                        <span>Rename</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteItem(item.id)}
-                        className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-rose-950/40 text-rose-400 hover:text-rose-300 transition-colors cursor-pointer"
-                      >
-                        <Trash2 className="w-3.5 h-3.5 text-rose-400" />
-                        <span>Delete</span>
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => handleDuplicateRequest(item.id)}
-                        className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-zinc-800/80 hover:text-white transition-colors cursor-pointer"
-                      >
-                        <Files className="w-3.5 h-3.5 text-brand-400" />
-                        <span>Duplicate</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEditingId(item.id);
-                          setEditingName(item.name);
-                          setMenuOpenId(null);
-                        }}
-                        className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-zinc-800/80 hover:text-white transition-colors cursor-pointer"
-                      >
-                        <Edit2 className="w-3.5 h-3.5 text-zinc-400" />
-                        <span>Rename</span>
-                      </button>
-                      <div className="h-px bg-[#262626] my-1" />
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteItem(item.id)}
-                        className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-rose-950/40 text-rose-400 hover:text-rose-300 transition-colors cursor-pointer"
-                      >
-                        <Trash2 className="w-3.5 h-3.5 text-rose-400" />
-                        <span>Delete</span>
-                      </button>
+                      <div className="my-1 border-t border-zinc-800/80" />
                     </>
                   )}
+
+                  {!isFolder && (
+                    <button
+                      type="button"
+                      onClick={() => handleDuplicateRequest(item.id)}
+                      className="w-full px-3 py-1.5 flex items-center gap-2 text-left hover:bg-zinc-800 text-zinc-300 hover:text-white transition-colors cursor-pointer"
+                    >
+                      <Copy className="w-3.5 h-3.5 text-sky-400" />
+                      <span>Duplicate</span>
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingId(item.id);
+                      setEditingName(item.name);
+                      setMenuOpenId(null);
+                    }}
+                    className="w-full px-3 py-1.5 flex items-center gap-2 text-left hover:bg-zinc-800 text-zinc-300 hover:text-white transition-colors cursor-pointer"
+                  >
+                    <Edit2 className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Rename</span>
+                  </button>
+
+                  <div className="my-1 border-t border-zinc-800/80" />
+
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteItem(item.id)}
+                    className="w-full px-3 py-1.5 flex items-center gap-2 text-left hover:bg-rose-950/60 text-rose-400 hover:text-rose-300 transition-colors cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Delete</span>
+                  </button>
                 </div>
               )}
             </div>
@@ -1545,7 +1663,7 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({ showTo
                     type="button"
                     onClick={handleSendRequest}
                     disabled={isSending}
-                    className="flex items-center gap-2 px-4 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 text-white font-semibold text-xs shadow-md shadow-brand-600/20 transition-all disabled:opacity-50 cursor-pointer"
+                    className="flex items-center gap-2 px-4 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 active:scale-[0.98] text-white font-semibold text-xs shadow-md shadow-brand-600/20 transition-all disabled:opacity-50 cursor-pointer"
                   >
                     <Send className="w-3.5 h-3.5" />
                     <span>{isSending ? 'Sending...' : 'Send'}</span>
@@ -1571,7 +1689,7 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({ showTo
                         className={
                           'px-3 py-2 font-medium border-b-2 transition-colors cursor-pointer ' +
                           (requestTab === 'params'
-                            ? 'border-brand-400 text-brand-300'
+                            ? 'border-brand-400 text-brand-300 font-semibold'
                             : 'border-transparent text-zinc-400 hover:text-zinc-200')
                         }
                       >
@@ -1583,7 +1701,7 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({ showTo
                         className={
                           'px-3 py-2 font-medium border-b-2 transition-colors cursor-pointer ' +
                           (requestTab === 'headers'
-                            ? 'border-brand-400 text-brand-300'
+                            ? 'border-brand-400 text-brand-300 font-semibold'
                             : 'border-transparent text-zinc-400 hover:text-zinc-200')
                         }
                       >
@@ -1593,18 +1711,24 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({ showTo
                         type="button"
                         onClick={() => setRequestTab('body')}
                         className={
-                          'px-3 py-2 font-medium border-b-2 transition-colors cursor-pointer ' +
+                          'px-3 py-2 font-medium border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 ' +
                           (requestTab === 'body'
-                            ? 'border-brand-400 text-brand-300'
+                            ? 'border-brand-400 text-brand-300 font-semibold'
                             : 'border-transparent text-zinc-400 hover:text-zinc-200')
                         }
                       >
-                        Body
+                        <span>Body</span>
+                        {activeRequest.bodyType !== 'none' && (
+                          <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-brand-950/80 border border-brand-500/40 text-brand-300 font-mono">
+                            {activeRequest.bodyType}
+                          </span>
+                        )}
                       </button>
                     </div>
 
                     {/* Request Tab Content */}
                     <div className="flex-1 p-3 overflow-y-auto bg-[#131316]">
+                      {/* 1. QUERY PARAMS TAB */}
                       {requestTab === 'params' && (
                         <div className="space-y-2">
                           <div className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider">
@@ -1620,7 +1744,7 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({ showTo
                                   next[idx].enabled = e.target.checked;
                                   updateActiveRequest({ ...activeRequest, params: next });
                                 }}
-                                className="rounded bg-zinc-800 border-zinc-700 text-brand-500"
+                                className="rounded bg-zinc-800 border-zinc-700 text-brand-500 cursor-pointer"
                               />
                               <input
                                 type="text"
@@ -1631,7 +1755,7 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({ showTo
                                   updateActiveRequest({ ...activeRequest, params: next });
                                 }}
                                 placeholder="Key"
-                                className="flex-1 px-2.5 py-1 text-xs bg-[#1a1a1e] border border-[#2b2b30] rounded text-zinc-200 font-mono outline-none"
+                                className="flex-1 px-2.5 py-1 text-xs bg-[#1a1a1e] border border-[#2b2b30] rounded text-zinc-200 font-mono outline-none focus:border-brand-500"
                               />
                               <input
                                 type="text"
@@ -1642,7 +1766,7 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({ showTo
                                   updateActiveRequest({ ...activeRequest, params: next });
                                 }}
                                 placeholder="Value"
-                                className="flex-1 px-2.5 py-1 text-xs bg-[#1a1a1e] border border-[#2b2b30] rounded text-zinc-200 font-mono outline-none"
+                                className="flex-1 px-2.5 py-1 text-xs bg-[#1a1a1e] border border-[#2b2b30] rounded text-zinc-200 font-mono outline-none focus:border-brand-500"
                               />
                               <button
                                 type="button"
@@ -1651,7 +1775,7 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({ showTo
                                   updateActiveRequest({ ...activeRequest, params: next });
                                 }}
                                 title="Remove Parameter"
-                                className="p-1 text-zinc-500 hover:text-rose-400 cursor-pointer"
+                                className="p-1 text-zinc-500 hover:text-rose-400 cursor-pointer transition-colors"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
@@ -1673,9 +1797,12 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({ showTo
                         </div>
                       )}
 
+                      {/* 2. HEADERS TAB */}
                       {requestTab === 'headers' && (
                         <div className="space-y-2">
-                          <div className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider">Headers</div>
+                          <div className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider">
+                            HTTP Headers
+                          </div>
                           {activeRequest.headers.map((h, idx) => (
                             <div key={idx} className="flex items-center gap-2">
                               <input
@@ -1686,7 +1813,7 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({ showTo
                                   next[idx].enabled = e.target.checked;
                                   updateActiveRequest({ ...activeRequest, headers: next });
                                 }}
-                                className="rounded bg-zinc-800 border-zinc-700 text-brand-500"
+                                className="rounded bg-zinc-800 border-zinc-700 text-brand-500 cursor-pointer"
                               />
                               <input
                                 type="text"
@@ -1697,7 +1824,7 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({ showTo
                                   updateActiveRequest({ ...activeRequest, headers: next });
                                 }}
                                 placeholder="Header Name"
-                                className="flex-1 px-2.5 py-1 text-xs bg-[#1a1a1e] border border-[#2b2b30] rounded text-zinc-200 font-mono outline-none"
+                                className="flex-1 px-2.5 py-1 text-xs bg-[#1a1a1e] border border-[#2b2b30] rounded text-zinc-200 font-mono outline-none focus:border-brand-500"
                               />
                               <input
                                 type="text"
@@ -1708,7 +1835,7 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({ showTo
                                   updateActiveRequest({ ...activeRequest, headers: next });
                                 }}
                                 placeholder="Value"
-                                className="flex-1 px-2.5 py-1 text-xs bg-[#1a1a1e] border border-[#2b2b30] rounded text-zinc-200 font-mono outline-none"
+                                className="flex-1 px-2.5 py-1 text-xs bg-[#1a1a1e] border border-[#2b2b30] rounded text-zinc-200 font-mono outline-none focus:border-brand-500"
                               />
                               <button
                                 type="button"
@@ -1717,7 +1844,7 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({ showTo
                                   updateActiveRequest({ ...activeRequest, headers: next });
                                 }}
                                 title="Remove Header"
-                                className="p-1 text-zinc-500 hover:text-rose-400 cursor-pointer"
+                                className="p-1 text-zinc-500 hover:text-rose-400 cursor-pointer transition-colors"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
@@ -1739,22 +1866,456 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({ showTo
                         </div>
                       )}
 
+                      {/* 3. REQUEST BODY TAB (Monaco JSON + Multipart Form-Data + Form URL Encoded) */}
                       {requestTab === 'body' && (
-                        <div className="h-full flex flex-col space-y-2">
-                          <div className="flex items-center justify-between text-xs text-zinc-400">
-                            <span className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider">
-                              JSON Body
-                            </span>
+                        <div className="h-full flex flex-col space-y-3">
+                          {/* Body Type Sub-Navigation Radio Bar */}
+                          <div className="flex items-center gap-1.5 p-1 bg-[#18181c] border border-[#26262a] rounded-lg text-xs self-start">
+                            <button
+                              type="button"
+                              onClick={() => handleSwitchBodyType('none')}
+                              className={
+                                'px-3 py-1 rounded-md text-xs transition-all cursor-pointer font-medium ' +
+                                (activeRequest.bodyType === 'none'
+                                  ? 'bg-zinc-700 text-white shadow-sm'
+                                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40')
+                              }
+                            >
+                              none
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleSwitchBodyType('json')}
+                              className={
+                                'flex items-center gap-1.5 px-3 py-1 rounded-md text-xs transition-all cursor-pointer font-medium ' +
+                                (activeRequest.bodyType === 'json'
+                                  ? 'bg-brand-600 text-white shadow-sm'
+                                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40')
+                              }
+                            >
+                              <Code2 className="w-3.5 h-3.5" />
+                              <span>json</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleSwitchBodyType('form-data')}
+                              className={
+                                'flex items-center gap-1.5 px-3 py-1 rounded-md text-xs transition-all cursor-pointer font-medium ' +
+                                (activeRequest.bodyType === 'form-data'
+                                  ? 'bg-amber-600 text-white shadow-sm'
+                                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40')
+                              }
+                            >
+                              <Layers className="w-3.5 h-3.5" />
+                              <span>form-data</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleSwitchBodyType('x-www-form-urlencoded')}
+                              className={
+                                'flex items-center gap-1.5 px-3 py-1 rounded-md text-xs transition-all cursor-pointer font-medium ' +
+                                (activeRequest.bodyType === 'x-www-form-urlencoded'
+                                  ? 'bg-purple-600 text-white shadow-sm'
+                                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40')
+                              }
+                            >
+                              <Globe className="w-3.5 h-3.5" />
+                              <span>x-www-form-urlencoded</span>
+                            </button>
                           </div>
-                          <textarea
-                            value={activeRequest.bodyContent}
-                            onChange={(e) =>
-                              updateActiveRequest({ ...activeRequest, bodyContent: e.target.value, bodyType: 'json' })
-                            }
-                            placeholder="Enter raw JSON body..."
-                            rows={12}
-                            className="w-full flex-1 p-3 text-xs font-mono bg-[#18181c] border border-[#2b2b30] rounded-lg text-zinc-200 outline-none resize-none"
-                          />
+
+                          {/* NONE VIEW */}
+                          {activeRequest.bodyType === 'none' && (
+                            <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-zinc-500 select-none">
+                              <span className="text-xs">This request does not include a body payload.</span>
+                              <span className="text-[11px] text-zinc-600 mt-1">
+                                Select <strong className="text-zinc-400">json</strong>, <strong className="text-zinc-400">form-data</strong>, or <strong className="text-zinc-400">x-www-form-urlencoded</strong> above to configure payload data.
+                              </span>
+                            </div>
+                          )}
+
+                          {/* RAW JSON VIEW WITH MONACO EDITOR */}
+                          {activeRequest.bodyType === 'json' && (
+                            <div className="flex-1 flex flex-col min-h-0 border border-[#2b2b30] rounded-xl overflow-hidden bg-[#141416]">
+                              {/* Monaco Editor JSON Action Toolbar */}
+                              <div className="px-3 py-1.5 border-b border-[#242428] bg-[#18181c] flex items-center justify-between gap-2 flex-shrink-0">
+                                {/* Left Validation Badge */}
+                                <div className="flex items-center gap-2 text-xs">
+                                  {(() => {
+                                    const validity = getJsonValidity(activeRequest.bodyContent);
+                                    if (!activeRequest.bodyContent?.trim()) {
+                                      return <span className="text-[11px] text-zinc-500 font-mono">Empty JSON</span>;
+                                    }
+                                    if (validity.isValid) {
+                                      return (
+                                        <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-950/60 border border-emerald-500/30 text-emerald-400 text-[10px] font-medium font-mono">
+                                          <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                                          <span>Valid JSON</span>
+                                        </div>
+                                      );
+                                    }
+                                    return (
+                                      <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-950/60 border border-rose-500/30 text-rose-400 text-[10px] font-medium font-mono truncate max-w-xs" title={validity.error}>
+                                        <AlertCircle className="w-3 h-3 text-rose-400 flex-shrink-0" />
+                                        <span className="truncate">{validity.error}</span>
+                                      </div>
+                                    );
+                                  })()}
+                                </div>
+
+                                {/* Right Toolbar Buttons: Format, Minify, Clear */}
+                                <div className="flex items-center gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={handleFormatJson}
+                                    title="Format JSON (Prettier)"
+                                    className="flex items-center gap-1 px-2.5 py-1 rounded bg-[#222226] hover:bg-[#2b2b30] text-zinc-300 hover:text-white border border-zinc-700/60 text-xs transition-colors cursor-pointer"
+                                  >
+                                    <Sparkles className="w-3 h-3 text-amber-400" />
+                                    <span>Format</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={handleMinifyJson}
+                                    title="Minify / Compress JSON"
+                                    className="flex items-center gap-1 px-2.5 py-1 rounded bg-[#222226] hover:bg-[#2b2b30] text-zinc-300 hover:text-white border border-zinc-700/60 text-xs transition-colors cursor-pointer"
+                                  >
+                                    <Minimize2 className="w-3 h-3 text-sky-400" />
+                                    <span>Minify</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={handleClearJson}
+                                    title="Clear JSON"
+                                    className="p-1 rounded bg-[#222226] hover:bg-rose-950/50 text-zinc-400 hover:text-rose-300 border border-zinc-700/60 transition-colors cursor-pointer"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* Monaco Editor Instance */}
+                              <div className="flex-1 w-full min-h-[260px] relative overflow-hidden bg-[#141416]">
+                                <Editor
+                                  height="100%"
+                                  language="json"
+                                  theme="vs-dark"
+                                  value={activeRequest.bodyContent || ''}
+                                  onChange={(val) => {
+                                    updateActiveRequest({
+                                      ...activeRequest,
+                                      bodyContent: val || '',
+                                      bodyType: 'json',
+                                    });
+                                  }}
+                                  options={{
+                                    fontSize: 12.5,
+                                    fontFamily: "JetBrains Mono, Fira Code, Menlo, Monaco, Consolas, 'Courier New', monospace",
+                                    minimap: { enabled: false },
+                                    lineNumbers: 'on',
+                                    lineNumbersMinChars: 3,
+                                    scrollBeyondLastLine: false,
+                                    automaticLayout: true,
+                                    tabSize: 2,
+                                    wordWrap: 'on',
+                                    bracketPairColorization: { enabled: true },
+                                    formatOnPaste: true,
+                                    padding: { top: 8, bottom: 8 },
+                                    overviewRulerBorder: false,
+                                    renderLineHighlight: 'all',
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          )}
+
+                          {/* MULTIPART FORM-DATA VIEW */}
+                          {activeRequest.bodyType === 'form-data' && (
+                            <div className="flex-1 flex flex-col space-y-2 overflow-y-auto">
+                              <div className="flex items-center justify-between text-[11px] font-bold text-zinc-500 uppercase tracking-wider">
+                                <span>Multipart Form-Data Fields</span>
+                                <span className="text-[10px] lowercase font-normal text-zinc-500">
+                                  Supports text inputs and direct file attachments
+                                </span>
+                              </div>
+
+                              {/* Form-Data Fields Table */}
+                              <div className="border border-[#26262a] rounded-xl overflow-hidden bg-[#161618]">
+                                <div className="grid grid-cols-[36px_1.5fr_110px_2.5fr_40px] items-center gap-2 px-3 py-1.5 bg-[#1a1a1e] border-b border-[#26262a] text-[11px] font-semibold text-zinc-400">
+                                  <span className="text-center">#</span>
+                                  <span>Key</span>
+                                  <span>Type</span>
+                                  <span>Value</span>
+                                  <span className="text-right"></span>
+                                </div>
+
+                                <div className="divide-y divide-[#222226]">
+                                  {(activeRequest.bodyFormData || []).map((row, idx) => (
+                                    <div
+                                      key={row.id || idx}
+                                      className="grid grid-cols-[36px_1.5fr_110px_2.5fr_40px] items-center gap-2 px-3 py-2 text-xs bg-[#161618] hover:bg-[#19191d] transition-colors"
+                                    >
+                                      {/* Enabled Checkbox */}
+                                      <div className="flex items-center justify-center">
+                                        <input
+                                          type="checkbox"
+                                          checked={row.enabled}
+                                          onChange={(e) => {
+                                            const next = [...(activeRequest.bodyFormData || [])];
+                                            next[idx].enabled = e.target.checked;
+                                            updateActiveRequest({ ...activeRequest, bodyFormData: next });
+                                          }}
+                                          className="rounded bg-zinc-800 border-zinc-700 text-brand-500 cursor-pointer"
+                                        />
+                                      </div>
+
+                                      {/* Key Input */}
+                                      <input
+                                        type="text"
+                                        value={row.key}
+                                        onChange={(e) => {
+                                          const next = [...(activeRequest.bodyFormData || [])];
+                                          next[idx].key = e.target.value;
+                                          updateActiveRequest({ ...activeRequest, bodyFormData: next });
+                                        }}
+                                        placeholder="Field Name (e.g. file)"
+                                        className="w-full px-2.5 py-1 bg-[#1a1a1d] border border-[#2b2b30] rounded text-zinc-200 font-mono text-xs outline-none focus:border-brand-500"
+                                      />
+
+                                      {/* Type Dropdown (Text vs File) */}
+                                      <select
+                                        value={row.type}
+                                        onChange={(e) => {
+                                          const next = [...(activeRequest.bodyFormData || [])];
+                                          const nextType = e.target.value as 'text' | 'file';
+                                          next[idx].type = nextType;
+                                          if (nextType === 'file') {
+                                            next[idx].files = next[idx].files || [];
+                                          }
+                                          updateActiveRequest({ ...activeRequest, bodyFormData: next });
+                                        }}
+                                        className="w-full px-2 py-1 bg-[#1f1f23] border border-[#2b2b30] rounded text-zinc-200 text-xs outline-none font-medium cursor-pointer"
+                                      >
+                                        <option value="text">Text</option>
+                                        <option value="file">File</option>
+                                      </select>
+
+                                      {/* Value Column: Text Input vs File Picker Chips */}
+                                      {row.type === 'text' ? (
+                                        <input
+                                          type="text"
+                                          value={row.value}
+                                          onChange={(e) => {
+                                            const next = [...(activeRequest.bodyFormData || [])];
+                                            next[idx].value = e.target.value;
+                                            updateActiveRequest({ ...activeRequest, bodyFormData: next });
+                                          }}
+                                          placeholder="Value"
+                                          className="w-full px-2.5 py-1 bg-[#1a1a1d] border border-[#2b2b30] rounded text-zinc-200 font-mono text-xs outline-none focus:border-brand-500"
+                                        />
+                                      ) : (
+                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                          {/* Selected File Chips */}
+                                          {(row.files || []).map((fileItem, fIdx) => (
+                                            <div
+                                              key={fileItem.id || fIdx}
+                                              className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-[#222227] border border-zinc-700 text-zinc-200 text-[11px] font-mono group/chip"
+                                            >
+                                              <Paperclip className="w-3 h-3 text-amber-400 flex-shrink-0" />
+                                              <span className="truncate max-w-[120px]" title={fileItem.name}>
+                                                {fileItem.name}
+                                              </span>
+                                              <span className="text-[10px] text-zinc-500">
+                                                ({formatFileSize(fileItem.size)})
+                                              </span>
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  const next = [...(activeRequest.bodyFormData || [])];
+                                                  next[idx].files = next[idx].files?.filter((_, i) => i !== fIdx);
+                                                  updateActiveRequest({ ...activeRequest, bodyFormData: next });
+                                                }}
+                                                className="p-0.5 rounded text-zinc-500 hover:text-rose-400 hover:bg-zinc-700/50 transition-colors cursor-pointer"
+                                              >
+                                                <X className="w-2.5 h-2.5" />
+                                              </button>
+                                            </div>
+                                          ))}
+
+                                          {/* File Picker Trigger */}
+                                          <label className="flex items-center gap-1 px-2.5 py-1 rounded bg-[#202024] hover:bg-[#28282e] text-zinc-300 hover:text-white border border-zinc-700/80 text-xs font-medium cursor-pointer transition-colors">
+                                            <Upload className="w-3 h-3 text-brand-400" />
+                                            <span>{row.files && row.files.length > 0 ? 'Add Files' : 'Select Files'}</span>
+                                            <input
+                                              type="file"
+                                              multiple
+                                              className="hidden"
+                                              onChange={(e) => {
+                                                if (e.target.files && e.target.files.length > 0) {
+                                                  const newFiles: FormFileMeta[] = Array.from(e.target.files).map((f) => ({
+                                                    id: 'file-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
+                                                    name: f.name,
+                                                    size: f.size,
+                                                    type: f.type || 'application/octet-stream',
+                                                    fileObj: f,
+                                                  }));
+                                                  const next = [...(activeRequest.bodyFormData || [])];
+                                                  next[idx].files = [...(next[idx].files || []), ...newFiles];
+                                                  updateActiveRequest({ ...activeRequest, bodyFormData: next });
+                                                  showToast('Attached ' + newFiles.length + ' file(s)', 'info');
+                                                }
+                                              }}
+                                            />
+                                          </label>
+                                        </div>
+                                      )}
+
+                                      {/* Delete Row Button */}
+                                      <div className="flex items-center justify-end">
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            const next = (activeRequest.bodyFormData || []).filter((_, i) => i !== idx);
+                                            updateActiveRequest({ ...activeRequest, bodyFormData: next });
+                                          }}
+                                          title="Remove Field"
+                                          className="p-1 text-zinc-500 hover:text-rose-400 cursor-pointer transition-colors"
+                                        >
+                                          <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+
+                              {/* Add Field Button */}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const newField: FormDataField = {
+                                    id: 'fd-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
+                                    key: '',
+                                    value: '',
+                                    type: 'text',
+                                    enabled: true,
+                                    files: [],
+                                  };
+                                  updateActiveRequest({
+                                    ...activeRequest,
+                                    bodyFormData: [...(activeRequest.bodyFormData || []), newField],
+                                  });
+                                }}
+                                className="text-xs text-amber-400 hover:text-amber-300 font-medium flex items-center gap-1 cursor-pointer self-start mt-2"
+                              >
+                                <Plus className="w-3.5 h-3.5" />
+                                <span>Add Field</span>
+                              </button>
+                            </div>
+                          )}
+
+                          {/* X-WWW-FORM-URLENCODED VIEW */}
+                          {activeRequest.bodyType === 'x-www-form-urlencoded' && (
+                            <div className="flex-1 flex flex-col space-y-2 overflow-y-auto">
+                              <div className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider">
+                                URL Encoded Key-Value Pairs
+                              </div>
+
+                              <div className="border border-[#26262a] rounded-xl overflow-hidden bg-[#161618]">
+                                <div className="grid grid-cols-[36px_1fr_1fr_40px] items-center gap-2 px-3 py-1.5 bg-[#1a1a1e] border-b border-[#26262a] text-[11px] font-semibold text-zinc-400">
+                                  <span className="text-center">#</span>
+                                  <span>Key</span>
+                                  <span>Value</span>
+                                  <span className="text-right"></span>
+                                </div>
+
+                                <div className="divide-y divide-[#222226]">
+                                  {(activeRequest.bodyUrlEncoded || []).map((row, idx) => (
+                                    <div
+                                      key={row.id || idx}
+                                      className="grid grid-cols-[36px_1fr_1fr_40px] items-center gap-2 px-3 py-2 text-xs bg-[#161618] hover:bg-[#19191d] transition-colors"
+                                    >
+                                      {/* Enabled Checkbox */}
+                                      <div className="flex items-center justify-center">
+                                        <input
+                                          type="checkbox"
+                                          checked={row.enabled}
+                                          onChange={(e) => {
+                                            const next = [...(activeRequest.bodyUrlEncoded || [])];
+                                            next[idx].enabled = e.target.checked;
+                                            updateActiveRequest({ ...activeRequest, bodyUrlEncoded: next });
+                                          }}
+                                          className="rounded bg-zinc-800 border-zinc-700 text-purple-500 cursor-pointer"
+                                        />
+                                      </div>
+
+                                      {/* Key Input */}
+                                      <input
+                                        type="text"
+                                        value={row.key}
+                                        onChange={(e) => {
+                                          const next = [...(activeRequest.bodyUrlEncoded || [])];
+                                          next[idx].key = e.target.value;
+                                          updateActiveRequest({ ...activeRequest, bodyUrlEncoded: next });
+                                        }}
+                                        placeholder="Key"
+                                        className="w-full px-2.5 py-1 bg-[#1a1a1d] border border-[#2b2b30] rounded text-zinc-200 font-mono text-xs outline-none focus:border-purple-500"
+                                      />
+
+                                      {/* Value Input */}
+                                      <input
+                                        type="text"
+                                        value={row.value}
+                                        onChange={(e) => {
+                                          const next = [...(activeRequest.bodyUrlEncoded || [])];
+                                          next[idx].value = e.target.value;
+                                          updateActiveRequest({ ...activeRequest, bodyUrlEncoded: next });
+                                        }}
+                                        placeholder="Value"
+                                        className="w-full px-2.5 py-1 bg-[#1a1a1d] border border-[#2b2b30] rounded text-zinc-200 font-mono text-xs outline-none focus:border-purple-500"
+                                      />
+
+                                      {/* Delete Row */}
+                                      <div className="flex items-center justify-end">
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            const next = (activeRequest.bodyUrlEncoded || []).filter((_, i) => i !== idx);
+                                            updateActiveRequest({ ...activeRequest, bodyUrlEncoded: next });
+                                          }}
+                                          title="Remove Field"
+                                          className="p-1 text-zinc-500 hover:text-rose-400 cursor-pointer transition-colors"
+                                        >
+                                          <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+
+                              {/* Add Field Button */}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const newField: UrlEncodedField = {
+                                    id: 'urlenc-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
+                                    key: '',
+                                    value: '',
+                                    enabled: true,
+                                  };
+                                  updateActiveRequest({
+                                    ...activeRequest,
+                                    bodyUrlEncoded: [...(activeRequest.bodyUrlEncoded || []), newField],
+                                  });
+                                }}
+                                className="text-xs text-purple-400 hover:text-purple-300 font-medium flex items-center gap-1 cursor-pointer self-start mt-2"
+                              >
+                                <Plus className="w-3.5 h-3.5" />
+                                <span>Add Field</span>
+                              </button>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>

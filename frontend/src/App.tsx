@@ -9,7 +9,13 @@ import { HttpClientWorkspace } from './components/HttpClientWorkspace';
 import { SettingsView } from './components/SettingsView';
 import { NewConnectionModal } from './components/NewConnectionModal';
 import { ImportSqlModal } from './components/ImportSqlModal';
-import { ConnectionConfig, ActiveSession, QueryTab, SqlQueryItem } from './types/connection';
+import {
+  ConnectionConfig,
+  ActiveSession,
+  QueryTab,
+  SqlQueryItem,
+  SqlQueryFolder
+} from './types/connection';
 import {
   getSavedConnections,
   getDatabases,
@@ -17,8 +23,49 @@ import {
   exportDatabaseSQL,
   saveSQLDumpDialog,
   downloadSQLFile,
+  saveSqlQueriesData,
+  loadSqlQueriesData,
 } from './services/api';
 import { AlertCircle, CheckCircle2, X, Table, Terminal, Layers } from 'lucide-react';
+
+const DEFAULT_INITIAL_QUERIES: (SqlQueryFolder | SqlQueryItem)[] = [
+  {
+    id: 'folder-general',
+    type: 'folder',
+    name: 'General Queries',
+    isOpen: true,
+    items: [
+      {
+        id: 'q-table-info',
+        type: 'query',
+        name: 'Get Table Info.sql',
+        content: `-- Check all tables and row counts in public schema
+SELECT 
+  schemaname,
+  relname AS table_name,
+  n_live_tup AS estimated_rows
+FROM pg_stat_user_tables
+ORDER BY n_live_tup DESC;`,
+      },
+      {
+        id: 'q-activity',
+        type: 'query',
+        name: 'Active Connections.sql',
+        content: `-- List current running queries and connections
+SELECT 
+  pid,
+  usename,
+  client_addr,
+  state,
+  query_start,
+  query
+FROM pg_stat_activity
+WHERE state != 'idle'
+ORDER BY query_start DESC;`,
+      },
+    ],
+  },
+];
 
 const DEFAULT_PLAYGROUND_QUERY = `-- Octa SQL Playground
 -- Press Ctrl + Enter to run selected text or full query
@@ -36,6 +83,57 @@ export function App() {
   const [connections, setConnections] = useState<ConnectionConfig[]>([]);
   const [activeSession, setActiveSession] = useState<ActiveSession | null>(null);
   const [sidebarImportSession, setSidebarImportSession] = useState<ActiveSession | null>(null);
+
+  // Queries Tree State (Shared between Sidebar and QueryPlayground)
+  const [queriesTree, setQueriesTree] = useState<(SqlQueryFolder | SqlQueryItem)[]>(() => {
+    try {
+      const saved = localStorage.getItem('octa_sql_queries_tree');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to parse SQL queries from localStorage', e);
+    }
+    return DEFAULT_INITIAL_QUERIES;
+  });
+
+  // Load queries from Go backend disk on mount
+  useEffect(() => {
+    let isMounted = true;
+    (async () => {
+      try {
+        const diskData = await loadSqlQueriesData();
+        if (diskData && diskData.trim() && isMounted) {
+          const parsed = JSON.parse(diskData);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setQueriesTree(parsed);
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to load SQL queries from disk:', err);
+      }
+    })();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Save queries tree callback
+  const handleSaveQueriesTree = useCallback((nextTree: (SqlQueryFolder | SqlQueryItem)[]) => {
+    setQueriesTree(nextTree);
+    try {
+      const jsonStr = JSON.stringify(nextTree);
+      localStorage.setItem('octa_sql_queries_tree', jsonStr);
+      saveSqlQueriesData(jsonStr).catch((err) => {
+        console.warn('Failed to save SQL queries to backend disk:', err);
+      });
+    } catch (e) {
+      console.warn('Failed to persist SQL queries tree:', e);
+    }
+  }, []);
 
   // Query Playground Tabs State
   const [queryTabs, setQueryTabs] = useState<QueryTab[]>(() => {
@@ -118,30 +216,30 @@ export function App() {
       setDatabasesMap((prev) => ({ ...prev, [connId]: dbs }));
     } catch (err: any) {
       console.error(`Failed to load databases for ${server.name}:`, err);
-      showToast(
-        `Failed to query databases on ${server.name}: ${err?.message || err}`,
-        'error'
-      );
+      showToast(`Could not list databases for ${server.name}: ${err?.message || err}`, 'error');
+      setDatabasesMap((prev) => ({ ...prev, [connId]: [] }));
     } finally {
       setLoadingMap((prev) => ({ ...prev, [connId]: false }));
     }
   };
 
-  // Toggle expand / collapse server node in explorer
+  // Expand / collapse server in the sidebar
   const handleToggleExpand = async (server: ConnectionConfig) => {
     const connId = server.id || server.name;
-    const nextState = !expandedServers[connId];
+    const isCurrentlyExpanded = Boolean(expandedServers[connId]);
 
-    setExpandedServers((prev) => ({ ...prev, [connId]: nextState }));
+    setExpandedServers((prev) => ({
+      ...prev,
+      [connId]: !isCurrentlyExpanded,
+    }));
 
-    // If expanding and databases haven't been fetched yet, fetch them
-    if (nextState && !databasesMap[connId]) {
+    if (!isCurrentlyExpanded && !databasesMap[connId]) {
       await fetchDatabasesForServer(server);
     }
   };
 
-  // Connect to a specific database on a server
-  const handleConnectToDatabase = async (server: ConnectionConfig, databaseName: string) => {
+  // Switch database connection
+  const handleConnectToDatabase = (server: ConnectionConfig, databaseName: string) => {
     const connId = server.id || server.name;
     const sessionConfig: ConnectionConfig = {
       ...server,
@@ -255,12 +353,13 @@ export function App() {
     setDbSubView('playground');
 
     setQueryTabs((prev) => {
-      const existing = prev.find((t) => t.id === query.id);
+      const existing = prev.find((t) => t.id === query.id || t.savedQueryId === query.id);
       if (existing) {
         return prev;
       }
       const newTab: QueryTab = {
         id: query.id,
+        savedQueryId: query.id,
         title: query.name,
         query: query.content,
         isDirty: false,
@@ -329,6 +428,8 @@ export function App() {
               onImportSQL={handleImportSQL}
               onSelectQuery={handleSelectQueryFromSidebar}
               activeQueryId={activeQueryTabId}
+              queriesTree={queriesTree}
+              onSaveQueriesTree={handleSaveQueriesTree}
             />
 
             {/* Database Workspace Views (Tables vs Monaco SQL Playground vs Schema ERD) */}
@@ -384,6 +485,8 @@ export function App() {
                   activeTabId={activeQueryTabId}
                   onTabsChange={setQueryTabs}
                   onActiveTabChange={setActiveQueryTabId}
+                  queriesTree={queriesTree}
+                  onSaveQueriesTree={handleSaveQueriesTree}
                 />
               ) : dbSubView === 'erd' ? (
                 <ErdVisualizer
@@ -459,4 +562,3 @@ export function App() {
 }
 
 export default App;
-

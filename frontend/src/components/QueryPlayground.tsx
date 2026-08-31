@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Play,
   Download,
@@ -26,9 +26,20 @@ import {
   Check,
   Zap,
   Activity,
+  Save,
+  Folder
 } from 'lucide-react';
 import { format } from 'sql-formatter';
-import { ActiveSession, QueryResult, QueryTab, QueryHistoryEntry, ExplainPlanResult } from '../types/connection';
+import {
+  ActiveSession,
+  QueryResult,
+  QueryTab,
+  QueryHistoryEntry,
+  ExplainPlanResult,
+  SqlQueryItem,
+  SqlQueryFolder,
+  SqlTreeItem
+} from '../types/connection';
 import { executeRawQuery, explainQuery, getTables, getTableSchema } from '../services/api';
 import { QueryEditor } from './QueryEditor';
 import { QueryHistoryPanel } from './QueryHistoryPanel';
@@ -44,6 +55,8 @@ interface QueryPlaygroundProps {
   activeTabId?: string | null;
   onTabsChange?: (tabs: QueryTab[]) => void;
   onActiveTabChange?: (tabId: string | null) => void;
+  queriesTree?: (SqlQueryFolder | SqlQueryItem)[];
+  onSaveQueriesTree?: (tree: (SqlQueryFolder | SqlQueryItem)[]) => void;
 }
 
 const DEFAULT_QUERY = `-- Octa SQL Playground
@@ -55,6 +68,35 @@ SELECT
   NOW() AS executed_at;
 `;
 
+// Helper: Extract all folder options for folder dropdown
+function extractFolders(items: SqlTreeItem[], prefix: string = ''): { id: string; name: string }[] {
+  let list: { id: string; name: string }[] = [];
+  for (const item of items) {
+    if (item.type === 'folder') {
+      const label = prefix ? prefix + ' / ' + item.name : item.name;
+      list.push({ id: item.id, name: label });
+      if (item.items && item.items.length > 0) {
+        list = list.concat(extractFolders(item.items, label));
+      }
+    }
+  }
+  return list;
+}
+
+// Helper: Find query by ID in tree
+function findQueryInTree(items: SqlTreeItem[], id: string): SqlQueryItem | null {
+  for (const item of items) {
+    if (item.type === 'query' && item.id === id) {
+      return item;
+    }
+    if (item.type === 'folder') {
+      const found = findQueryInTree(item.items, id);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
 export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
   activeSession,
   onOpenNewModal,
@@ -63,6 +105,8 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
   activeTabId: propActiveTabId,
   onTabsChange,
   onActiveTabChange,
+  queriesTree = [],
+  onSaveQueriesTree,
 }) => {
   // Internal Tabs State if not controlled from props
   const [internalTabs, setInternalTabs] = useState<QueryTab[]>(() => {
@@ -120,6 +164,14 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
       setInternalActiveTabId(tabId);
     }
   };
+
+  // Save Query Modal state
+  const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
+  const [saveModalName, setSaveModalName] = useState('');
+  const [saveModalFolderId, setSaveModalFolderId] = useState('');
+
+  // Unsaved Changes Close Confirmation Modal State
+  const [tabPendingClose, setTabPendingClose] = useState<QueryTab | null>(null);
 
   // Query History State (Loaded from localStorage)
   const [history, setHistory] = useState<QueryHistoryEntry[]>(() => {
@@ -210,6 +262,7 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
         id: t.id,
         title: t.title,
         query: t.query,
+        savedQueryId: t.savedQueryId,
       }));
       localStorage.setItem('octa_query_tabs', JSON.stringify(serialized));
     } catch (e) {
@@ -287,11 +340,164 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
 
   const activeTab = tabs.find((t) => t.id === activeTabId) || (tabs.length > 0 ? tabs[0] : null);
 
-  // Global Keyboard Shortcuts (Ctrl+T/Ctrl+N, Ctrl+W, Ctrl+H, Alt+X, Ctrl+Shift+Enter, Ctrl+Shift+F)
+  // Trigger Save Query Action
+  const handleTriggerSave = useCallback(() => {
+    if (!activeTab) return;
+
+    // Check if query is already saved in tree
+    const existingInTree = activeTab.savedQueryId
+      ? findQueryInTree(queriesTree, activeTab.savedQueryId)
+      : null;
+
+    if (existingInTree && onSaveQueriesTree) {
+      // Direct update in tree
+      const updateRecursively = (items: SqlTreeItem[]): SqlTreeItem[] => {
+        return items.map((it) => {
+          if (it.id === existingInTree.id && it.type === 'query') {
+            return {
+              ...it,
+              content: activeTab.query,
+              updatedAt: Date.now(),
+            };
+          }
+          if (it.type === 'folder') {
+            return { ...it, items: updateRecursively(it.items) };
+          }
+          return it;
+        });
+      };
+
+      onSaveQueriesTree(updateRecursively(queriesTree) as (SqlQueryFolder | SqlQueryItem)[]);
+      setTabs((prev) =>
+        prev.map((t) => (t.id === activeTab.id ? { ...t, isDirty: false } : t))
+      );
+      showToast('Query "' + activeTab.title + '" saved', 'success');
+    } else {
+      // Open Save Query Dialog
+      setSaveModalName(activeTab.title || 'Untitled.sql');
+      const folders = extractFolders(queriesTree);
+      setSaveModalFolderId(folders[0]?.id || '');
+      setIsSaveModalOpen(true);
+    }
+  }, [activeTab, queriesTree, onSaveQueriesTree, setTabs, showToast]);
+
+  // Confirm Save Modal submission
+  const handleConfirmSaveModal = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeTab || !saveModalName.trim()) return;
+
+    let finalName = saveModalName.trim();
+    if (!finalName.endsWith('.sql')) {
+      finalName += '.sql';
+    }
+
+    const newQueryId = activeTab.savedQueryId || 'query-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7);
+    const newQueryItem: SqlQueryItem = {
+      id: newQueryId,
+      type: 'query',
+      name: finalName,
+      content: activeTab.query,
+      database: activeSession?.activeDatabase,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+
+    if (onSaveQueriesTree) {
+      if (!saveModalFolderId) {
+        // Add to root of queries tree
+        onSaveQueriesTree([...queriesTree, newQueryItem]);
+      } else {
+        // Insert into target folder
+        const insertIntoFolder = (items: SqlTreeItem[]): SqlTreeItem[] => {
+          return items.map((it) => {
+            if (it.id === saveModalFolderId && it.type === 'folder') {
+              return {
+                ...it,
+                isOpen: true,
+                items: [newQueryItem, ...it.items],
+              };
+            }
+            if (it.type === 'folder') {
+              return { ...it, items: insertIntoFolder(it.items) };
+            }
+            return it;
+          });
+        };
+        onSaveQueriesTree(insertIntoFolder(queriesTree) as (SqlQueryFolder | SqlQueryItem)[]);
+      }
+    }
+
+    setTabs((prev) =>
+      prev.map((t) =>
+        t.id === activeTab.id
+          ? {
+              ...t,
+              id: newQueryId,
+              title: finalName,
+              savedQueryId: newQueryId,
+              isDirty: false,
+            }
+          : t
+      )
+    );
+
+    setActiveTabId(newQueryId);
+
+    setIsSaveModalOpen(false);
+    showToast('Saved query "' + finalName + '" to QUERIES explorer', 'success');
+  };
+
+  // Close Tab handler with Unsaved Check
+  const handleCloseTab = (tabId: string, e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation();
+    }
+
+    const tab = tabs.find((t) => t.id === tabId);
+    if (!tab) return;
+
+    // If tab has unsaved changes, prompt confirmation
+    if (tab.isDirty && tab.query.trim()) {
+      setTabPendingClose(tab);
+      return;
+    }
+
+    performCloseTab(tabId);
+  };
+
+  const performCloseTab = (tabId: string) => {
+    const idx = tabs.findIndex((t) => t.id === tabId);
+    if (idx === -1) return;
+
+    const nextTabs = tabs.filter((t) => t.id !== tabId);
+    setTabs(nextTabs);
+
+    if (nextTabs.length === 0) {
+      setActiveTabId(null);
+    } else if (activeTabId === tabId) {
+      const nextActive = nextTabs[Math.max(0, idx - 1)];
+      setActiveTabId(nextActive.id);
+    }
+    setTabPendingClose(null);
+  };
+
+  // Save & Close from Unsaved Prompt
+  const handleSaveAndClose = () => {
+    if (!tabPendingClose) return;
+    handleTriggerSave();
+    performCloseTab(tabPendingClose.id);
+  };
+
+  // Global Keyboard Shortcuts (Ctrl+T/Ctrl+N, Ctrl+W, Ctrl+S, Ctrl+H, Alt+X, Ctrl+Shift+Enter, Ctrl+Shift+F)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl+S / Cmd+S -> Save Query
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && (e.key === 's' || e.key === 'S')) {
+        e.preventDefault();
+        handleTriggerSave();
+      }
       // Alt+X -> Explain (Dry Run)
-      if (e.altKey && (e.key === 'x' || e.key === 'X')) {
+      else if (e.altKey && (e.key === 'x' || e.key === 'X')) {
         e.preventDefault();
         handleExplainQuery(false);
       }
@@ -326,7 +532,7 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeTabId, tabs, activeTab?.query]);
+  }, [activeTabId, tabs, activeTab?.query, handleTriggerSave]);
 
   // Explain Query Handler
   const handleExplainQuery = async (analyze: boolean = false) => {
@@ -436,26 +642,6 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
     showToast('New query tab created', 'info');
   };
 
-  // Close Tab (Refactored: Does NOT auto-create an empty tab when closing the last one)
-  const handleCloseTab = (tabId: string, e?: React.MouseEvent) => {
-    if (e) {
-      e.stopPropagation();
-    }
-
-    const idx = tabs.findIndex((t) => t.id === tabId);
-    if (idx === -1) return;
-
-    const nextTabs = tabs.filter((t) => t.id !== tabId);
-    setTabs(nextTabs);
-
-    if (nextTabs.length === 0) {
-      setActiveTabId(null);
-    } else if (activeTabId === tabId) {
-      const nextActive = nextTabs[Math.max(0, idx - 1)];
-      setActiveTabId(nextActive.id);
-    }
-  };
-
   // Rename Tab
   const handleStartRename = (tabId: string, currentTitle: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -563,7 +749,6 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
                 activeResultIndex: 0,
                 activeViewMode: 'results',
                 isExecuting: false,
-                isDirty: false,
               }
             : t
         )
@@ -703,6 +888,8 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
       ? Math.max(1, Math.ceil(currentResult.rows.length / resultLimit))
       : 1;
 
+  const availableFolders = extractFolders(queriesTree);
+
   if (!activeSession) {
     return <HomeLanding onOpenNewModal={onOpenNewModal} />;
   }
@@ -710,7 +897,7 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
   return (
     <div className="flex-1 flex flex-col h-full w-full min-h-0 bg-surface-950 text-gray-100 overflow-hidden select-none font-sans relative">
       {/* 1. Top Multi-Tab Bar for SQL Query Files */}
-      <div className="bg-[#141416] border-b border-border-subtle flex items-center justify-between pl-2 pr-3 flex-shrink-0 select-none min-h-[38px] z-30">
+      <div className="bg-[#141416] border-b border-border-subtle flex items-center justify-between pl-2 pr-64 flex-shrink-0 select-none min-h-[38px] z-30">
         {/* Scrollable Query Tabs List */}
         <div className="flex items-center gap-1 overflow-x-auto no-scrollbar flex-1 py-1.5">
           {tabs.map((tab) => {
@@ -724,7 +911,7 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
                 onAuxClick={(e) => {
                   if (e.button === 1) handleCloseTab(tab.id, e);
                 }}
-                title={tab.title}
+                title={tab.title + (tab.isDirty ? ' (Unsaved)' : '')}
                 className={
                   'group/tab relative flex items-center gap-2 px-3 py-1 rounded-lg text-xs transition-all cursor-pointer border max-w-[240px] ' +
                   (isActive
@@ -767,9 +954,9 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
                   </span>
                 )}
 
-                {/* Dirty Indicator Dot */}
+                {/* Unsaved / Dirty Indicator Dot */}
                 {tab.isDirty && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-sky-400 flex-shrink-0 animate-pulse" title="Unsaved changes" />
                 )}
 
                 {/* Close Tab Button */}
@@ -795,18 +982,6 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
             <Plus className="w-3.5 h-3.5" />
           </button>
         </div>
-
-        {/* Right Info: Active Connection / DB Indicator */}
-        <div className="flex items-center gap-3 pl-3 border-l border-border-subtle flex-shrink-0 text-xs">
-          <div className="flex items-center gap-1.5 font-mono text-[11px]">
-            <span className="text-zinc-300 font-medium">{activeSession.connection.name || activeSession.connection.host}</span>
-            <span className="text-zinc-600">/</span>
-            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-950/60 border border-emerald-500/30 text-emerald-300 font-medium">
-              <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              <span>{activeSession.activeDatabase}</span>
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* 2. Workspace Body: Active Tab Editor vs Empty Placeholder */}
@@ -814,7 +989,7 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
         <div className="flex-1 flex flex-col min-h-0 w-full h-full overflow-hidden relative">
           {/* Top SQL Execution Toolbar */}
           <div className="px-4 py-2 border-b border-border-subtle bg-[#161618] flex items-center justify-between gap-3 flex-shrink-0 z-20">
-            {/* Left Controls: Run Selection / Run All / Explain Plan / Format */}
+            {/* Left Controls: Run Selection / Run All / Explain Plan / Format / Save */}
             <div className="flex items-center gap-2">
               {/* Run Query Button */}
               <button
@@ -887,6 +1062,23 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
                 <Wand2 className="w-3.5 h-3.5 text-zinc-400" />
                 <span>Format SQL</span>
               </button>
+
+              {/* Save Query Action Button */}
+              <button
+                type="button"
+                onClick={handleTriggerSave}
+                disabled={!activeTab}
+                title="Save Query (Ctrl+S)"
+                className={
+                  'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold shadow-sm transition-all cursor-pointer ' +
+                  (activeTab.isDirty
+                    ? 'bg-sky-600 hover:bg-sky-500 text-white shadow-sky-600/20 active:scale-[0.98]'
+                    : 'bg-surface-800 hover:bg-surface-750 text-zinc-300 border border-border/60')
+                }
+              >
+                <Save className={'w-3.5 h-3.5 ' + (activeTab.isDirty ? 'text-white' : 'text-zinc-400')} />
+                <span>Save Query</span>
+              </button>
             </div>
 
             {/* Right Controls: Query History Toggle */}
@@ -917,6 +1109,7 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
                   onChange={handleQueryChange}
                   onExecute={(selectedSql?: string) => handleExecuteQuery(selectedSql)}
                   onFormat={handleFormatSql}
+                  onSave={handleTriggerSave}
                   tables={tables}
                   columns={columns}
                   isExecuting={activeTab.isExecuting}
@@ -1131,6 +1324,9 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
                 Run: <kbd className="px-1 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700">Ctrl+↵</kbd>
               </span>
               <span className="hidden md:inline text-zinc-500">
+                Save: <kbd className="px-1 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700">Ctrl+S</kbd>
+              </span>
+              <span className="hidden md:inline text-zinc-500">
                 Format: <kbd className="px-1 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700">Ctrl+Shift+F</kbd>
               </span>
             </div>
@@ -1159,6 +1355,132 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
               <Plus className="w-3.5 h-3.5 text-zinc-400 group-hover:text-zinc-200 transition-colors" />
               <span>New Query</span>
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* 4. Save Query Modal Dialog */}
+      {isSaveModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in select-none">
+          <div
+            className="w-full max-w-md bg-[#18181b] border border-zinc-800 rounded-xl shadow-2xl p-5 text-gray-100 animate-scale-up"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-zinc-800/80 mb-4">
+              <div className="flex items-center gap-2">
+                <Save className="w-4 h-4 text-sky-400" />
+                <h3 className="text-sm font-semibold text-zinc-200">Save SQL Query</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsSaveModalOpen(false)}
+                className="text-zinc-500 hover:text-zinc-300 p-1 rounded-md transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleConfirmSaveModal} className="space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-zinc-400 mb-1.5">
+                  Query File Name (.sql)
+                </label>
+                <input
+                  type="text"
+                  autoFocus
+                  required
+                  value={saveModalName}
+                  onChange={(e) => setSaveModalName(e.target.value)}
+                  placeholder="e.g. Get User Payments.sql"
+                  className="w-full px-3 py-2 bg-zinc-900 border border-zinc-700/80 rounded-lg text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-sky-500 font-mono transition-all"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-zinc-400 mb-1.5">
+                  Destination Folder (Optional)
+                </label>
+                <select
+                  value={saveModalFolderId}
+                  onChange={(e) => setSaveModalFolderId(e.target.value)}
+                  className="w-full px-3 py-2 bg-zinc-900 border border-zinc-700/80 rounded-lg text-xs text-white focus:outline-none focus:border-sky-500 font-sans transition-all"
+                >
+                  <option value="">/ (Root - No Folder)</option>
+                  {availableFolders.map((f) => (
+                    <option key={f.id} value={f.id}>
+                      📁 {f.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center justify-end gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsSaveModalOpen(false)}
+                  className="px-3.5 py-1.5 text-xs text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded-lg transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={!saveModalName.trim()}
+                  className="flex items-center gap-1.5 px-4 py-1.5 bg-sky-600 hover:bg-sky-500 active:scale-[0.98] text-white font-medium text-xs rounded-lg shadow-md shadow-sky-600/20 transition-all disabled:opacity-50 cursor-pointer"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  <span>Save Query</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 5. Unsaved Changes Close Confirmation Modal */}
+      {tabPendingClose && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in select-none">
+          <div
+            className="w-full max-w-sm bg-[#18181b] border border-zinc-800 rounded-xl shadow-2xl p-5 text-gray-100 animate-scale-up"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start gap-3 mb-4">
+              <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 flex-shrink-0">
+                <AlertCircle className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-zinc-200">Unsaved Changes</h3>
+                <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
+                  You have unsaved changes in <span className="font-mono text-zinc-200 font-medium">"{tabPendingClose.title}"</span>. Do you want to save before closing?
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-zinc-800/80">
+              <button
+                type="button"
+                onClick={() => setTabPendingClose(null)}
+                className="px-3 py-1.5 text-xs text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded-lg transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => performCloseTab(tabPendingClose.id)}
+                className="px-3 py-1.5 text-xs text-rose-400 hover:bg-rose-950/40 rounded-lg transition-colors cursor-pointer font-medium"
+              >
+                Don't Save
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveAndClose}
+                className="px-3.5 py-1.5 bg-sky-600 hover:bg-sky-500 text-white text-xs font-medium rounded-lg shadow-sm transition-all cursor-pointer"
+              >
+                Save & Close
+              </button>
+            </div>
           </div>
         </div>
       )}
