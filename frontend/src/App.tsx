@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { TitleBar } from './components/TitleBar';
 import { ActivityBar, ActiveModule } from './components/ActivityBar';
 import { Sidebar } from './components/Sidebar';
 import { Workspace } from './components/Workspace';
@@ -224,99 +225,105 @@ export function App() {
   }, []);
 
   return (
-    <div className="flex h-screen w-screen bg-surface-950 text-gray-100 font-sans overflow-hidden select-none">
-      {/* Activity Bar (VS Code style slim left rail) */}
-      <ActivityBar activeModule={activeModule} setActiveModule={setActiveModule} />
+    <div className="flex flex-col h-screen w-screen bg-surface-950 text-gray-100 font-sans overflow-hidden select-none">
+      {/* Top Frameless TitleBar with Brand & Drag Handle */}
+      <TitleBar activeModule={activeModule} activeSession={activeSession} />
 
-      {/* Dynamic Module Content */}
-      {activeModule === 'http' ? (
-        <HttpClientWorkspace showToast={showToast} />
-      ) : activeModule === 'settings' ? (
-        <SettingsView showToast={showToast} />
-      ) : (
-        <div className="flex-1 flex overflow-hidden">
-          {/* Main Secondary Sidebar (Server Explorer) */}
-          <Sidebar
-            connections={connections}
-            activeSession={activeSession}
-            databasesMap={databasesMap}
-            loadingMap={loadingMap}
-            expandedServers={expandedServers}
-            onToggleExpand={handleToggleExpand}
-            onOpenNewModal={() => setIsModalOpen(true)}
-            onRefreshConnections={loadConnections}
-            onConnectToDatabase={handleConnectToDatabase}
-            onDeleteConnection={handleDeleteConnection}
-            onExportDatabase={handleExportDatabase}
-            onImportSQL={handleImportSQL}
-          />
+      {/* Main Workspace Body */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Activity Bar (VS Code style slim left rail) */}
+        <ActivityBar activeModule={activeModule} setActiveModule={setActiveModule} />
 
-          {/* Database Workspace Views (Tables vs Monaco SQL Playground vs Schema ERD) */}
-          <div className="flex-1 flex flex-col overflow-hidden relative">
-            {/* View Switcher Segmented Pill Toggle (Visible when connected) */}
-            {activeSession && (
-              <div className="absolute right-4 top-2 z-40 flex items-center bg-[#141414] border border-[#2b2b2b] p-0.5 rounded-lg shadow-md">
-                <button
-                  type="button"
-                  onClick={() => setDbSubView('tables')}
-                  className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs transition-colors cursor-pointer ${
-                    dbSubView === 'tables'
-                      ? 'bg-zinc-700 text-white font-medium shadow-sm'
-                      : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40'
-                  }`}
-                >
-                  <Table className="w-3.5 h-3.5 text-brand-400" />
-                  <span>Tables</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDbSubView('playground')}
-                  className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs transition-colors cursor-pointer ${
-                    dbSubView === 'playground'
-                      ? 'bg-zinc-700 text-white font-medium shadow-sm'
-                      : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40'
-                  }`}
-                >
-                  <Terminal className="w-3.5 h-3.5 text-amber-400" />
-                  <span>SQL Playground</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDbSubView('erd')}
-                  className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs transition-colors cursor-pointer ${
-                    dbSubView === 'erd'
-                      ? 'bg-zinc-700 text-white font-medium shadow-sm'
-                      : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40'
-                  }`}
-                >
-                  <Layers className="w-3.5 h-3.5 text-cyan-400" />
-                  <span>ERD</span>
-                </button>
-              </div>
-            )}
+        {/* Dynamic Module Content */}
+        {activeModule === 'http' ? (
+          <HttpClientWorkspace showToast={showToast} />
+        ) : activeModule === 'settings' ? (
+          <SettingsView showToast={showToast} />
+        ) : (
+          <div className="flex-1 flex overflow-hidden">
+            {/* Main Secondary Sidebar (Server Explorer) */}
+            <Sidebar
+              connections={connections}
+              activeSession={activeSession}
+              databasesMap={databasesMap}
+              loadingMap={loadingMap}
+              expandedServers={expandedServers}
+              onToggleExpand={handleToggleExpand}
+              onOpenNewModal={() => setIsModalOpen(true)}
+              onRefreshConnections={loadConnections}
+              onConnectToDatabase={handleConnectToDatabase}
+              onDeleteConnection={handleDeleteConnection}
+              onExportDatabase={handleExportDatabase}
+              onImportSQL={handleImportSQL}
+            />
 
-            {dbSubView === 'playground' ? (
-              <QueryPlayground
-                activeSession={activeSession}
-                onOpenNewModal={() => setIsModalOpen(true)}
-                showToast={showToast}
-              />
-            ) : dbSubView === 'erd' ? (
-              <ErdVisualizer
-                activeSession={activeSession}
-                onOpenNewModal={() => setIsModalOpen(true)}
-                showToast={showToast}
-              />
-            ) : (
-              <Workspace
-                activeSession={activeSession}
-                onOpenNewModal={() => setIsModalOpen(true)}
-                showToast={showToast}
-              />
-            )}
+            {/* Database Workspace Views (Tables vs Monaco SQL Playground vs Schema ERD) */}
+            <div className="flex-1 flex flex-col overflow-hidden relative">
+              {/* View Switcher Segmented Pill Toggle (Visible when connected) */}
+              {activeSession && (
+                <div className="absolute right-4 top-2 z-40 flex items-center bg-[#141414] border border-[#2b2b2b] p-0.5 rounded-lg shadow-md">
+                  <button
+                    type="button"
+                    onClick={() => setDbSubView('tables')}
+                    className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs transition-colors cursor-pointer ${
+                      dbSubView === 'tables'
+                        ? 'bg-zinc-700 text-white font-medium shadow-sm'
+                        : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40'
+                    }`}
+                  >
+                    <Table className="w-3.5 h-3.5 text-brand-400" />
+                    <span>Tables</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDbSubView('playground')}
+                    className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs transition-colors cursor-pointer ${
+                      dbSubView === 'playground'
+                        ? 'bg-zinc-700 text-white font-medium shadow-sm'
+                        : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40'
+                    }`}
+                  >
+                    <Terminal className="w-3.5 h-3.5 text-amber-400" />
+                    <span>SQL Playground</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDbSubView('erd')}
+                    className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs transition-colors cursor-pointer ${
+                      dbSubView === 'erd'
+                        ? 'bg-zinc-700 text-white font-medium shadow-sm'
+                        : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40'
+                    }`}
+                  >
+                    <Layers className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>ERD</span>
+                  </button>
+                </div>
+              )}
+
+              {dbSubView === 'playground' ? (
+                <QueryPlayground
+                  activeSession={activeSession}
+                  onOpenNewModal={() => setIsModalOpen(true)}
+                  showToast={showToast}
+                />
+              ) : dbSubView === 'erd' ? (
+                <ErdVisualizer
+                  activeSession={activeSession}
+                  onOpenNewModal={() => setIsModalOpen(true)}
+                  showToast={showToast}
+                />
+              ) : (
+                <Workspace
+                  activeSession={activeSession}
+                  onOpenNewModal={() => setIsModalOpen(true)}
+                  showToast={showToast}
+                />
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* New Connection Modal */}
       <NewConnectionModal
