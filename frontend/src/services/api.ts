@@ -22,6 +22,7 @@ import {
   ExportDatabaseSQL,
   ImportSQLScript,
   SaveSQLDumpDialog,
+  ExplainQuery,
 } from '../../wailsjs/go/main/App';
 import { main } from '../../wailsjs/go/models';
 import {
@@ -34,6 +35,7 @@ import {
   DatabaseSchema,
   DataQueryOptions,
   ImportResult,
+  ExplainPlanResult,
 } from '../types/connection';
 
 function toModelConfig(config: ConnectionConfig): main.ConnectionConfig {
@@ -496,4 +498,27 @@ export function downloadSQLFile(filename: string, content: string): void {
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
+
+export async function explainQuery(
+  config: ConnectionConfig,
+  dbName: string,
+  query: string,
+  analyze: boolean = false
+): Promise<ExplainPlanResult> {
+  try {
+    const model = toModelConfig(config);
+    const res = await ExplainQuery(model, dbName, query, analyze);
+    return {
+      planJson: res.planJson || '[]',
+      totalCost: res.totalCost || 0,
+      planningTime: res.planningTime || 0,
+      executionTime: res.executionTime || 0,
+      rawOutput: res.rawOutput || '',
+    };
+  } catch (err: any) {
+    console.error('Failed to explain query:', err);
+    throw err;
+  }
+}
+
 

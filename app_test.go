@@ -410,4 +410,3 @@ func TestExplainQueryValidation(t *testing.T) {
 		t.Errorf("Expected unsupported database type to fail ExplainQuery")
 	}
 }
-

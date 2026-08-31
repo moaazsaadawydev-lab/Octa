@@ -14,6 +14,7 @@ import {
   Layers,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   FileCode,
   FileSpreadsheet,
   FileJson,
@@ -22,13 +23,16 @@ import {
   History,
   Wand2,
   Edit2,
-  Check
+  Check,
+  Zap,
+  Activity,
 } from 'lucide-react';
 import { format } from 'sql-formatter';
-import { ActiveSession, QueryResult, QueryTab, QueryHistoryEntry } from '../types/connection';
-import { executeRawQuery, getTables, getTableSchema } from '../services/api';
+import { ActiveSession, QueryResult, QueryTab, QueryHistoryEntry, ExplainPlanResult } from '../types/connection';
+import { executeRawQuery, explainQuery, getTables, getTableSchema } from '../services/api';
 import { QueryEditor } from './QueryEditor';
 import { QueryHistoryPanel } from './QueryHistoryPanel';
+import { ExplainPlanViewer } from './ExplainPlanViewer';
 import { HomeLanding } from './HomeLanding';
 
 interface QueryPlaygroundProps {
@@ -109,6 +113,25 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
     return localStorage.getItem('devcockpit_history_panel_open') === 'true';
   });
 
+  // Explain Query Dropdown State
+  const [showExplainMenu, setShowExplainMenu] = useState(false);
+  const explainDropdownRef = useRef<HTMLDivElement | null>(null);
+
+  // Close explain dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (explainDropdownRef.current && !explainDropdownRef.current.contains(e.target as Node)) {
+        setShowExplainMenu(false);
+      }
+    };
+    if (showExplainMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showExplainMenu]);
+
   // Inline tab rename state
   const [editingTabId, setEditingTabId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState<string>('');
@@ -137,38 +160,46 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
               tbl
             );
             schema.forEach((c) => colsSet.add(c.name));
-          } catch (e) {
-            // ignore schema query errors
+          } catch {
+            // ignore
           }
         }
         if (isMounted) {
           setColumns(Array.from(colsSet));
         }
       })
-      .catch((e) => console.warn('Failed to load schema for Intellisense', e));
+      .catch((err) => console.warn('Failed to load schema for autocomplete:', err));
 
     return () => {
       isMounted = false;
     };
-  }, [activeSession?.connection?.id, activeSession?.activeDatabase]);
+  }, [activeSession?.connection.id, activeSession?.activeDatabase]);
 
-  // Save tabs & active tab ID to localStorage
+  // Save query tabs to localStorage
   useEffect(() => {
     try {
-      const toSave = tabs.map(({ id, title, query }) => ({ id, title, query }));
-      localStorage.setItem('devcockpit_query_tabs', JSON.stringify(toSave));
-      localStorage.setItem('devcockpit_active_query_tab_id', activeTabId);
+      const serialized = tabs.map((t) => ({
+        id: t.id,
+        title: t.title,
+        query: t.query,
+      }));
+      localStorage.setItem('devcockpit_query_tabs', JSON.stringify(serialized));
     } catch (e) {
       console.warn('Failed to save query tabs to localStorage', e);
     }
-  }, [tabs, activeTabId]);
+  }, [tabs]);
 
-  // Save history to localStorage
+  // Save activeTabId to localStorage
+  useEffect(() => {
+    localStorage.setItem('devcockpit_active_query_tab_id', activeTabId);
+  }, [activeTabId]);
+
+  // Save query history to localStorage
   useEffect(() => {
     try {
-      localStorage.setItem('devcockpit_query_history', JSON.stringify(history.slice(0, 100)));
+      localStorage.setItem('devcockpit_query_history', JSON.stringify(history));
     } catch (e) {
-      console.warn('Failed to save history to localStorage', e);
+      console.warn('Failed to save query history to localStorage', e);
     }
   }, [history]);
 
@@ -224,11 +255,21 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
 
   const activeTab = tabs.find((t) => t.id === activeTabId) || tabs[0];
 
-  // Global Keyboard Shortcuts (Ctrl+T/Ctrl+N for new tab, Ctrl+W to close, Ctrl+H for history)
+  // Global Keyboard Shortcuts (Ctrl+T/Ctrl+N, Ctrl+W, Ctrl+H, Alt+X, Ctrl+Shift+Enter)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Alt+X -> Explain (Dry Run)
+      if (e.altKey && (e.key === 'x' || e.key === 'X')) {
+        e.preventDefault();
+        handleExplainQuery(false);
+      }
+      // Ctrl+Shift+Enter -> Explain & Analyze
+      else if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'Enter') {
+        e.preventDefault();
+        handleExplainQuery(true);
+      }
       // Ctrl+T or Ctrl+N -> New Tab
-      if ((e.ctrlKey || e.metaKey) && (e.key === 't' || e.key === 'T')) {
+      else if ((e.ctrlKey || e.metaKey) && (e.key === 't' || e.key === 'T')) {
         e.preventDefault();
         handleAddTab();
       }
@@ -246,7 +287,78 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeTabId, tabs]);
+  }, [activeTabId, tabs, activeTab?.query]);
+
+  // Explain Query Handler
+  const handleExplainQuery = async (analyze: boolean = false) => {
+    if (!activeSession) {
+      showToast('Please connect to a database first', 'error');
+      return;
+    }
+
+    const sqlToRun = activeTab.query.trim();
+    if (!sqlToRun) {
+      showToast('Query editor is empty', 'info');
+      return;
+    }
+
+    setShowExplainMenu(false);
+    setTabs((prev) =>
+      prev.map((t) => (t.id === activeTabId ? { ...t, isExecuting: true } : t))
+    );
+
+    const startTs = Date.now();
+
+    try {
+      const plan = await explainQuery(
+        activeSession.connection,
+        activeSession.activeDatabase,
+        sqlToRun,
+        analyze
+      );
+
+      const durationMs = Date.now() - startTs;
+
+      // Add to Query History
+      const newHistoryEntry: QueryHistoryEntry = {
+        id: 'hist-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7),
+        query: (analyze ? 'EXPLAIN (ANALYZE) ' : 'EXPLAIN ') + sqlToRun,
+        timestamp: Date.now(),
+        durationMs,
+        status: 'success',
+        rowsCount: 1,
+        database: activeSession.activeDatabase,
+      };
+
+      setHistory((prev) => [newHistoryEntry, ...prev.slice(0, 99)]);
+
+      setTabs((prev) =>
+        prev.map((t) =>
+          t.id === activeTabId
+            ? {
+                ...t,
+                explainPlan: plan,
+                activeViewMode: 'explain',
+                isExecuting: false,
+              }
+            : t
+        )
+      );
+
+      showToast(
+        analyze
+          ? `Explain Analyze completed in ${durationMs}ms (Execution: ${plan.executionTime.toFixed(2)}ms)`
+          : `Explain Plan generated (Total cost: ${plan.totalCost.toLocaleString()})`,
+        'success'
+      );
+    } catch (err: any) {
+      console.error('Explain failed:', err);
+      showToast(`Explain failed: ${err?.message || err}`, 'error');
+      setTabs((prev) =>
+        prev.map((t) => (t.id === activeTabId ? { ...t, isExecuting: false } : t))
+      );
+    }
+  };
 
   // Add new query tab
   const handleAddTab = () => {
@@ -389,7 +501,7 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
       setTabs((prev) =>
         prev.map((t) =>
           t.id === activeTabId
-            ? { ...t, results, activeResultIndex: 0, isExecuting: false, isDirty: false }
+            ? { ...t, results, activeResultIndex: 0, activeViewMode: 'results', isExecuting: false, isDirty: false }
             : t
         )
       );
@@ -492,7 +604,9 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
   const handleClear = () => {
     setTabs((prev) =>
       prev.map((t) =>
-        t.id === activeTabId ? { ...t, query: '', results: null, isDirty: false } : t
+        t.id === activeTabId
+          ? { ...t, query: '', results: null, explainPlan: null, activeViewMode: 'results', isDirty: false }
+          : t
       )
     );
     showToast('Editor cleared', 'info');
@@ -618,7 +732,7 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
       </div>
 
       {/* 2. Execution Control Action Bar */}
-      <div className="px-4 py-2 bg-[#1C1C1C] border-b border-[#2B2B2B] flex items-center justify-between gap-3 flex-shrink-0">
+      <div className="px-4 py-2 bg-[#1C1C1C] border-b border-[#2B2B2B] flex items-center justify-between gap-3 flex-shrink-0 relative z-20">
         <div className="flex items-center gap-2 flex-wrap">
           {/* Run Button */}
           <button
@@ -637,6 +751,68 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
               Ctrl + ↵
             </span>
           </button>
+
+          {/* Explain Dropdown Button */}
+          <div className="relative" ref={explainDropdownRef}>
+            <div className="flex items-center">
+              <button
+                type="button"
+                onClick={() => handleExplainQuery(false)}
+                disabled={activeTab.isExecuting}
+                title="Generate Query Execution Plan (Dry Run) - Alt+X"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-l-lg bg-amber-600/90 hover:bg-amber-500 text-white font-medium text-xs shadow-md shadow-amber-600/20 transition-all disabled:opacity-50 cursor-pointer"
+              >
+                <Zap className="w-3.5 h-3.5 fill-current text-amber-200" />
+                <span>Explain</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowExplainMenu(!showExplainMenu)}
+                disabled={activeTab.isExecuting}
+                title="Explain Options"
+                className="px-1.5 py-1.5 rounded-r-lg bg-amber-700 hover:bg-amber-600 text-white border-l border-amber-500/60 text-xs transition-colors cursor-pointer"
+              >
+                <ChevronDown className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {showExplainMenu && (
+              <div className="absolute left-0 top-full mt-1.5 w-64 bg-[#1f1f1f] border border-zinc-700/80 rounded-md shadow-2xl py-1.5 z-[100] animate-fade-in select-none">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowExplainMenu(false);
+                    handleExplainQuery(false);
+                  }}
+                  className="w-full px-3 py-2 text-xs text-left text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors flex items-start gap-2.5 cursor-pointer"
+                >
+                  <Zap className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <div className="font-semibold text-zinc-200">Explain (Dry Run)</div>
+                    <div className="text-[11px] text-zinc-400">Estimates cost without running query (Alt + X)</div>
+                  </div>
+                </button>
+
+                <div className="my-1 border-t border-zinc-800" />
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowExplainMenu(false);
+                    handleExplainQuery(true);
+                  }}
+                  className="w-full px-3 py-2 text-xs text-left text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors flex items-start gap-2.5 cursor-pointer"
+                >
+                  <Activity className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <div className="font-semibold text-zinc-200">Explain & Analyze</div>
+                    <div className="text-[11px] text-zinc-400">Executes query with timing metrics (Ctrl + Shift + ↵)</div>
+                  </div>
+                </button>
+              </div>
+            )}
+          </div>
 
           {/* Format SQL Button */}
           <button
@@ -664,7 +840,7 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
         {/* Right Action: History Drawer Toggle & Query Meta */}
         <div className="flex items-center gap-3">
           {/* Query Meta Status */}
-          {activeResult && (
+          {activeResult && activeTab.activeViewMode !== 'explain' && (
             <div className="flex items-center gap-3 text-xs text-gray-400 font-mono text-[11px] hidden sm:flex">
               {activeResult.isSelect ? (
                 <span>
@@ -730,13 +906,13 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
 
           {/* 3B. Split Resizable Query Results Panel */}
           <div
-            style={{ height: activeTab.results ? resultsHeight : 'auto' }}
+            style={{ height: activeTab.results || activeTab.explainPlan ? resultsHeight : 'auto' }}
             className={`border-t border-border-subtle bg-surface-900 flex flex-col relative flex-shrink-0 transition-all duration-150 ${
-              !activeTab.results ? 'min-h-[38px] overflow-hidden' : ''
+              !activeTab.results && !activeTab.explainPlan ? 'min-h-[38px] overflow-hidden' : ''
             }`}
           >
             {/* Horizontal Splitter Resizer Handle */}
-            {activeTab.results && (
+            {(activeTab.results || activeTab.explainPlan) && (
               <div
                 onMouseDown={handleResizeStart}
                 className="absolute left-0 right-0 -top-1 h-2.5 cursor-row-resize select-none flex items-center justify-center group/resizer z-30 hover:bg-brand-500/10 active:bg-brand-500/20"
@@ -750,13 +926,13 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
               <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400 mr-2 flex items-center gap-1.5 flex-shrink-0">
                   <Layers className="w-3.5 h-3.5 text-brand-400" />
-                  Results
+                  Output
                 </span>
 
                 {/* Multi-Statement Result Tabs */}
                 {activeTab.results && activeTab.results.length > 0 &&
                   activeTab.results.map((res, rIdx) => {
-                    const isSelected = (activeTab.activeResultIndex ?? 0) === rIdx;
+                    const isSelected = activeTab.activeViewMode !== 'explain' && (activeTab.activeResultIndex ?? 0) === rIdx;
                     const isErr = Boolean(res.error);
 
                     return (
@@ -766,12 +942,12 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
                         onClick={() => {
                           setTabs((prev) =>
                             prev.map((t) =>
-                              t.id === activeTabId ? { ...t, activeResultIndex: rIdx } : t
+                              t.id === activeTabId ? { ...t, activeResultIndex: rIdx, activeViewMode: 'results' } : t
                             )
                           );
                           setResultPage(1);
                         }}
-                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-mono transition-colors ${
+                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-mono transition-colors cursor-pointer ${
                           isSelected
                             ? isErr
                               ? 'bg-rose-950/70 border border-rose-500/50 text-rose-300 font-semibold'
@@ -790,18 +966,49 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
                       </button>
                     );
                   })}
+
+                {/* Execution Plan Tab */}
+                {activeTab.explainPlan && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTabs((prev) =>
+                        prev.map((t) =>
+                          t.id === activeTabId ? { ...t, activeViewMode: 'explain' } : t
+                        )
+                      );
+                    }}
+                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-mono transition-colors cursor-pointer ${
+                      activeTab.activeViewMode === 'explain'
+                        ? 'bg-amber-950/70 border border-amber-500/50 text-amber-300 font-semibold shadow-sm'
+                        : 'bg-surface-850 hover:bg-surface-800 text-gray-400 border border-border/40'
+                    }`}
+                  >
+                    <Zap className="w-3.5 h-3.5 text-amber-400" />
+                    <span>
+                      Execution Plan{' '}
+                      {activeTab.explainPlan.executionTime > 0
+                        ? `(${activeTab.explainPlan.executionTime.toFixed(2)}ms)`
+                        : `(Cost: ${activeTab.explainPlan.totalCost.toLocaleString()})`}
+                    </span>
+                  </button>
+                )}
               </div>
 
               {/* Right-side: Export actions or placeholder hint */}
-              {!activeTab.results ? (
+              {!activeTab.results && !activeTab.explainPlan ? (
                 <div className="flex items-center gap-1.5 text-xs text-zinc-400 select-none flex-shrink-0">
                   <span>Execute SQL queries (</span>
                   <kbd className="px-1.5 py-0.5 rounded bg-surface-800 border border-border/60 text-zinc-300 font-mono text-[10px]">
                     Ctrl + Enter
                   </kbd>
-                  <span>) to view result sets</span>
+                  <span>) or Explain (</span>
+                  <kbd className="px-1.5 py-0.5 rounded bg-surface-800 border border-border/60 text-zinc-300 font-mono text-[10px]">
+                    Alt + X
+                  </kbd>
+                  <span>)</span>
                 </div>
-              ) : activeResult && activeResult.rows && activeResult.rows.length > 0 ? (
+              ) : activeTab.activeViewMode !== 'explain' && activeResult && activeResult.rows && activeResult.rows.length > 0 ? (
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <span className="text-[11px] text-zinc-500 font-mono hidden sm:inline mr-1">
                     {activeResult.rows.length.toLocaleString()} rows
@@ -829,7 +1036,11 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
             </div>
 
             {/* Result Content Area */}
-            {activeTab.results && (
+            {activeTab.activeViewMode === 'explain' && activeTab.explainPlan ? (
+              <div className="flex-1 overflow-hidden relative">
+                <ExplainPlanViewer planResult={activeTab.explainPlan} showToast={showToast} />
+              </div>
+            ) : activeTab.results ? (
               <div className="flex-1 overflow-auto bg-[#141414] relative">
                 {activeResult && activeResult.error && (
                   <div className="p-4">
@@ -968,7 +1179,7 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
                   </div>
                 )}
               </div>
-            )}
+            ) : null}
           </div>
         </div>
 

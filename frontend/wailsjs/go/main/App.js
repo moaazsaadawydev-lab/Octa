@@ -26,6 +26,10 @@ export function ExecuteRawQuery(arg1, arg2, arg3) {
   return window['go']['main']['App']['ExecuteRawQuery'](arg1, arg2, arg3);
 }
 
+export function ExplainQuery(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['ExplainQuery'](arg1, arg2, arg3, arg4);
+}
+
 export function ExportDatabaseSQL(arg1, arg2, arg3) {
   return window['go']['main']['App']['ExportDatabaseSQL'](arg1, arg2, arg3);
 }

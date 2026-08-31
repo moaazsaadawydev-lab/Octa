@@ -77,6 +77,8 @@ export interface QueryTab {
   isDirty?: boolean;
   results?: QueryResult[] | null;
   activeResultIndex?: number;
+  explainPlan?: ExplainPlanResult | null;
+  activeViewMode?: 'results' | 'explain';
   isExecuting?: boolean;
 }
 
@@ -125,3 +127,42 @@ export interface ImportResult {
   success: boolean;
   errorMessage?: string;
 }
+
+export interface ExplainPlanNode {
+  'Node Type': string;
+  Strategy?: string;
+  'Relation Name'?: string;
+  Schema?: string;
+  Alias?: string;
+  'Startup Cost': number;
+  'Total Cost': number;
+  'Plan Rows': number;
+  'Plan Width'?: number;
+  'Actual Startup Time'?: number;
+  'Actual Total Time'?: number;
+  'Actual Rows'?: number;
+  'Actual Loops'?: number;
+  Output?: string[];
+  Filter?: string;
+  'Rows Removed by Filter'?: number;
+  'Index Name'?: string;
+  'Index Cond'?: string;
+  'Scan Direction'?: string;
+  'Sort Key'?: string[];
+  'Sort Method'?: string;
+  'Sort Space Used'?: number;
+  'Sort Space Type'?: string;
+  'Hash Cond'?: string;
+  'Join Type'?: string;
+  Plans?: ExplainPlanNode[];
+  [key: string]: any;
+}
+
+export interface ExplainPlanResult {
+  planJson: string;
+  totalCost: number;
+  planningTime: number;
+  executionTime: number;
+  rawOutput: string;
+}
+

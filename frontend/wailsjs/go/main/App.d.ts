@@ -14,6 +14,8 @@ export function DropColumn(arg1:main.ConnectionConfig,arg2:string,arg3:string,ar
 
 export function ExecuteRawQuery(arg1:main.ConnectionConfig,arg2:string,arg3:string):Promise<Array<main.QueryResult>>;
 
+export function ExplainQuery(arg1:main.ConnectionConfig,arg2:string,arg3:string,arg4:boolean):Promise<main.ExplainPlanResult>;
+
 export function ExportDatabaseSQL(arg1:main.ConnectionConfig,arg2:string,arg3:boolean):Promise<string>;
 
 export function ExportTableSQL(arg1:main.ConnectionConfig,arg2:string,arg3:string,arg4:boolean):Promise<string>;

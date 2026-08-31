@@ -2223,4 +2223,3 @@ func (a *App) ExplainQuery(config ConnectionConfig, dbName string, query string,
 
 	return result, nil
 }
-

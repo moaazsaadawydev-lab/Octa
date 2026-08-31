@@ -160,6 +160,26 @@ export namespace main {
 		    return a;
 		}
 	}
+	export class ExplainPlanResult {
+	    planJson: string;
+	    totalCost: number;
+	    planningTime: number;
+	    executionTime: number;
+	    rawOutput: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ExplainPlanResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.planJson = source["planJson"];
+	        this.totalCost = source["totalCost"];
+	        this.planningTime = source["planningTime"];
+	        this.executionTime = source["executionTime"];
+	        this.rawOutput = source["rawOutput"];
+	    }
+	}
 	
 	export class ImportResult {
 	    statementsExecuted: number;
