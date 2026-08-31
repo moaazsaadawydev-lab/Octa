@@ -37,8 +37,8 @@ export const QueryEditor: React.FC<QueryEditorProps> = ({
   }, [columns]);
 
   const handleBeforeMount: BeforeMount = (monaco) => {
-    // Define custom dark theme matching DevCockpit palette
-    monaco.editor.defineTheme('devcockpit-dark', {
+    // Define custom dark theme matching Octa palette
+    monaco.editor.defineTheme('octa-dark', {
       base: 'vs-dark',
       inherit: true,
       rules: [
@@ -255,7 +255,6 @@ export const QueryEditor: React.FC<QueryEditorProps> = ({
         height="100%"
         defaultLanguage="sql"
         language="sql"
-        theme="devcockpit-dark"
         value={value}
         onChange={(val) => onChange(val || '')}
         beforeMount={handleBeforeMount}

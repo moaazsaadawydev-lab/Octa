@@ -41,12 +41,12 @@ interface QueryPlaygroundProps {
   showToast: (message: string, type?: 'success' | 'error' | 'info') => void;
 }
 
-const DEFAULT_QUERY = `-- DevCockpit SQL Playground
+const DEFAULT_QUERY = `-- Octa SQL Playground
 -- Press Ctrl + Enter to run selected text or full query
 
 SELECT 
-  'DevCockpit' AS application,
-  'Phase 5: Multi-Tab SQL Editor' AS milestone,
+  'Octa' AS application,
+  'Database Management & SQL Workspace' AS milestone,
   NOW() AS executed_at;
 `;
 
@@ -58,7 +58,7 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
   // Tabs State (Loaded from localStorage)
   const [tabs, setTabs] = useState<QueryTab[]>(() => {
     try {
-      const saved = localStorage.getItem('devcockpit_query_tabs');
+      const saved = localStorage.getItem('octa_query_tabs') || localStorage.getItem('devcockpit_query_tabs');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
@@ -87,7 +87,7 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
   });
 
   const [activeTabId, setActiveTabId] = useState<string>(() => {
-    const savedActiveId = localStorage.getItem('devcockpit_active_query_tab_id');
+    const savedActiveId = localStorage.getItem('octa_active_query_tab_id') || localStorage.getItem('devcockpit_active_query_tab_id');
     return savedActiveId && tabs.some((t) => t.id === savedActiveId)
       ? savedActiveId
       : tabs[0]?.id || 'tab-1';
@@ -96,7 +96,7 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
   // Query History State (Loaded from localStorage)
   const [history, setHistory] = useState<QueryHistoryEntry[]>(() => {
     try {
-      const saved = localStorage.getItem('devcockpit_query_history');
+      const saved = localStorage.getItem('octa_query_history') || localStorage.getItem('devcockpit_query_history');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
@@ -110,7 +110,7 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
   });
 
   const [isHistoryOpen, setIsHistoryOpen] = useState<boolean>(() => {
-    return localStorage.getItem('devcockpit_history_panel_open') === 'true';
+    return (localStorage.getItem('octa_history_panel_open') || localStorage.getItem('devcockpit_history_panel_open')) === 'true';
   });
 
   // Explain Query Dropdown State
@@ -183,7 +183,7 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
         title: t.title,
         query: t.query,
       }));
-      localStorage.setItem('devcockpit_query_tabs', JSON.stringify(serialized));
+      localStorage.setItem('octa_query_tabs', JSON.stringify(serialized));
     } catch (e) {
       console.warn('Failed to save query tabs to localStorage', e);
     }
@@ -191,13 +191,13 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
 
   // Save activeTabId to localStorage
   useEffect(() => {
-    localStorage.setItem('devcockpit_active_query_tab_id', activeTabId);
+    localStorage.setItem('octa_active_query_tab_id', activeTabId);
   }, [activeTabId]);
 
   // Save query history to localStorage
   useEffect(() => {
     try {
-      localStorage.setItem('devcockpit_query_history', JSON.stringify(history));
+      localStorage.setItem('octa_query_history', JSON.stringify(history));
     } catch (e) {
       console.warn('Failed to save query history to localStorage', e);
     }
@@ -207,14 +207,14 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
   const handleToggleHistory = () => {
     setIsHistoryOpen((prev) => {
       const next = !prev;
-      localStorage.setItem('devcockpit_history_panel_open', String(next));
+      localStorage.setItem('octa_history_panel_open', String(next));
       return next;
     });
   };
 
   // Resizable Results Panel Height
   const [resultsHeight, setResultsHeight] = useState<number>(() => {
-    const saved = localStorage.getItem('devcockpit_playground_results_height');
+    const saved = localStorage.getItem('octa_playground_results_height') || localStorage.getItem('devcockpit_playground_results_height');
     const num = saved ? Number(saved) : 280;
     return isNaN(num) ? 280 : Math.min(600, Math.max(140, num));
   });
@@ -234,7 +234,7 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
       const deltaY = resizingRef.current.startY - moveEvent.clientY;
       const nextHeight = Math.min(600, Math.max(140, resizingRef.current.startHeight + deltaY));
       setResultsHeight(nextHeight);
-      localStorage.setItem('devcockpit_playground_results_height', String(nextHeight));
+      localStorage.setItem('octa_playground_results_height', String(nextHeight));
     };
 
     const onMouseUp = () => {
@@ -1195,6 +1195,7 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
           }}
           onClearHistory={() => {
             setHistory([]);
+            localStorage.removeItem('octa_query_history');
             localStorage.removeItem('devcockpit_query_history');
           }}
           showToast={showToast}

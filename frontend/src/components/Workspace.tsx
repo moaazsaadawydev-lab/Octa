@@ -74,7 +74,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({
 
   // Resizable inner Tables sidebar width (persisted in localStorage)
   const [tablesWidth, setTablesWidth] = useState<number>(() => {
-    const saved = localStorage.getItem('devcockpit_tables_sidebar_width');
+    const saved = localStorage.getItem('octa_tables_sidebar_width') || localStorage.getItem('devcockpit_tables_sidebar_width');
     const num = saved ? Number(saved) : 240;
     return isNaN(num) ? 240 : Math.min(400, Math.max(180, num));
   });
@@ -94,7 +94,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({
       const deltaX = moveEvent.clientX - tablesResizingRef.current.startX;
       const nextWidth = Math.min(400, Math.max(180, tablesResizingRef.current.startWidth + deltaX));
       setTablesWidth(nextWidth);
-      localStorage.setItem('devcockpit_tables_sidebar_width', String(nextWidth));
+      localStorage.setItem('octa_tables_sidebar_width', String(nextWidth));
     };
 
     const onMouseUp = () => {
@@ -785,7 +785,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({
               <div className="w-48 h-48 max-w-[200px] max-h-[200px] flex items-center justify-center mb-3">
                 <img
                   src={interfaceSvg}
-                  alt="DevCockpit"
+                  alt="Octa"
                   className="w-full h-full object-contain opacity-30 select-none pointer-events-none drop-shadow-lg"
                 />
               </div>

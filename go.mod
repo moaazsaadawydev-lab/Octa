@@ -1,4 +1,4 @@
-module devcockpit
+module octa
 
 go 1.25.0
 

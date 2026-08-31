@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { Plus } from 'lucide-react';
 import interfaceSvg from '../assets/interface.svg';
 
@@ -13,7 +13,6 @@ export const HomeLanding: React.FC<HomeLandingProps> = ({ onOpenNewModal }) => {
       <div className="w-[320px] h-[320px] sm:w-[400px] sm:h-[400px] md:w-[440px] md:h-[440px] max-w-[50vw] max-h-[50vh] flex items-center justify-center pointer-events-none">
         <img
           src={interfaceSvg}
-          alt="DevCockpit Watermark"
           className="w-full h-full object-contain opacity-45 select-none pointer-events-none drop-shadow-2xl"
         />
       </div>
