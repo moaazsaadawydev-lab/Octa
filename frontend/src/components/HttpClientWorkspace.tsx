@@ -31,7 +31,11 @@ import {
   Code2,
   FileCode,
   FileText,
-  File as FileIcon
+  File as FileIcon,
+  Eye,
+  EyeOff,
+  ShieldCheck,
+  Cookie as CookieIcon
 } from 'lucide-react';
 import interfaceSvg from '../assets/interface.svg';
 import { saveHttpClientData, loadHttpClientData } from '../services/api';
@@ -90,6 +94,7 @@ export interface HttpRequestItem {
   bodyContent: string;
   bodyFormData?: FormDataField[];
   bodyUrlEncoded?: UrlEncodedField[];
+  disabledAutoHeaders?: string[];
   isDirty?: boolean;
 }
 
@@ -110,6 +115,248 @@ export interface HttpResponseState {
   sizeKb: number;
   data: any;
   headers: Record<string, string>;
+}
+
+export interface AutoHeaderDefinition {
+  key: string;
+  value: string | ((req: HttpRequestItem) => string);
+  description: string;
+}
+
+export interface StoredCookie {
+  domain: string;
+  path: string;
+  name: string;
+  value: string;
+  expires?: number;
+  httpOnly?: boolean;
+  secure?: boolean;
+}
+
+// Cookie Jar Helper: Parse Set-Cookie Header
+export function parseSetCookie(headerValue: string, targetUrl: string): StoredCookie | null {
+  try {
+    let parsedUrl: URL;
+    try {
+      let u = targetUrl.trim();
+      if (!u.startsWith('http://') && !u.startsWith('https://')) u = 'https://' + u;
+      parsedUrl = new URL(u);
+    } catch {
+      return null;
+    }
+
+    const parts = headerValue.split(';').map((p) => p.trim());
+    if (parts.length === 0 || !parts[0].includes('=')) return null;
+
+    const [firstPart, ...directives] = parts;
+    const eqIdx = firstPart.indexOf('=');
+    const name = firstPart.substring(0, eqIdx).trim();
+    const value = firstPart.substring(eqIdx + 1).trim();
+    if (!name) return null;
+
+    let domain = parsedUrl.hostname;
+    let path = '/';
+    let expires: number | undefined = undefined;
+    let httpOnly = false;
+    let secure = false;
+
+    for (const dir of directives) {
+      const lower = dir.toLowerCase();
+      if (lower.startsWith('domain=')) {
+        let d = dir.substring(7).trim();
+        if (d.startsWith('.')) d = d.substring(1);
+        if (d) domain = d;
+      } else if (lower.startsWith('path=')) {
+        path = dir.substring(5).trim() || '/';
+      } else if (lower.startsWith('expires=')) {
+        const expDate = new Date(dir.substring(8).trim());
+        if (!isNaN(expDate.getTime())) {
+          expires = expDate.getTime();
+        }
+      } else if (lower.startsWith('max-age=')) {
+        const secs = parseInt(dir.substring(8).trim(), 10);
+        if (!isNaN(secs)) {
+          expires = Date.now() + secs * 1000;
+        }
+      } else if (lower === 'httponly') {
+        httpOnly = true;
+      } else if (lower === 'secure') {
+        secure = true;
+      }
+    }
+
+    return {
+      name,
+      value,
+      domain,
+      path,
+      expires,
+      httpOnly,
+      secure,
+    };
+  } catch {
+    return null;
+  }
+}
+
+// Cookie Jar Helper: Get matching active cookies for URL
+export function getMatchingCookies(cookies: StoredCookie[], targetUrl: string): StoredCookie[] {
+  try {
+    if (!targetUrl || !targetUrl.trim()) return [];
+    let u = targetUrl.trim();
+    if (!u.startsWith('http://') && !u.startsWith('https://')) u = 'https://' + u;
+    const parsed = new URL(u);
+    const host = parsed.hostname.toLowerCase();
+    const path = parsed.pathname || '/';
+    const now = Date.now();
+
+    return cookies.filter((c) => {
+      if (c.expires && c.expires < now) return false;
+      const cookieDomain = c.domain.toLowerCase().replace(/^\./, '');
+      const domainMatch = host === cookieDomain || host.endsWith('.' + cookieDomain);
+      if (!domainMatch) return false;
+      const cookiePath = c.path || '/';
+      const pathMatch = path.startsWith(cookiePath) || cookiePath === '/';
+      if (!pathMatch) return false;
+      return true;
+    });
+  } catch {
+    return [];
+  }
+}
+
+// Cookie Jar Helper: Format Cookie Header String
+export function formatCookieHeader(cookies: StoredCookie[]): string {
+  return cookies.map((c) => `${c.name}=${c.value}`).join('; ');
+}
+
+// Dynamic Auto-Generated Headers Definition based on Method, Body, Cookies, and Token
+export function getDynamicAutoHeaderDefinitions(
+  req: HttpRequestItem,
+  cookieJar: StoredCookie[] = []
+): AutoHeaderDefinition[] {
+  const list: AutoHeaderDefinition[] = [
+    {
+      key: 'Host',
+      value: (r: HttpRequestItem) => {
+        try {
+          if (!r.url) return '<calculated when request is sent>';
+          let u = r.url.trim();
+          if (!u.startsWith('http://') && !u.startsWith('https://')) u = 'https://' + u;
+          const parsed = new URL(u);
+          return parsed.host || '<calculated when request is sent>';
+        } catch {
+          return '<calculated when request is sent>';
+        }
+      },
+      description: 'Target server host',
+    },
+    { key: 'User-Agent', value: 'OctaRuntime/1.0', description: 'Octa HTTP client identifier' },
+    { key: 'Accept', value: '*/*', description: 'Supported response MIME types' },
+    { key: 'Accept-Encoding', value: 'gzip, deflate, br', description: 'Supported response compression algorithms' },
+    { key: 'Connection', value: 'keep-alive', description: 'Persistent connection keep-alive' },
+    { key: 'Cache-Control', value: 'no-cache', description: 'Bypass intermediary caching' },
+    {
+      key: 'Octa-Token',
+      value: (r: HttpRequestItem) => {
+        return 'octa_' + (r.id.startsWith('req-') ? r.id.substring(4) : r.id);
+      },
+      description: 'Octa request tracking identifier',
+    },
+  ];
+
+  // Dynamic Content-Type (based on selected body mode)
+  if (req.bodyType === 'json') {
+    list.push({
+      key: 'Content-Type',
+      value: 'application/json',
+      description: 'JSON payload format',
+    });
+  } else if (req.bodyType === 'form-data') {
+    list.push({
+      key: 'Content-Type',
+      value: 'multipart/form-data; boundary=<calculated when request is sent>',
+      description: 'Multipart form-data boundary',
+    });
+  } else if (req.bodyType === 'x-www-form-urlencoded') {
+    list.push({
+      key: 'Content-Type',
+      value: 'application/x-www-form-urlencoded',
+      description: 'URL-encoded form payload',
+    });
+  }
+
+  // Dynamic Content-Length (based on HTTP method & payload)
+  if (req.method === 'POST' || req.method === 'PUT' || req.method === 'PATCH') {
+    list.push({
+      key: 'Content-Length',
+      value: (r: HttpRequestItem) => {
+        if (r.bodyType === 'json' && r.bodyContent) {
+          try {
+            return String(new TextEncoder().encode(r.bodyContent).length);
+          } catch {
+            return String(r.bodyContent.length);
+          }
+        }
+        if (r.bodyType === 'x-www-form-urlencoded' && r.bodyUrlEncoded && r.bodyUrlEncoded.length > 0) {
+          const params = new URLSearchParams();
+          for (const row of r.bodyUrlEncoded) {
+            if (row.enabled && row.key.trim()) {
+              params.append(row.key, row.value || '');
+            }
+          }
+          const str = params.toString();
+          return String(new TextEncoder().encode(str).length);
+        }
+        if (r.bodyType === 'form-data') {
+          return '<calculated when request is sent>';
+        }
+        if (r.bodyType === 'none') {
+          return '0';
+        }
+        return '<calculated when request is sent>';
+      },
+      description: 'Payload byte length',
+    });
+  }
+
+  // Dynamic Session Cookie (based on matching Cookie Jar entries)
+  const matching = getMatchingCookies(cookieJar, req.url);
+  if (matching.length > 0) {
+    list.push({
+      key: 'Cookie',
+      value: formatCookieHeader(matching),
+      description: 'Active session cookies for target host',
+    });
+  }
+
+  return list;
+}
+
+export function getComputedAutoHeaders(req: HttpRequestItem | null, cookieJar: StoredCookie[] = []) {
+  if (!req) return [];
+  const defs = getDynamicAutoHeaderDefinitions(req, cookieJar);
+  const disabledList = (req.disabledAutoHeaders || []).map((k) => k.toLowerCase());
+  const customKeys = new Set(
+    req.headers.filter((h) => h.enabled && h.key.trim()).map((h) => h.key.trim().toLowerCase())
+  );
+
+  return defs.map((def) => {
+    const keyLower = def.key.toLowerCase();
+    const val = typeof def.value === 'function' ? def.value(req) : def.value;
+    const isOverridden = customKeys.has(keyLower);
+    const isChecked = !disabledList.includes(keyLower);
+    const isEnabled = isChecked && !isOverridden;
+
+    return {
+      key: def.key,
+      value: val,
+      description: def.description,
+      isChecked,
+      isEnabled,
+      isOverridden,
+    };
+  });
 }
 
 export const HTTP_METHODS: { method: HttpMethod; label: string; color: string; badge: string }[] = [
@@ -141,6 +388,7 @@ const createDefaultRequest = (name: string = 'Untitled Request'): HttpRequestIte
   bodyContent: DEFAULT_JSON_BODY,
   bodyFormData: [],
   bodyUrlEncoded: [],
+  disabledAutoHeaders: [],
   isDirty: false,
 });
 
@@ -281,6 +529,7 @@ function normalizeItems(items: any[]): (HttpFolderItem | HttpRequestItem)[] {
       bodyContent: item.bodyContent || (item.bodyType === 'json' ? DEFAULT_JSON_BODY : ''),
       bodyFormData: Array.isArray(item.bodyFormData) ? item.bodyFormData : [],
       bodyUrlEncoded: Array.isArray(item.bodyUrlEncoded) ? item.bodyUrlEncoded : [],
+      disabledAutoHeaders: Array.isArray(item.disabledAutoHeaders) ? item.disabledAutoHeaders : [],
       isDirty: false,
     };
   });
@@ -384,6 +633,7 @@ export const HttpClientWorkspace: React.FC<{
             bodyContent: '',
             bodyFormData: [],
             bodyUrlEncoded: [],
+            disabledAutoHeaders: [],
             isDirty: false,
           },
           {
@@ -392,18 +642,52 @@ export const HttpClientWorkspace: React.FC<{
             name: 'Create User',
             method: 'POST',
             url: 'https://jsonplaceholder.typicode.com/users',
-            headers: [{ key: 'Content-Type', value: 'application/json', enabled: true }],
+            headers: [],
             params: [],
             bodyType: 'json',
             bodyContent: '{\n  "name": "Alex Mercer",\n  "email": "alex@octa.dev"\n}',
             bodyFormData: [],
             bodyUrlEncoded: [],
+            disabledAutoHeaders: [],
             isDirty: false,
           },
         ],
       },
     ];
   });
+
+  // Cookie Jar State (Persisted in localStorage)
+  const [cookieJar, setCookieJar] = useState<StoredCookie[]>(() => {
+    try {
+      const saved = localStorage.getItem('octa_cookie_jar');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (e) {
+      console.warn('Failed to parse cookie jar from localStorage', e);
+    }
+    return [
+      {
+        domain: 'jsonplaceholder.typicode.com',
+        path: '/',
+        name: 'session_id',
+        value: 'octa_sess_9a8b7c6d',
+      },
+    ];
+  });
+
+  const saveCookieJar = (newJar: StoredCookie[]) => {
+    setCookieJar(newJar);
+    try {
+      localStorage.setItem('octa_cookie_jar', JSON.stringify(newJar));
+    } catch (e) {
+      console.warn('Failed to persist cookie jar', e);
+    }
+  };
+
+  // Cookie Jar Modal / Popover State
+  const [isCookieJarOpen, setIsCookieJarOpen] = useState(false);
 
   // Load from Go backend on mount
   useEffect(() => {
@@ -455,6 +739,16 @@ export const HttpClientWorkspace: React.FC<{
 
   // Active Request Sub-Tabs: params | headers | body
   const [requestTab, setRequestTab] = useState<'params' | 'headers' | 'body'>('params');
+
+  // Auto-Generated Headers Visibility Toggle State
+  const [showAutoHeaders, setShowAutoHeaders] = useState<boolean>(() => {
+    const saved = localStorage.getItem('octa_show_auto_headers');
+    return saved !== null ? saved === 'true' : true;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('octa_show_auto_headers', String(showAutoHeaders));
+  }, [showAutoHeaders]);
 
   // Layout Orientation: horizontal (side-by-side) vs vertical (stacked)
   const [layoutOrientation, setLayoutOrientation] = useState<'horizontal' | 'vertical'>(() => {
@@ -508,6 +802,15 @@ export const HttpClientWorkspace: React.FC<{
     position: 'before' | 'inside' | 'after';
   } | null>(null);
 
+  // Computed Auto Headers & Active Counts (Dynamic based on Method, Body, Cookies, Token)
+  const computedAutoHeaders = getComputedAutoHeaders(activeRequest, cookieJar);
+  const userActiveHeadersCount = activeRequest?.headers.filter((h) => h.enabled && h.key.trim()).length || 0;
+  const autoActiveHeadersCount = computedAutoHeaders.filter((h) => h.isEnabled).length;
+  const totalActiveHeadersCount = userActiveHeadersCount + autoActiveHeadersCount;
+
+  // Matching cookies for current active request
+  const matchingCookies = activeRequest ? getMatchingCookies(cookieJar, activeRequest.url) : [];
+
   // Update active request in open tabs and in tree
   const updateActiveRequest = (updated: HttpRequestItem) => {
     setOpenTabs((prev) =>
@@ -532,42 +835,29 @@ export const HttpClientWorkspace: React.FC<{
     saveTreeData(updateRecursively(collections) as HttpFolderItem[]);
   };
 
-  // Body Type Switching Helper with Auto Content-Type Header Sync
+  // Toggle Auto-Generated Header
+  const handleToggleAutoHeader = (headerKey: string, enable: boolean) => {
+    if (!activeRequest) return;
+    const currentDisabled = (activeRequest.disabledAutoHeaders || []).map((k) => k.toLowerCase());
+    const targetKey = headerKey.toLowerCase();
+    let nextDisabled: string[];
+    if (enable) {
+      nextDisabled = currentDisabled.filter((k) => k !== targetKey);
+    } else {
+      nextDisabled = currentDisabled.includes(targetKey) ? currentDisabled : [...currentDisabled, targetKey];
+    }
+    updateActiveRequest({
+      ...activeRequest,
+      disabledAutoHeaders: nextDisabled,
+    });
+  };
+
+  // Body Type Switching Helper
   const handleSwitchBodyType = (newType: HttpBodyType) => {
     if (!activeRequest) return;
-    const currentHeaders = [...activeRequest.headers];
-    const contentTypeIdx = currentHeaders.findIndex(
-      (h) => h.key.toLowerCase() === 'content-type'
-    );
-
-    if (newType === 'json') {
-      if (contentTypeIdx >= 0) {
-        currentHeaders[contentTypeIdx].value = 'application/json';
-        currentHeaders[contentTypeIdx].enabled = true;
-      } else {
-        currentHeaders.push({ key: 'Content-Type', value: 'application/json', enabled: true });
-      }
-    } else if (newType === 'x-www-form-urlencoded') {
-      if (contentTypeIdx >= 0) {
-        currentHeaders[contentTypeIdx].value = 'application/x-www-form-urlencoded';
-        currentHeaders[contentTypeIdx].enabled = true;
-      } else {
-        currentHeaders.push({ key: 'Content-Type', value: 'application/x-www-form-urlencoded', enabled: true });
-      }
-    } else if (newType === 'form-data' || newType === 'none') {
-      // For form-data, browser automatically computes boundary; remove explicit json/urlencoded content-type
-      if (contentTypeIdx >= 0 && (
-        currentHeaders[contentTypeIdx].value.includes('application/json') ||
-        currentHeaders[contentTypeIdx].value.includes('application/x-www-form-urlencoded')
-      )) {
-        currentHeaders.splice(contentTypeIdx, 1);
-      }
-    }
-
     updateActiveRequest({
       ...activeRequest,
       bodyType: newType,
-      headers: currentHeaders,
     });
   };
 
@@ -972,7 +1262,7 @@ export const HttpClientWorkspace: React.FC<{
     setDragOverTarget(null);
   };
 
-  // Send HTTP Request Dispatcher
+  // Send HTTP Request Dispatcher with Cookie Jar & Auto-Generated Headers Integration
   const handleSendRequest = async () => {
     if (!activeRequest) return;
     if (!activeRequest.url.trim()) {
@@ -999,10 +1289,22 @@ export const HttpClientWorkspace: React.FC<{
         targetUrl += (targetUrl.includes('?') ? '&' : '?') + queryStr;
       }
 
-      // Request Headers
+      // Request Headers Merging: Auto-Generated Headers (including Cookie, Token, Content-Type, Content-Length) + Custom Headers
       const reqHeaders: Record<string, string> = {};
+
+      // 1. Inject active auto-generated headers first
+      const computedAuto = getComputedAutoHeaders(activeRequest, cookieJar);
+      for (const ah of computedAuto) {
+        if (ah.isEnabled && ah.value && !ah.value.startsWith('<')) {
+          reqHeaders[ah.key] = ah.value;
+        }
+      }
+
+      // 2. Custom headers override auto headers
       activeRequest.headers.forEach((h) => {
-        if (h.enabled && h.key) reqHeaders[h.key] = h.value;
+        if (h.enabled && h.key.trim()) {
+          reqHeaders[h.key.trim()] = h.value;
+        }
       });
 
       const options: RequestInit = {
@@ -1037,9 +1339,14 @@ export const HttpClientWorkspace: React.FC<{
             }
           }
           options.body = formData;
-          // Let fetch manage Content-Type boundary automatically
-          delete reqHeaders['Content-Type'];
-          delete reqHeaders['content-type'];
+          // If no custom Content-Type header was explicitly set, delete Content-Type to let fetch set multipart boundary
+          const hasCustomContentType = activeRequest.headers.some(
+            (h) => h.enabled && h.key.trim().toLowerCase() === 'content-type'
+          );
+          if (!hasCustomContentType) {
+            delete reqHeaders['Content-Type'];
+            delete reqHeaders['content-type'];
+          }
         } else if (activeRequest.bodyType === 'x-www-form-urlencoded') {
           const urlParams = new URLSearchParams();
           const rows = activeRequest.bodyUrlEncoded || [];
@@ -1066,9 +1373,29 @@ export const HttpClientWorkspace: React.FC<{
       }
 
       const resHeaders: Record<string, string> = {};
+      const setCookiesReceived: string[] = [];
+
       res.headers.forEach((v, k) => {
         resHeaders[k] = v;
+        if (k.toLowerCase() === 'set-cookie') {
+          setCookiesReceived.push(v);
+        }
       });
+
+      // Update Cookie Jar if Set-Cookie received
+      if (setCookiesReceived.length > 0) {
+        let updatedJar = [...cookieJar];
+        for (const sc of setCookiesReceived) {
+          const parsed = parseSetCookie(sc, targetUrl);
+          if (parsed) {
+            updatedJar = updatedJar.filter(
+              (c) => !(c.name === parsed.name && c.domain === parsed.domain && c.path === parsed.path)
+            );
+            updatedJar.push(parsed);
+          }
+        }
+        saveCookieJar(updatedJar);
+      }
 
       const result: HttpResponseState = {
         status: res.status,
@@ -1397,7 +1724,7 @@ export const HttpClientWorkspace: React.FC<{
   };
 
   return (
-    <div className="flex-1 flex h-full bg-[#121214] text-zinc-100 overflow-hidden select-none font-sans">
+    <div className="flex-1 flex h-full bg-[#121214] text-zinc-100 overflow-hidden select-none font-sans relative">
       {/* Resizable Panel Group (Level 1: Sidebar vs Main Workspace) */}
       <Group orientation="horizontal" id="octa_http_main_split" className="h-full w-full">
         {/* 1. Request Explorer Tree Sidebar */}
@@ -1438,7 +1765,7 @@ export const HttpClientWorkspace: React.FC<{
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Filter requests & folders..."
-                  className="w-full pl-8 pr-2.5 py-1 text-xs bg-[#1a1a1c] border border-[#2b2b2e] rounded-md text-zinc-200 placeholder-zinc-500 focus:border-brand-500 outline-none font-mono"
+                  className="w-full pl-8 pr-2.5 py-1 text-xs bg-[#1a1a1c] border border-[#2b2b30] rounded-md text-zinc-200 placeholder-zinc-500 focus:border-brand-500 outline-none font-mono"
                 />
               </div>
             </div>
@@ -1546,9 +1873,21 @@ export const HttpClientWorkspace: React.FC<{
               </button>
             </div>
 
-            {/* Layout Orientation Switcher (only when active request exists) */}
-            {activeRequest && (
-              <div className="flex items-center gap-1 pl-2 border-l border-zinc-800 flex-shrink-0">
+            {/* Top Right Controls (Cookie Jar Trigger + Layout Switcher) */}
+            <div className="flex items-center gap-1.5 pl-2 border-l border-zinc-800 flex-shrink-0">
+              {/* Cookie Jar Trigger Button */}
+              <button
+                type="button"
+                onClick={() => setIsCookieJarOpen(true)}
+                title="Cookie Jar (Manage active session cookies)"
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium text-amber-400 hover:text-amber-300 bg-amber-950/40 hover:bg-amber-950/70 border border-amber-500/30 transition-colors cursor-pointer"
+              >
+                <CookieIcon className="w-3.5 h-3.5 text-amber-400" />
+                <span className="text-[11px] font-mono">Cookies ({cookieJar.length})</span>
+              </button>
+
+              {/* Layout Orientation Switcher (only when active request exists) */}
+              {activeRequest && (
                 <button
                   type="button"
                   onClick={() => setLayoutOrientation(layoutOrientation === 'horizontal' ? 'vertical' : 'horizontal')}
@@ -1571,8 +1910,8 @@ export const HttpClientWorkspace: React.FC<{
                     </>
                   )}
                 </button>
-              </div>
-            )}
+              )}
+            </div>
           </div>
 
           {/* Main Area: Empty Workspace Landing or Active Request Workspace */}
@@ -1705,7 +2044,7 @@ export const HttpClientWorkspace: React.FC<{
                             : 'border-transparent text-zinc-400 hover:text-zinc-200')
                         }
                       >
-                        Headers ({activeRequest.headers.length})
+                        Headers ({totalActiveHeadersCount})
                       </button>
                       <button
                         type="button"
@@ -1797,72 +2136,203 @@ export const HttpClientWorkspace: React.FC<{
                         </div>
                       )}
 
-                      {/* 2. HEADERS TAB */}
+                      {/* 2. HEADERS TAB (Dynamic Auto-Generated Headers + Custom Headers) */}
                       {requestTab === 'headers' && (
-                        <div className="space-y-2">
-                          <div className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider">
-                            HTTP Headers
-                          </div>
-                          {activeRequest.headers.map((h, idx) => (
-                            <div key={idx} className="flex items-center gap-2">
-                              <input
-                                type="checkbox"
-                                checked={h.enabled}
-                                onChange={(e) => {
-                                  const next = [...activeRequest.headers];
-                                  next[idx].enabled = e.target.checked;
-                                  updateActiveRequest({ ...activeRequest, headers: next });
-                                }}
-                                className="rounded bg-zinc-800 border-zinc-700 text-brand-500 cursor-pointer"
-                              />
-                              <input
-                                type="text"
-                                value={h.key}
-                                onChange={(e) => {
-                                  const next = [...activeRequest.headers];
-                                  next[idx].key = e.target.value;
-                                  updateActiveRequest({ ...activeRequest, headers: next });
-                                }}
-                                placeholder="Header Name"
-                                className="flex-1 px-2.5 py-1 text-xs bg-[#1a1a1e] border border-[#2b2b30] rounded text-zinc-200 font-mono outline-none focus:border-brand-500"
-                              />
-                              <input
-                                type="text"
-                                value={h.value}
-                                onChange={(e) => {
-                                  const next = [...activeRequest.headers];
-                                  next[idx].value = e.target.value;
-                                  updateActiveRequest({ ...activeRequest, headers: next });
-                                }}
-                                placeholder="Value"
-                                className="flex-1 px-2.5 py-1 text-xs bg-[#1a1a1e] border border-[#2b2b30] rounded text-zinc-200 font-mono outline-none focus:border-brand-500"
-                              />
+                        <div className="space-y-4">
+                          {/* Top Header Controls Bar */}
+                          <div className="flex items-center justify-between pb-1 border-b border-[#26262a]">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">
+                                Headers
+                              </span>
+                              <span className="text-[10px] text-zinc-500 font-mono">
+                                ({totalActiveHeadersCount} active)
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              {/* Cookie Jar Indicator */}
+                              {matchingCookies.length > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => setIsCookieJarOpen(true)}
+                                  className="flex items-center gap-1 px-2 py-0.5 rounded bg-amber-950/40 border border-amber-500/30 text-amber-300 text-[10px] font-mono cursor-pointer hover:bg-amber-950/70 transition-colors"
+                                >
+                                  <CookieIcon className="w-3 h-3 text-amber-400" />
+                                  <span>{matchingCookies.length} cookie(s)</span>
+                                </button>
+                              )}
+
+                              {/* Visibility Toggle for Auto-Generated Headers */}
                               <button
                                 type="button"
-                                onClick={() => {
-                                  const next = activeRequest.headers.filter((_, i) => i !== idx);
-                                  updateActiveRequest({ ...activeRequest, headers: next });
-                                }}
-                                title="Remove Header"
-                                className="p-1 text-zinc-500 hover:text-rose-400 cursor-pointer transition-colors"
+                                onClick={() => setShowAutoHeaders(!showAutoHeaders)}
+                                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/80 border border-zinc-800 transition-colors cursor-pointer"
                               >
-                                <Trash2 className="w-3.5 h-3.5" />
+                                {showAutoHeaders ? (
+                                  <>
+                                    <EyeOff className="w-3.5 h-3.5 text-zinc-500" />
+                                    <span>Hide auto-generated headers ({computedAutoHeaders.length})</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Eye className="w-3.5 h-3.5 text-brand-400" />
+                                    <span>Show auto-generated headers ({computedAutoHeaders.length})</span>
+                                  </>
+                                )}
                               </button>
                             </div>
-                          ))}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              updateActiveRequest({
-                                ...activeRequest,
-                                headers: [...activeRequest.headers, { key: '', value: '', enabled: true }],
-                              });
-                            }}
-                            className="text-xs text-brand-400 hover:text-brand-300 font-medium flex items-center gap-1 cursor-pointer mt-2"
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                            <span>Add Header</span>
-                          </button>
+                          </div>
+
+                          {/* AUTO-GENERATED SYSTEM HEADERS TABLE */}
+                          {showAutoHeaders && (
+                            <div className="border border-[#26262a]/80 rounded-xl overflow-hidden bg-[#161618]/60 animate-fade-in">
+                              <div className="px-3 py-1.5 bg-[#1a1a1e]/80 border-b border-[#26262a]/80 flex items-center justify-between text-[11px] font-semibold text-zinc-400">
+                                <div className="flex items-center gap-2">
+                                  <ShieldCheck className="w-3.5 h-3.5 text-brand-400" />
+                                  <span>Auto-Generated System Headers</span>
+                                </div>
+                                <span className="text-[10px] text-zinc-500 font-normal italic hidden sm:inline">
+                                  Custom headers with matching key override these
+                                </span>
+                              </div>
+
+                              <div className="divide-y divide-[#222226]/80">
+                                {computedAutoHeaders.map((ah) => (
+                                  <div
+                                    key={ah.key}
+                                    className={
+                                      'grid grid-cols-[36px_1.5fr_2fr_100px] items-center gap-2 px-3 py-1.5 text-xs transition-colors ' +
+                                      (ah.isOverridden
+                                        ? 'bg-[#151517]/50 opacity-45'
+                                        : ah.isChecked
+                                        ? 'bg-[#161618]/40 hover:bg-[#18181c]/60'
+                                        : 'bg-[#141416]/40 opacity-50')
+                                    }
+                                  >
+                                    {/* Checkbox */}
+                                    <div className="flex items-center justify-center">
+                                      <input
+                                        type="checkbox"
+                                        checked={ah.isChecked}
+                                        disabled={ah.isOverridden}
+                                        onChange={(e) => handleToggleAutoHeader(ah.key, e.target.checked)}
+                                        className="rounded bg-zinc-800 border-zinc-700 text-brand-500 cursor-pointer disabled:opacity-40"
+                                      />
+                                    </div>
+
+                                    {/* Key */}
+                                    <div className="flex items-center gap-1.5">
+                                      <span
+                                        className={
+                                          'px-2.5 py-1 rounded bg-zinc-900/60 border border-zinc-800/80 font-mono text-[11px] select-text ' +
+                                          (ah.isOverridden ? 'line-through text-zinc-600' : 'text-zinc-400 italic')
+                                        }
+                                      >
+                                        {ah.key}
+                                      </span>
+                                    </div>
+
+                                    {/* Value */}
+                                    <div className="flex items-center gap-1.5 truncate">
+                                      <span
+                                        className={
+                                          'px-2.5 py-1 rounded bg-zinc-900/60 border border-zinc-800/80 font-mono text-[11px] select-text truncate w-full ' +
+                                          (ah.isOverridden ? 'line-through text-zinc-600' : 'text-zinc-300 italic')
+                                        }
+                                        title={ah.value}
+                                      >
+                                        {ah.value}
+                                      </span>
+                                    </div>
+
+                                    {/* Status Badge */}
+                                    <div className="flex items-center justify-end">
+                                      {ah.isOverridden ? (
+                                        <span
+                                          className="text-[9px] px-1.5 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-zinc-500 font-mono"
+                                          title="Overridden by custom user header"
+                                        >
+                                          overridden
+                                        </span>
+                                      ) : (
+                                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-brand-950/60 border border-brand-500/30 text-brand-400 font-mono">
+                                          auto
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* USER CUSTOM HEADERS SECTION */}
+                          <div className="space-y-2">
+                            <div className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider">
+                              Custom Headers ({activeRequest.headers.length})
+                            </div>
+                            {activeRequest.headers.map((h, idx) => (
+                              <div key={idx} className="flex items-center gap-2">
+                                <input
+                                  type="checkbox"
+                                  checked={h.enabled}
+                                  onChange={(e) => {
+                                    const next = [...activeRequest.headers];
+                                    next[idx].enabled = e.target.checked;
+                                    updateActiveRequest({ ...activeRequest, headers: next });
+                                  }}
+                                  className="rounded bg-zinc-800 border-zinc-700 text-brand-500 cursor-pointer"
+                                />
+                                <input
+                                  type="text"
+                                  value={h.key}
+                                  onChange={(e) => {
+                                    const next = [...activeRequest.headers];
+                                    next[idx].key = e.target.value;
+                                    updateActiveRequest({ ...activeRequest, headers: next });
+                                  }}
+                                  placeholder="Header Name"
+                                  className="flex-1 px-2.5 py-1 text-xs bg-[#1a1a1e] border border-[#2b2b30] rounded text-zinc-200 font-mono outline-none focus:border-brand-500"
+                                />
+                                <input
+                                  type="text"
+                                  value={h.value}
+                                  onChange={(e) => {
+                                    const next = [...activeRequest.headers];
+                                    next[idx].value = e.target.value;
+                                    updateActiveRequest({ ...activeRequest, headers: next });
+                                  }}
+                                  placeholder="Value"
+                                  className="flex-1 px-2.5 py-1 text-xs bg-[#1a1a1e] border border-[#2b2b30] rounded text-zinc-200 font-mono outline-none focus:border-brand-500"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const next = activeRequest.headers.filter((_, i) => i !== idx);
+                                    updateActiveRequest({ ...activeRequest, headers: next });
+                                  }}
+                                  title="Remove Header"
+                                  className="p-1 text-zinc-500 hover:text-rose-400 cursor-pointer transition-colors"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            ))}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                updateActiveRequest({
+                                  ...activeRequest,
+                                  headers: [...activeRequest.headers, { key: '', value: '', enabled: true }],
+                                });
+                              }}
+                              className="text-xs text-brand-400 hover:text-brand-300 font-medium flex items-center gap-1 cursor-pointer mt-2"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                              <span>Add Header</span>
+                            </button>
+                          </div>
                         </div>
                       )}
 
@@ -2409,6 +2879,107 @@ export const HttpClientWorkspace: React.FC<{
           )}
         </Panel>
       </Group>
+
+      {/* Cookie Jar Management Modal */}
+      {isCookieJarOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="w-full max-w-xl bg-[#161619] border border-zinc-700/80 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
+            {/* Modal Header */}
+            <div className="px-4 py-3 border-b border-[#26262a] bg-[#1a1a1e] flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CookieIcon className="w-4 h-4 text-amber-400" />
+                <span className="text-sm font-bold text-zinc-200">Cookie Jar</span>
+                <span className="text-xs font-mono px-2 py-0.5 rounded-full bg-amber-950/70 border border-amber-500/30 text-amber-300">
+                  {cookieJar.length} stored
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsCookieJarOpen(false)}
+                className="p-1 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Body: Cookies List */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {cookieJar.length === 0 ? (
+                <div className="py-8 text-center text-zinc-500">
+                  <CookieIcon className="w-8 h-8 text-zinc-600 mx-auto mb-2 opacity-60" />
+                  <span className="text-xs">No cookies in jar</span>
+                  <p className="text-[11px] text-zinc-600 mt-1">
+                    Cookies received via Set-Cookie response headers will automatically appear here.
+                  </p>
+                </div>
+              ) : (
+                <div className="border border-[#26262a] rounded-xl overflow-hidden divide-y divide-[#222226]">
+                  {cookieJar.map((c, idx) => (
+                    <div key={idx} className="p-3 bg-[#131316] hover:bg-[#18181c] transition-colors flex items-start justify-between gap-3 text-xs">
+                      <div className="space-y-1 flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono font-bold text-amber-300">{c.name}</span>
+                          <span className="text-zinc-600">=</span>
+                          <span className="font-mono text-zinc-300 truncate max-w-xs" title={c.value}>
+                            {c.value}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-3 text-[11px] text-zinc-500 font-mono">
+                          <span>Domain: <strong className="text-zinc-400">{c.domain}</strong></span>
+                          <span>Path: <strong className="text-zinc-400">{c.path}</strong></span>
+                          {c.expires && (
+                            <span>Expires: <strong className="text-zinc-400">{new Date(c.expires).toLocaleDateString()}</strong></span>
+                          )}
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const next = cookieJar.filter((_, i) => i !== idx);
+                          saveCookieJar(next);
+                          showToast('Removed cookie: ' + c.name, 'info');
+                        }}
+                        title="Delete cookie"
+                        className="p-1 text-zinc-500 hover:text-rose-400 hover:bg-zinc-800 rounded transition-colors cursor-pointer"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-4 py-3 border-t border-[#26262a] bg-[#1a1a1e] flex items-center justify-between">
+              {cookieJar.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    saveCookieJar([]);
+                    showToast('Cookie jar cleared', 'info');
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-rose-400 hover:text-rose-300 hover:bg-rose-950/40 border border-rose-500/30 transition-colors cursor-pointer"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Clear All Cookies</span>
+                </button>
+              ) : (
+                <div />
+              )}
+
+              <button
+                type="button"
+                onClick={() => setIsCookieJarOpen(false)}
+                className="px-4 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-medium transition-colors cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
