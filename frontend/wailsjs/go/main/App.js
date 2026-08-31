@@ -22,6 +22,10 @@ export function DropColumn(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['DropColumn'](arg1, arg2, arg3, arg4);
 }
 
+export function ExecuteHttpRequest(arg1) {
+  return window['go']['main']['App']['ExecuteHttpRequest'](arg1);
+}
+
 export function ExecuteRawQuery(arg1, arg2, arg3) {
   return window['go']['main']['App']['ExecuteRawQuery'](arg1, arg2, arg3);
 }
@@ -100,6 +104,10 @@ export function SaveSQLDumpDialog(arg1, arg2) {
 
 export function SaveSqlQueriesData(arg1) {
   return window['go']['main']['App']['SaveSqlQueriesData'](arg1);
+}
+
+export function SelectFilesDialog() {
+  return window['go']['main']['App']['SelectFilesDialog']();
 }
 
 export function TestConnection(arg1) {

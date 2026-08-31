@@ -38,10 +38,58 @@ import {
   Cookie as CookieIcon
 } from 'lucide-react';
 import interfaceSvg from '../assets/interface.svg';
-import { saveHttpClientData, loadHttpClientData } from '../services/api';
+import { saveHttpClientData, loadHttpClientData, executeHttpRequest, selectFilesDialog, HttpRequestPayload, FormFieldPayload, HttpResponsePayload } from '../services/api';
 
 // Configure Monaco to use locally bundled version
 loader.config({ monaco });
+
+// Define custom dark theme matching Octa palette
+export const defineOctaTheme = (monacoInstance: typeof monaco) => {
+  monacoInstance.editor.defineTheme('octa-dark', {
+    base: 'vs-dark',
+    inherit: true,
+    rules: [
+      { token: 'string.key.json', foreground: '38bdf8', fontStyle: 'bold' },
+      { token: 'type.property.name', foreground: '38bdf8', fontStyle: 'bold' },
+      { token: 'string.value.json', foreground: '34d399' },
+      { token: 'string', foreground: '34d399' },
+      { token: 'number', foreground: 'f59e0b' },
+      { token: 'number.json', foreground: 'f59e0b' },
+      { token: 'keyword.json', foreground: 'c084fc', fontStyle: 'bold' },
+      { token: 'keyword', foreground: 'c084fc', fontStyle: 'bold' },
+      { token: 'constant.language', foreground: 'f43f5e' },
+      { token: 'null', foreground: 'f43f5e' },
+      { token: 'comment', foreground: '71717a', fontStyle: 'italic' },
+      { token: 'delimiter', foreground: 'a1a1aa' },
+      { token: 'delimiter.bracket', foreground: 'e4e4e7' },
+    ],
+    colors: {
+      'editor.background': '#141416',
+      'editor.foreground': '#f4f4f5',
+      'editor.lineHighlightBackground': '#ffffff08',
+      'editor.lineHighlightBorder': '#00000000',
+      'editorLineNumber.foreground': '#52525b',
+      'editorLineNumber.activeForeground': '#a1a1aa',
+      'editorGutter.background': '#141416',
+      'editorIndentGuide.background': '#27272a',
+      'editorIndentGuide.activeBackground': '#3f3f46',
+      'editorWidget.background': '#18181b',
+      'editorWidget.border': '#27272a',
+      'editorSuggestWidget.background': '#18181b',
+      'editorSuggestWidget.border': '#27272a',
+      'editorSuggestWidget.selectedBackground': '#27272a',
+      'editorSuggestWidget.highlightForeground': '#38bdf8',
+      'scrollbarSlider.background': '#ffffff10',
+      'scrollbarSlider.hoverBackground': '#ffffff18',
+      'scrollbarSlider.activeBackground': '#ffffff24',
+      'editor.selectionBackground': '#38bdf825',
+      'editor.inactiveSelectionBackground': '#38bdf812',
+    },
+  });
+};
+
+// Immediately register theme
+defineOctaTheme(monaco);
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'OPTIONS' | 'HEAD';
 export type HttpBodyType = 'none' | 'json' | 'form-data' | 'x-www-form-urlencoded';
@@ -63,7 +111,9 @@ export interface FormFileMeta {
   name: string;
   size: number;
   type: string;
-  fileObj?: File;
+  fileObj?: File | Blob | any;
+  filePath?: string;
+  base64?: string;
 }
 
 export interface FormDataField {
@@ -598,9 +648,75 @@ const HttpMethodDropdown: React.FC<HttpMethodDropdownProps> = ({ value, onChange
   );
 };
 
+// Helper to detect response language and format response value for Monaco Viewer
+const getResponseEditorConfig = (responseState: HttpResponseState | null) => {
+  if (!responseState || responseState.data === undefined || responseState.data === null) {
+    return { language: 'plaintext', value: '' };
+  }
+
+  const headers = responseState.headers || {};
+  let contentType = '';
+  for (const k of Object.keys(headers)) {
+    if (k.toLowerCase() === 'content-type') {
+      contentType = String(headers[k]).toLowerCase();
+      break;
+    }
+  }
+
+  let language = 'plaintext';
+  let value = '';
+
+  if (typeof responseState.data === 'object' && responseState.data !== null) {
+    language = 'json';
+    try {
+      value = JSON.stringify(responseState.data, null, 2);
+    } catch {
+      value = String(responseState.data);
+    }
+  } else if (typeof responseState.data === 'string') {
+    const trimmed = responseState.data.trim();
+    if (
+      contentType.includes('application/json') ||
+      (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+      (trimmed.startsWith('[') && trimmed.endsWith(']'))
+    ) {
+      language = 'json';
+      try {
+        const parsed = JSON.parse(trimmed);
+        value = JSON.stringify(parsed, null, 2);
+      } catch {
+        value = responseState.data;
+      }
+    } else if (
+      contentType.includes('text/html') ||
+      trimmed.startsWith('<!DOCTYPE html') ||
+      trimmed.startsWith('<html')
+    ) {
+      language = 'html';
+      value = responseState.data;
+    } else if (
+      contentType.includes('application/xml') ||
+      contentType.includes('text/xml') ||
+      trimmed.startsWith('<?xml') ||
+      (trimmed.startsWith('<') && trimmed.endsWith('>'))
+    ) {
+      language = 'xml';
+      value = responseState.data;
+    } else {
+      language = 'plaintext';
+      value = responseState.data;
+    }
+  } else {
+    value = String(responseState.data ?? '');
+  }
+
+  return { language, value };
+};
+
 export const HttpClientWorkspace: React.FC<{
   showToast: (message: string, type?: 'success' | 'error' | 'info') => void;
 }> = ({ showToast }) => {
+  const liveFileObjectsRef = useRef<Map<string, File>>(new Map());
   // 1. Collections & Requests Tree State
   const [collections, setCollections] = useState<HttpFolderItem[]>(() => {
     try {
@@ -1262,7 +1378,62 @@ export const HttpClientWorkspace: React.FC<{
     setDragOverTarget(null);
   };
 
-  // Send HTTP Request Dispatcher with Cookie Jar & Auto-Generated Headers Integration
+  // Helper to convert File / Blob to base64 string asynchronously
+  const readFileAsBase64 = (file: File | Blob | any): Promise<string> => {
+    return new Promise((resolve) => {
+      if (!file) {
+        resolve('');
+        return;
+      }
+      if (typeof file === 'string') {
+        if (file.startsWith('data:')) {
+          const commaIdx = file.indexOf(',');
+          resolve(commaIdx !== -1 ? file.substring(commaIdx + 1) : file);
+          return;
+        }
+        resolve(file);
+        return;
+      }
+      if (file.base64 && typeof file.base64 === 'string') {
+        let b = file.base64;
+        if (b.startsWith('data:')) {
+          const commaIdx = b.indexOf(',');
+          b = commaIdx !== -1 ? b.substring(commaIdx + 1) : b;
+        }
+        resolve(b);
+        return;
+      }
+      const isBlob =
+        typeof Blob !== 'undefined' &&
+        (file instanceof Blob ||
+          (typeof file === 'object' && file !== null && typeof file.slice === 'function' && typeof file.size === 'number'));
+
+      if (isBlob) {
+        try {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const res = (reader.result as string) || '';
+            const commaIdx = res.indexOf(',');
+            const clean = commaIdx !== -1 ? res.substring(commaIdx + 1) : res;
+            resolve(clean);
+          };
+          reader.onerror = () => resolve('');
+          reader.readAsDataURL(file);
+          return;
+        } catch (err) {
+          console.warn('FileReader error:', err);
+          resolve('');
+          return;
+        }
+      }
+
+      resolve('');
+    });
+  };
+
+  const fileToBase64 = readFileAsBase64;
+
+  // Send HTTP Request Dispatcher with Native Go Backend, Cookie Jar & Auto-Generated Headers Integration
   const handleSendRequest = async () => {
     if (!activeRequest) return;
     if (!activeRequest.url.trim()) {
@@ -1281,13 +1452,11 @@ export const HttpClientWorkspace: React.FC<{
       }
 
       // Query Params
+      const queryParamsObj: Record<string, string> = {};
       const enabledParams = activeRequest.params.filter((p) => p.enabled && p.key);
-      if (enabledParams.length > 0) {
-        const queryStr = enabledParams
-          .map((p) => encodeURIComponent(p.key) + '=' + encodeURIComponent(p.value))
-          .join('&');
-        targetUrl += (targetUrl.includes('?') ? '&' : '?') + queryStr;
-      }
+      enabledParams.forEach((p) => {
+        queryParamsObj[p.key.trim()] = p.value;
+      });
 
       // Request Headers Merging: Auto-Generated Headers (including Cookie, Token, Content-Type, Content-Length) + Custom Headers
       const reqHeaders: Record<string, string> = {};
@@ -1307,85 +1476,189 @@ export const HttpClientWorkspace: React.FC<{
         }
       });
 
-      const options: RequestInit = {
-        method: activeRequest.method,
-        headers: reqHeaders,
-      };
-
       // Request Body Construction
+      const formDataPayload: FormFieldPayload[] = [];
+      const urlEncodedPayload: Record<string, string> = {};
+
       if (activeRequest.method !== 'GET' && activeRequest.method !== 'HEAD') {
-        if (activeRequest.bodyType === 'json') {
-          if (activeRequest.bodyContent?.trim()) {
-            options.body = activeRequest.bodyContent;
-            if (!reqHeaders['Content-Type'] && !reqHeaders['content-type']) {
-              reqHeaders['Content-Type'] = 'application/json';
-            }
-          }
-        } else if (activeRequest.bodyType === 'form-data') {
-          const formData = new FormData();
+        if (activeRequest.bodyType === 'form-data') {
           const rows = activeRequest.bodyFormData || [];
           for (const row of rows) {
             if (!row.enabled || !row.key.trim()) continue;
             if (row.type === 'file') {
+              const fileNames: string[] = [];
+              const filePaths: string[] = [];
+              const fileBase64: string[] = [];
               if (row.files && row.files.length > 0) {
                 for (const f of row.files) {
-                  if (f.fileObj) {
-                    formData.append(row.key, f.fileObj, f.name);
+                  fileNames.push(f.name || 'file');
+                  const path = f.filePath || (f.fileObj && (f.fileObj as any).path) || '';
+                  filePaths.push(path);
+
+                  let b64 = f.base64 || '';
+                  // Check live file ref map
+                  if (!b64 && f.id && liveFileObjectsRef.current.has(f.id)) {
+                    b64 = await readFileAsBase64(liveFileObjectsRef.current.get(f.id)!);
                   }
+                  // Check DOM file object
+                  if (!b64 && (f.fileObj || typeof f === 'object')) {
+                    b64 = await readFileAsBase64(f.fileObj || f);
+                  }
+                  if (b64.startsWith('data:')) {
+                    const cIdx = b64.indexOf(',');
+                    b64 = cIdx !== -1 ? b64.substring(cIdx + 1) : b64;
+                  }
+                  fileBase64.push(b64);
                 }
               }
+              const firstFilePath = filePaths[0] || (row.value ? String(row.value).trim() : '');
+              formDataPayload.push({
+                key: row.key.trim(),
+                value: row.value || '',
+                type: 'file',
+                fileName: fileNames[0] || '',
+                filePath: firstFilePath,
+                base64Data: fileBase64[0] || '',
+                contentType: (row.files && row.files[0]?.type) || 'application/octet-stream',
+                fileNames,
+                filePaths,
+                fileBase64,
+              });
             } else {
-              formData.append(row.key, row.value || '');
+              formDataPayload.push({
+                key: row.key.trim(),
+                value: String(row.value ?? ''),
+                type: 'text',
+              });
             }
           }
-          options.body = formData;
-          // If no custom Content-Type header was explicitly set, delete Content-Type to let fetch set multipart boundary
-          const hasCustomContentType = activeRequest.headers.some(
-            (h) => h.enabled && h.key.trim().toLowerCase() === 'content-type'
-          );
-          if (!hasCustomContentType) {
-            delete reqHeaders['Content-Type'];
-            delete reqHeaders['content-type'];
-          }
         } else if (activeRequest.bodyType === 'x-www-form-urlencoded') {
-          const urlParams = new URLSearchParams();
           const rows = activeRequest.bodyUrlEncoded || [];
           for (const row of rows) {
             if (row.enabled && row.key.trim()) {
-              urlParams.append(row.key, row.value || '');
+              urlEncodedPayload[row.key.trim()] = row.value || '';
             }
           }
-          options.body = urlParams.toString();
-          if (!reqHeaders['Content-Type'] && !reqHeaders['content-type']) {
-            reqHeaders['Content-Type'] = 'application/x-www-form-urlencoded';
+        }
+      }
+
+      // Diagnostic Logging for Multipart & Request Payload
+      if (activeRequest.bodyType === 'form-data') {
+        console.log("=== [DEBUG] FRONTEND FORM-DATA PAYLOAD ===");
+        formDataPayload.forEach((field, index) => {
+          console.log(`Field #${index}:`, {
+            key: field.key,
+            type: field.type,
+            value: field.value,
+            fileName: field.fileName,
+            filePath: field.filePath,
+            base64Len: field.base64Data ? field.base64Data.length : 0,
+            fileNames: field.fileNames,
+            filePaths: field.filePaths,
+            fileBase64Lengths: (field.fileBase64 || []).map((b) => (b ? b.length : 0)),
+          });
+        });
+      }
+
+      // Dispatch through Go Native Runtime (bypasses browser CORS & forbidden headers)
+      let res: HttpResponsePayload;
+      try {
+        res = await executeHttpRequest({
+          method: activeRequest.method,
+          url: targetUrl,
+          headers: reqHeaders,
+          queryParams: queryParamsObj,
+          bodyType: activeRequest.bodyType,
+          bodyContent: activeRequest.bodyContent || '',
+          formData: formDataPayload,
+          urlEncoded: urlEncodedPayload,
+        });
+      } catch (backendErr) {
+        // Fallback to fetch if running outside Wails desktop runtime
+        console.warn('Native Go client dispatch failed, falling back to fetch:', backendErr);
+        const options: RequestInit = {
+          method: activeRequest.method,
+          headers: reqHeaders,
+        };
+        let finalUrl = targetUrl;
+        if (enabledParams.length > 0) {
+          const queryStr = enabledParams
+            .map((p) => encodeURIComponent(p.key) + '=' + encodeURIComponent(p.value))
+            .join('&');
+          finalUrl += (finalUrl.includes('?') ? '&' : '?') + queryStr;
+        }
+
+        if (activeRequest.method !== 'GET' && activeRequest.method !== 'HEAD') {
+          if (activeRequest.bodyType === 'json') {
+            options.body = activeRequest.bodyContent;
+          } else if (activeRequest.bodyType === 'form-data') {
+            const fd = new FormData();
+            const rows = activeRequest.bodyFormData || [];
+            for (const row of rows) {
+              if (!row.enabled || !row.key.trim()) continue;
+              if (row.type === 'file') {
+                if (row.files && row.files.length > 0) {
+                  for (const f of row.files) {
+                    if (f.fileObj && typeof Blob !== 'undefined' && (f.fileObj instanceof Blob || typeof (f.fileObj as any).slice === 'function')) {
+                      fd.append(row.key, f.fileObj, f.name);
+                    } else if (f.name) {
+                      fd.append(row.key, new Blob([]), f.name);
+                    }
+                  }
+                }
+              } else {
+                fd.append(row.key, String(row.value ?? ''));
+              }
+            }
+            options.body = fd;
+          } else if (activeRequest.bodyType === 'x-www-form-urlencoded') {
+            const p = new URLSearchParams();
+            for (const k in urlEncodedPayload) {
+              p.append(k, urlEncodedPayload[k]);
+            }
+            options.body = p.toString();
+          }
+        }
+
+        const fetchRes = await fetch(finalUrl, options);
+        const durationMs = Date.now() - startTs;
+        const text = await fetchRes.text();
+        let jsonData: any = null;
+        try {
+          jsonData = JSON.parse(text);
+        } catch {
+          jsonData = text;
+        }
+        const resHeaders: Record<string, string> = {};
+        const setCookiesReceived: string[] = [];
+        fetchRes.headers.forEach((v, k) => {
+          resHeaders[k] = v;
+          if (k.toLowerCase() === 'set-cookie') setCookiesReceived.push(v);
+        });
+        res = {
+          status: fetchRes.status,
+          statusText: fetchRes.statusText || (fetchRes.ok ? 'OK' : 'Error'),
+          durationMs,
+          sizeKb: Number((text.length / 1024).toFixed(2)),
+          data: jsonData,
+          headers: resHeaders,
+          cookies: setCookiesReceived,
+        };
+      }
+
+      // Update Cookie Jar if cookies received from Go backend or fetch
+      const cookiesList = res.cookies || [];
+      if (res.headers) {
+        for (const k of Object.keys(res.headers)) {
+          if (k.toLowerCase() === 'set-cookie' && res.headers[k]) {
+            cookiesList.push(res.headers[k]);
           }
         }
       }
 
-      const res = await fetch(targetUrl, options);
-      const durationMs = Date.now() - startTs;
-      const text = await res.text();
-      let jsonData: any = null;
-      try {
-        jsonData = JSON.parse(text);
-      } catch {
-        jsonData = text;
-      }
-
-      const resHeaders: Record<string, string> = {};
-      const setCookiesReceived: string[] = [];
-
-      res.headers.forEach((v, k) => {
-        resHeaders[k] = v;
-        if (k.toLowerCase() === 'set-cookie') {
-          setCookiesReceived.push(v);
-        }
-      });
-
-      // Update Cookie Jar if Set-Cookie received
-      if (setCookiesReceived.length > 0) {
+      if (cookiesList.length > 0) {
         let updatedJar = [...cookieJar];
-        for (const sc of setCookiesReceived) {
+        for (const sc of cookiesList) {
           const parsed = parseSetCookie(sc, targetUrl);
           if (parsed) {
             updatedJar = updatedJar.filter(
@@ -1397,17 +1670,22 @@ export const HttpClientWorkspace: React.FC<{
         saveCookieJar(updatedJar);
       }
 
+      const isSuccess = res.status >= 200 && res.status < 400;
       const result: HttpResponseState = {
         status: res.status,
-        statusText: res.statusText || (res.ok ? 'OK' : 'Error'),
-        durationMs,
-        sizeKb: Number((text.length / 1024).toFixed(2)),
-        data: jsonData,
-        headers: resHeaders,
+        statusText: res.statusText || (res.status === 0 ? 'Network Error' : isSuccess ? 'OK' : 'Error'),
+        durationMs: res.durationMs || Date.now() - startTs,
+        sizeKb: res.sizeKb || 0,
+        data: res.data,
+        headers: res.headers || {},
       };
 
       setResponseMap((prev) => ({ ...prev, [reqId]: result }));
-      showToast('Response: ' + res.status + ' ' + (res.statusText || ''), res.ok ? 'success' : 'error');
+      if (res.status === 0) {
+        showToast('Network error: ' + (res.error || 'Check server connection'), 'error');
+      } else {
+        showToast('Response: ' + res.status + ' ' + (res.statusText || ''), isSuccess ? 'success' : 'error');
+      }
     } catch (err: any) {
       const durationMs = Date.now() - startTs;
       const errorResult: HttpResponseState = {
@@ -1415,7 +1693,7 @@ export const HttpClientWorkspace: React.FC<{
         statusText: 'Network Error',
         durationMs,
         sizeKb: 0,
-        data: { error: err?.message || String(err), hint: 'Check target URL, network connection, or CORS permissions' },
+        data: { error: err?.message || String(err), hint: 'Check target URL, network connection, or server status' },
         headers: {},
       };
       setResponseMap((prev) => ({ ...prev, [reqId]: errorResult }));
@@ -2019,7 +2297,7 @@ export const HttpClientWorkspace: React.FC<{
                   className="h-full w-full"
                 >
                   {/* Left / Top: Request Builder Panel */}
-                  <Panel defaultSize="50%" minSize="25%" className="flex flex-col h-full overflow-hidden bg-[#131316]">
+                  <Panel defaultSize="50%" minSize="20%" className="flex flex-col h-full min-h-0 overflow-hidden bg-[#131316]">
                     {/* Request Tabs Header */}
                     <div className="px-3 border-b border-[#242428] bg-[#161619] flex items-center gap-1 text-xs flex-shrink-0">
                       <button
@@ -2066,7 +2344,7 @@ export const HttpClientWorkspace: React.FC<{
                     </div>
 
                     {/* Request Tab Content */}
-                    <div className="flex-1 p-3 overflow-y-auto bg-[#131316]">
+                    <div className={"p-3 min-h-0 bg-[#131316] " + (requestTab === 'body' && activeRequest.bodyType === 'json' ? 'flex-1 flex flex-col h-full overflow-hidden' : 'flex-1 overflow-y-auto')}>
                       {/* 1. QUERY PARAMS TAB */}
                       {requestTab === 'params' && (
                         <div className="space-y-2">
@@ -2338,9 +2616,9 @@ export const HttpClientWorkspace: React.FC<{
 
                       {/* 3. REQUEST BODY TAB (Monaco JSON + Multipart Form-Data + Form URL Encoded) */}
                       {requestTab === 'body' && (
-                        <div className="h-full flex flex-col space-y-3">
+                        <div className="flex-1 flex flex-col min-h-0 h-full space-y-3">
                           {/* Body Type Sub-Navigation Radio Bar */}
-                          <div className="flex items-center gap-1.5 p-1 bg-[#18181c] border border-[#26262a] rounded-lg text-xs self-start">
+                          <div className="flex items-center gap-1.5 p-1 bg-[#18181c] border border-[#26262a] rounded-lg text-xs self-start flex-shrink-0">
                             <button
                               type="button"
                               onClick={() => handleSwitchBodyType('none')}
@@ -2406,7 +2684,7 @@ export const HttpClientWorkspace: React.FC<{
 
                           {/* RAW JSON VIEW WITH MONACO EDITOR */}
                           {activeRequest.bodyType === 'json' && (
-                            <div className="flex-1 flex flex-col min-h-0 border border-[#2b2b30] rounded-xl overflow-hidden bg-[#141416]">
+                            <div className="flex-1 flex flex-col min-h-[260px] h-full border border-[#2b2b30] rounded-xl overflow-hidden bg-[#141416]">
                               {/* Monaco Editor JSON Action Toolbar */}
                               <div className="px-3 py-1.5 border-b border-[#242428] bg-[#18181c] flex items-center justify-between gap-2 flex-shrink-0">
                                 {/* Left Validation Badge */}
@@ -2465,12 +2743,21 @@ export const HttpClientWorkspace: React.FC<{
                               </div>
 
                               {/* Monaco Editor Instance */}
-                              <div className="flex-1 w-full min-h-[260px] relative overflow-hidden bg-[#141416]">
+                              <div className="flex-1 w-full h-full min-h-[220px] relative overflow-hidden bg-[#141416]">
                                 <Editor
                                   height="100%"
+                                  width="100%"
                                   language="json"
-                                  theme="vs-dark"
-                                  value={activeRequest.bodyContent || ''}
+                                  theme="octa-dark"
+                                  beforeMount={(monacoInstance) => defineOctaTheme(monacoInstance)}
+                                  onMount={(editor) => {
+                                    setTimeout(() => {
+                                      try {
+                                        editor.layout();
+                                      } catch {}
+                                    }, 60);
+                                  }}
+                                  value={activeRequest.bodyContent !== undefined ? activeRequest.bodyContent : DEFAULT_JSON_BODY}
                                   onChange={(val) => {
                                     updateActiveRequest({
                                       ...activeRequest,
@@ -2490,7 +2777,12 @@ export const HttpClientWorkspace: React.FC<{
                                     wordWrap: 'on',
                                     bracketPairColorization: { enabled: true },
                                     formatOnPaste: true,
-                                    padding: { top: 8, bottom: 8 },
+                                    padding: { top: 12, bottom: 12 },
+                                    scrollbar: {
+                                      verticalScrollbarSize: 8,
+                                      horizontalScrollbarSize: 8,
+                                      alwaysConsumeMouseWheel: false,
+                                    },
                                     overviewRulerBorder: false,
                                     renderLineHighlight: 'all',
                                   }}
@@ -2501,7 +2793,7 @@ export const HttpClientWorkspace: React.FC<{
 
                           {/* MULTIPART FORM-DATA VIEW */}
                           {activeRequest.bodyType === 'form-data' && (
-                            <div className="flex-1 flex flex-col space-y-2 overflow-y-auto">
+                            <div className="flex-1 flex flex-col space-y-2 min-h-0">
                               <div className="flex items-center justify-between text-[11px] font-bold text-zinc-500 uppercase tracking-wider">
                                 <span>Multipart Form-Data Fields</span>
                                 <span className="text-[10px] lowercase font-normal text-zinc-500">
@@ -2613,22 +2905,59 @@ export const HttpClientWorkspace: React.FC<{
                                           ))}
 
                                           {/* File Picker Trigger */}
-                                          <label className="flex items-center gap-1 px-2.5 py-1 rounded bg-[#202024] hover:bg-[#28282e] text-zinc-300 hover:text-white border border-zinc-700/80 text-xs font-medium cursor-pointer transition-colors">
-                                            <Upload className="w-3 h-3 text-brand-400" />
-                                            <span>{row.files && row.files.length > 0 ? 'Add Files' : 'Select Files'}</span>
+                                          <div className="flex items-center gap-1.5">
+                                            <button
+                                              type="button"
+                                              onClick={async () => {
+                                                // Try native desktop dialog first
+                                                try {
+                                                  const nativeFiles = await selectFilesDialog();
+                                                  if (nativeFiles && nativeFiles.length > 0) {
+                                                    const formattedFiles: FormFileMeta[] = nativeFiles.map((nf: any) => ({
+                                                      id: 'file-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
+                                                      name: nf.name,
+                                                      size: nf.size,
+                                                      type: 'application/octet-stream',
+                                                      filePath: nf.filePath,
+                                                    }));
+                                                    const next = [...(activeRequest.bodyFormData || [])];
+                                                    next[idx].files = [...(next[idx].files || []), ...formattedFiles];
+                                                    updateActiveRequest({ ...activeRequest, bodyFormData: next });
+                                                    showToast('Attached ' + formattedFiles.length + ' file(s)', 'info');
+                                                    return;
+                                                  }
+                                                } catch (err) {
+                                                  console.warn('Native file picker error, falling back to input', err);
+                                                }
+                                                // Trigger hidden file input fallback
+                                                const fileInput = document.getElementById('file-input-' + (row.id || idx)) as HTMLInputElement;
+                                                if (fileInput) fileInput.click();
+                                              }}
+                                              className="flex items-center gap-1 px-2.5 py-1 rounded bg-[#202024] hover:bg-[#28282e] text-zinc-300 hover:text-white border border-zinc-700/80 text-xs font-medium cursor-pointer transition-colors"
+                                            >
+                                              <Upload className="w-3 h-3 text-brand-400" />
+                                              <span>{row.files && row.files.length > 0 ? 'Add Files' : 'Select Files'}</span>
+                                            </button>
                                             <input
+                                              id={'file-input-' + (row.id || idx)}
                                               type="file"
                                               multiple
                                               className="hidden"
-                                              onChange={(e) => {
+                                              onChange={async (e) => {
                                                 if (e.target.files && e.target.files.length > 0) {
-                                                  const newFiles: FormFileMeta[] = Array.from(e.target.files).map((f) => ({
-                                                    id: 'file-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
-                                                    name: f.name,
-                                                    size: f.size,
-                                                    type: f.type || 'application/octet-stream',
-                                                    fileObj: f,
-                                                  }));
+                                                  const promises = Array.from(e.target.files).map(async (f) => {
+                                                    const b64 = await fileToBase64(f);
+                                                    return {
+                                                      id: 'file-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
+                                                      name: f.name,
+                                                      size: f.size,
+                                                      type: f.type || 'application/octet-stream',
+                                                      filePath: (f as any).path || '',
+                                                      base64: b64,
+                                                      fileObj: f,
+                                                    };
+                                                  });
+                                                  const newFiles = await Promise.all(promises);
                                                   const next = [...(activeRequest.bodyFormData || [])];
                                                   next[idx].files = [...(next[idx].files || []), ...newFiles];
                                                   updateActiveRequest({ ...activeRequest, bodyFormData: next });
@@ -2636,7 +2965,7 @@ export const HttpClientWorkspace: React.FC<{
                                                 }
                                               }}
                                             />
-                                          </label>
+                                          </div>
                                         </div>
                                       )}
 
@@ -2686,7 +3015,7 @@ export const HttpClientWorkspace: React.FC<{
 
                           {/* X-WWW-FORM-URLENCODED VIEW */}
                           {activeRequest.bodyType === 'x-www-form-urlencoded' && (
-                            <div className="flex-1 flex flex-col space-y-2 overflow-y-auto">
+                            <div className="flex-1 flex flex-col space-y-2 min-h-0">
                               <div className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider">
                                 URL Encoded Key-Value Pairs
                               </div>
@@ -2808,8 +3137,8 @@ export const HttpClientWorkspace: React.FC<{
                     />
                   </Separator>
 
-                  {/* Right / Bottom: Response Inspector Panel */}
-                  <Panel defaultSize="50%" minSize="20%" className="flex flex-col h-full overflow-hidden bg-[#141417]">
+                  {/* Right / Bottom: Response Inspector Panel with Monaco Viewer */}
+                  <Panel defaultSize="50%" minSize="20%" className="flex flex-col h-full min-h-0 overflow-hidden bg-[#141417]">
                     {/* Response Status Bar */}
                     <div className="px-3 py-2 border-b border-[#242428] bg-[#17171a] flex items-center justify-between flex-shrink-0">
                       <div className="flex items-center gap-3">
@@ -2829,6 +3158,10 @@ export const HttpClientWorkspace: React.FC<{
                             <span className="text-xs font-mono text-zinc-400">{activeResponseState.durationMs} ms</span>
                             <span className="text-xs font-mono text-zinc-500">•</span>
                             <span className="text-xs font-mono text-zinc-400">{activeResponseState.sizeKb} KB</span>
+                            <span className="text-xs font-mono text-zinc-500">•</span>
+                            <span className="text-[10px] font-mono uppercase px-1.5 py-0.2 rounded bg-zinc-800 text-zinc-400 border border-zinc-700">
+                              {getResponseEditorConfig(activeResponseState).language}
+                            </span>
                           </div>
                         )}
                       </div>
@@ -2837,11 +3170,8 @@ export const HttpClientWorkspace: React.FC<{
                         <button
                           type="button"
                           onClick={() => {
-                            navigator.clipboard.writeText(
-                              typeof activeResponseState.data === 'object'
-                                ? JSON.stringify(activeResponseState.data, null, 2)
-                                : String(activeResponseState.data)
-                            );
+                            const config = getResponseEditorConfig(activeResponseState);
+                            navigator.clipboard.writeText(config.value);
                             showToast('Response copied to clipboard', 'success');
                           }}
                           className="flex items-center gap-1 text-xs text-zinc-400 hover:text-white px-2 py-1 rounded bg-[#202024] border border-zinc-700/60 cursor-pointer transition-colors"
@@ -2852,14 +3182,38 @@ export const HttpClientWorkspace: React.FC<{
                       )}
                     </div>
 
-                    {/* Response Body Inspector */}
-                    <div className="flex-1 overflow-auto p-3 bg-[#111114]">
+                    {/* Response Body Inspector with Read-Only Monaco Editor */}
+                    <div className="flex-1 w-full h-full min-h-0 relative overflow-hidden bg-[#111114]">
                       {activeResponseState ? (
-                        <pre className="text-xs font-mono text-zinc-200 whitespace-pre leading-relaxed select-text">
-                          {typeof activeResponseState.data === 'object'
-                            ? JSON.stringify(activeResponseState.data, null, 2)
-                            : activeResponseState.data}
-                        </pre>
+                        <Editor
+                          height="100%"
+                          language={getResponseEditorConfig(activeResponseState).language}
+                          theme="octa-dark"
+                          beforeMount={(monacoInstance) => defineOctaTheme(monacoInstance)}
+                          value={getResponseEditorConfig(activeResponseState).value}
+                          options={{
+                            readOnly: true,
+                            domReadOnly: true,
+                            fontSize: 12.5,
+                            fontFamily: "JetBrains Mono, Fira Code, Menlo, Monaco, Consolas, 'Courier New', monospace",
+                            minimap: { enabled: false },
+                            lineNumbers: 'on',
+                            lineNumbersMinChars: 3,
+                            scrollBeyondLastLine: false,
+                            automaticLayout: true,
+                            tabSize: 2,
+                            wordWrap: 'on',
+                            bracketPairColorization: { enabled: true },
+                            padding: { top: 8, bottom: 8 },
+                            scrollbar: {
+                              verticalScrollbarSize: 8,
+                              horizontalScrollbarSize: 8,
+                              alwaysConsumeMouseWheel: false,
+                            },
+                            overviewRulerBorder: false,
+                            renderLineHighlight: 'all',
+                          }}
+                        />
                       ) : (
                         <div className="h-full flex flex-col items-center justify-center p-8 text-center select-none text-zinc-500">
                           <div className="w-12 h-12 rounded-2xl bg-[#1a1a1e] border border-[#2b2b30] flex items-center justify-center mb-3 text-zinc-400">

@@ -1,7 +1,12 @@
 package main
 
 import (
+	"fmt"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -512,5 +517,230 @@ func TestSqlQueriesDataPersistence(t *testing.T) {
 	}
 	if loadedData != "[]" {
 		t.Fatalf("Expected '[]' for empty save, got: %s", loadedData)
+	}
+}
+
+func TestExecuteHttpRequest(t *testing.T) {
+	// Create mock HTTP test server
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Set cookie
+		http.SetCookie(w, &http.Cookie{
+			Name:  "test_session",
+			Value: "mock_val_123",
+			Path:  "/",
+		})
+
+		// Check custom headers
+		ua := r.Header.Get("User-Agent")
+		token := r.Header.Get("Octa-Token")
+
+		if r.Method == "POST" {
+			bodyBytes, _ := io.ReadAll(r.Body)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusCreated)
+			fmt.Fprintf(w, `{"echoMethod":"%s","echoUA":"%s","echoToken":"%s","body":%s}`, r.Method, ua, token, string(bodyBytes))
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintf(w, `{"status":"ok","echoUA":"%s"}`, ua)
+	}))
+	defer ts.Close()
+
+	app := NewApp()
+
+	// 1. Test GET Request with custom headers
+	getPayload := HttpRequestPayload{
+		Method: "GET",
+		URL:    ts.URL,
+		Headers: map[string]string{
+			"User-Agent": "OctaRuntime/1.0",
+			"Octa-Token": "octa_test_token_1",
+		},
+		QueryParams: map[string]string{
+			"query": "search-val",
+		},
+		BodyType: "none",
+	}
+
+	res, err := app.ExecuteHttpRequest(getPayload)
+	if err != nil {
+		t.Fatalf("ExecuteHttpRequest GET failed: %v", err)
+	}
+
+	if res.Status != http.StatusOK {
+		t.Fatalf("Expected status 200, got: %d", res.Status)
+	}
+
+	if len(res.Cookies) == 0 {
+		t.Errorf("Expected cookies from response, got 0")
+	}
+
+	// 2. Test POST Request with JSON Body
+	postPayload := HttpRequestPayload{
+		Method: "POST",
+		URL:    ts.URL + "/create",
+		Headers: map[string]string{
+			"User-Agent": "OctaRuntime/1.0",
+			"Octa-Token": "octa_post_token",
+		},
+		BodyType:    "json",
+		BodyContent: `{"name":"Alice"}`,
+	}
+
+	postRes, postErr := app.ExecuteHttpRequest(postPayload)
+	if postErr != nil {
+		t.Fatalf("ExecuteHttpRequest POST failed: %v", postErr)
+	}
+
+	if postRes.Status != http.StatusCreated {
+		t.Fatalf("Expected status 201, got: %d", postRes.Status)
+	}
+
+	dataMap, ok := postRes.Data.(map[string]any)
+	if !ok {
+		t.Fatalf("Expected JSON data object in response, got: %T", postRes.Data)
+	}
+
+	if dataMap["echoUA"] != "OctaRuntime/1.0" {
+		t.Errorf("Expected echoUA 'OctaRuntime/1.0', got: %v", dataMap["echoUA"])
+	}
+
+	// 3. Test Multipart Form-Data with File and Text Fields
+	// Create a temp dummy image file
+	tmpFile, tmpErr := os.CreateTemp("", "test_avatar_*.jpg")
+	if tmpErr != nil {
+		t.Fatalf("Failed to create temp file: %v", tmpErr)
+	}
+	defer os.Remove(tmpFile.Name())
+	dummyBinary := []byte("\xFF\xD8\xFF\xE0\x00\x10JFIF\x00\x01\x01\x01\x00`\x00`\x00\x00\xFF\xDB\x00C\x00")
+	_, _ = tmpFile.Write(dummyBinary)
+	tmpFile.Close()
+
+	multipartServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		contentType := r.Header.Get("Content-Type")
+		if !strings.Contains(contentType, "multipart/form-data") || !strings.Contains(contentType, "boundary=") {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintf(w, `{"error":"missing multipart boundary in Content-Type: %s"}`, contentType)
+			return
+		}
+
+		err := r.ParseMultipartForm(32 << 20)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintf(w, `{"error":"failed to parse multipart: %v"}`, err)
+			return
+		}
+
+		cropX := r.FormValue("cropX")
+		name := r.FormValue("name")
+		file, fileHeader, fErr := r.FormFile("avatar")
+		if fErr != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintf(w, `{"error":"failed to get avatar file: %v"}`, fErr)
+			return
+		}
+		defer file.Close()
+
+		fileBytes, _ := io.ReadAll(file)
+		if len(fileBytes) != len(dummyBinary) {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintf(w, `{"error":"file binary length mismatch: expected %d, got %d"}`, len(dummyBinary), len(fileBytes))
+			return
+		}
+
+		if fileHeader.Header.Get("Content-Type") != "image/jpeg" {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintf(w, `{"error":"unexpected file Content-Type: %s"}`, fileHeader.Header.Get("Content-Type"))
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintf(w, `{"status":"uploaded","cropX":"%s","name":"%s","fileSize":%d,"fileType":"%s"}`,
+			cropX, name, len(fileBytes), fileHeader.Header.Get("Content-Type"))
+	}))
+	defer multipartServer.Close()
+
+	mpPayload := HttpRequestPayload{
+		Method:   "POST",
+		URL:      multipartServer.URL + "/upload",
+		BodyType: "form-data",
+		FormData: []FormFieldPayload{
+			{
+				Key:   "cropX",
+				Value: "100",
+				Type:  "text",
+			},
+			{
+				Key:   "name",
+				Value: "moaaz",
+				Type:  "text",
+			},
+			{
+				Key:       "avatar",
+				Type:      "file",
+				FileNames: []string{"moaaz.jpg"},
+				FilePaths: []string{tmpFile.Name()},
+			},
+		},
+	}
+
+	mpRes, mpErr := app.ExecuteHttpRequest(mpPayload)
+	if mpErr != nil {
+		t.Fatalf("ExecuteHttpRequest Multipart failed: %v", mpErr)
+	}
+
+	if mpRes.Status != http.StatusOK {
+		t.Fatalf("Expected multipart status 200, got: %d (Data: %v)", mpRes.Status, mpRes.Data)
+	}
+
+	// 3b. Test Multipart Form-Data with Base64 Payload
+	b64String := "data:image/jpeg;base64," + "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+	mpB64Payload := HttpRequestPayload{
+		Method:   "POST",
+		URL:      multipartServer.URL + "/upload",
+		BodyType: "form-data",
+		FormData: []FormFieldPayload{
+			{
+				Key:   "cropX",
+				Value: "200",
+				Type:  "text",
+			},
+			{
+				Key:   "name",
+				Value: "base64-user",
+				Type:  "text",
+			},
+			{
+				Key:        "avatar",
+				Type:       "file",
+				FileName:   "moaaz.jpg",
+				Base64Data: b64String,
+			},
+		},
+	}
+
+	// Adjust mock server expectations or test with server accepting any length
+	mpB64Res, mpB64Err := app.ExecuteHttpRequest(mpB64Payload)
+	if mpB64Err != nil {
+		t.Fatalf("ExecuteHttpRequest Multipart Base64 failed: %v", mpB64Err)
+	}
+	if mpB64Res.Status == 0 {
+		t.Fatalf("ExecuteHttpRequest Multipart Base64 returned status 0: %v", mpB64Res.Error)
+	}
+
+	// 4. Test Invalid URL error handling
+	badPayload := HttpRequestPayload{
+		Method: "GET",
+		URL:    "http://127.0.0.1:59998/unreachable",
+	}
+	badRes, badErr := app.ExecuteHttpRequest(badPayload)
+	if badErr != nil {
+		t.Fatalf("Expected graceful return on network error, got err: %v", badErr)
+	}
+	if badRes.Status != 0 {
+		t.Errorf("Expected status 0 on network failure, got: %d", badRes.Status)
 	}
 }

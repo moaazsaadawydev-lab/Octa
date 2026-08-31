@@ -1,10 +1,18 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"crypto/tls"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
+	"mime"
+	"mime/multipart"
 	"net"
+	"net/http"
+	"net/textproto"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -2198,6 +2206,45 @@ func (a *App) ImportSQLScript(config ConnectionConfig, dbName string, sqlContent
 	return res, nil
 }
 
+// SelectedFileMeta contains metadata for a file selected via native file dialog.
+type SelectedFileMeta struct {
+	Name     string `json:"name"`
+	FilePath string `json:"filePath"`
+	Size     int64  `json:"size"`
+}
+
+// SelectFilesDialog opens a native open file dialog allowing the user to select one or multiple files.
+func (a *App) SelectFilesDialog() ([]SelectedFileMeta, error) {
+	if a.ctx == nil {
+		return nil, fmt.Errorf("application context is not initialized")
+	}
+
+	filePaths, err := runtime.OpenMultipleFilesDialog(a.ctx, runtime.OpenDialogOptions{
+		Title: "Select Files to Attach",
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var results []SelectedFileMeta
+	for _, fp := range filePaths {
+		if fp == "" {
+			continue
+		}
+		stat, statErr := os.Stat(fp)
+		var size int64
+		if statErr == nil {
+			size = stat.Size()
+		}
+		results = append(results, SelectedFileMeta{
+			Name:     filepath.Base(fp),
+			FilePath: fp,
+			Size:     size,
+		})
+	}
+	return results, nil
+}
+
 // SaveSQLDumpDialog opens a native save file dialog and saves the SQL content to disk.
 func (a *App) SaveSQLDumpDialog(defaultFilename string, content string) (string, error) {
 	if a.ctx == nil {
@@ -2331,6 +2378,475 @@ func (a *App) ExplainQuery(config ConnectionConfig, dbName string, query string,
 	}
 
 	a.logQuery(explainJSONStmt, durationMs, "SUCCESS", "")
+
+	return result, nil
+}
+
+// FormFieldPayload represents a key-value or file part in multipart requests.
+type FormFieldPayload struct {
+	Key         string   `json:"key"`
+	Value       string   `json:"value"`
+	Type        string   `json:"type"` // "text" | "file"
+	FileName    string   `json:"fileName,omitempty"`
+	FilePath    string   `json:"filePath,omitempty"`
+	Base64Data  string   `json:"base64Data,omitempty"`
+	ContentType string   `json:"contentType,omitempty"`
+	FileNames   []string `json:"fileNames,omitempty"`
+	FilePaths   []string `json:"filePaths,omitempty"`
+	FileBase64  []string `json:"fileBase64,omitempty"`
+}
+
+// HttpRequestPayload represents the incoming HTTP request configuration from the frontend.
+type HttpRequestPayload struct {
+	Method      string             `json:"method"`
+	URL         string             `json:"url"`
+	Headers     map[string]string  `json:"headers"`
+	QueryParams map[string]string  `json:"queryParams,omitempty"`
+	BodyType    string             `json:"bodyType"` // "none" | "json" | "form-data" | "x-www-form-urlencoded"
+	BodyContent string             `json:"bodyContent"`
+	FormData    []FormFieldPayload `json:"formData,omitempty"`
+	UrlEncoded  map[string]string  `json:"urlEncoded,omitempty"`
+	TimeoutSec  int                `json:"timeoutSec,omitempty"`
+}
+
+// HttpResponsePayload represents the structured HTTP response returned to the frontend.
+type HttpResponsePayload struct {
+	Status     int               `json:"status"`
+	StatusText string            `json:"statusText"`
+	DurationMs float64           `json:"durationMs"`
+	SizeKb     float64           `json:"sizeKb"`
+	Data       any               `json:"data"`
+	Headers    map[string]string `json:"headers"`
+	Cookies    []string          `json:"cookies,omitempty"`
+	Error      string            `json:"error,omitempty"`
+}
+
+// decodeBase64Data decodes base64 strings handling data URL prefixes, whitespace, and url-safe encodings.
+func decodeBase64Data(raw string) ([]byte, error) {
+	s := strings.TrimSpace(raw)
+	if commaIdx := strings.Index(s, ","); commaIdx != -1 {
+		s = s[commaIdx+1:]
+	}
+	s = strings.ReplaceAll(s, " ", "")
+	s = strings.ReplaceAll(s, "\n", "")
+	s = strings.ReplaceAll(s, "\r", "")
+	s = strings.ReplaceAll(s, "\t", "")
+
+	if data, err := base64.StdEncoding.DecodeString(s); err == nil {
+		return data, nil
+	}
+	if data, err := base64.URLEncoding.DecodeString(s); err == nil {
+		return data, nil
+	}
+	if data, err := base64.RawStdEncoding.DecodeString(s); err == nil {
+		return data, nil
+	}
+	return base64.RawURLEncoding.DecodeString(s)
+}
+
+// detectMimeType returns the MIME Content-Type based on extension or binary header bytes.
+func detectMimeType(filename string, sample []byte) string {
+	ext := strings.ToLower(filepath.Ext(filename))
+	switch ext {
+	case ".jpg", ".jpeg":
+		return "image/jpeg"
+	case ".png":
+		return "image/png"
+	case ".gif":
+		return "image/gif"
+	case ".webp":
+		return "image/webp"
+	case ".svg":
+		return "image/svg+xml"
+	case ".pdf":
+		return "application/pdf"
+	case ".json":
+		return "application/json"
+	case ".xml":
+		return "application/xml"
+	case ".txt":
+		return "text/plain; charset=utf-8"
+	case ".html", ".htm":
+		return "text/html; charset=utf-8"
+	case ".csv":
+		return "text/csv"
+	case ".zip":
+		return "application/zip"
+	case ".mp4":
+		return "video/mp4"
+	case ".mp3":
+		return "audio/mpeg"
+	}
+
+	if ext != "" {
+		m := mime.TypeByExtension(ext)
+		if m != "" {
+			return m
+		}
+	}
+
+	if len(sample) > 0 {
+		return http.DetectContentType(sample)
+	}
+
+	return "application/octet-stream"
+}
+
+// ExecuteHttpRequest executes an HTTP request from the native Go backend, bypassing browser CORS & header restrictions.
+func (a *App) ExecuteHttpRequest(payload HttpRequestPayload) (HttpResponsePayload, error) {
+	result := HttpResponsePayload{
+		Headers: make(map[string]string),
+		Cookies: make([]string, 0),
+	}
+
+	rawURL := strings.TrimSpace(payload.URL)
+	if rawURL == "" {
+		result.Error = "URL cannot be empty"
+		return result, fmt.Errorf("URL cannot be empty")
+	}
+
+	if !strings.HasPrefix(rawURL, "http://") && !strings.HasPrefix(rawURL, "https://") {
+		rawURL = "https://" + rawURL
+	}
+
+	parsedURL, err := url.Parse(rawURL)
+	if err != nil {
+		result.Error = fmt.Sprintf("invalid URL: %v", err)
+		return result, err
+	}
+
+	fmt.Printf("\n=== [DEBUG] GO DISPATCHER RECEIVED REQUEST ===\n")
+	fmt.Printf("URL: %s | Method: %s | BodyType: %s\n", parsedURL.String(), payload.Method, payload.BodyType)
+	if strings.EqualFold(payload.BodyType, "form-data") {
+		for i, f := range payload.FormData {
+			fmt.Printf("Form Item #%d -> Key: %s, Type: %s, Value: %s, FilePath: %s, FileName: %s, Base64Len: %d, FilePaths: %v\n",
+				i, f.Key, f.Type, f.Value, f.FilePath, f.FileName, len(f.Base64Data), f.FilePaths)
+		}
+	}
+
+	// Append query parameters if provided
+	if len(payload.QueryParams) > 0 {
+		q := parsedURL.Query()
+		for k, v := range payload.QueryParams {
+			if k != "" {
+				q.Set(k, v)
+			}
+		}
+		parsedURL.RawQuery = q.Encode()
+	}
+
+	method := strings.ToUpper(strings.TrimSpace(payload.Method))
+	if method == "" {
+		method = "GET"
+	}
+
+	timeout := 30 * time.Second
+	if payload.TimeoutSec > 0 {
+		timeout = time.Duration(payload.TimeoutSec) * time.Second
+	}
+
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		Proxy:           http.ProxyFromEnvironment,
+	}
+
+	client := &http.Client{
+		Transport: tr,
+		Timeout:   timeout,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if len(via) >= 10 {
+				return fmt.Errorf("stopped after 10 redirects")
+			}
+			return nil
+		},
+	}
+
+	var reqBody io.Reader
+	var contentTypeHeader string
+
+	if method != "GET" && method != "HEAD" {
+		switch payload.BodyType {
+		case "json":
+			reqBody = strings.NewReader(payload.BodyContent)
+			contentTypeHeader = "application/json"
+		case "x-www-form-urlencoded":
+			data := url.Values{}
+			for k, v := range payload.UrlEncoded {
+				if k != "" {
+					data.Set(k, v)
+				}
+			}
+			reqBody = strings.NewReader(data.Encode())
+			contentTypeHeader = "application/x-www-form-urlencoded"
+		case "form-data":
+			bodyBuf := &bytes.Buffer{}
+			writer := multipart.NewWriter(bodyBuf)
+
+			for _, field := range payload.FormData {
+				key := strings.TrimSpace(field.Key)
+				if key == "" {
+					continue
+				}
+
+				if strings.EqualFold(field.Type, "file") {
+					type fileStreamItem struct {
+						fileName   string
+						filePath   string
+						base64Data string
+						mimeType   string
+					}
+					var items []fileStreamItem
+
+					maxCount := len(field.FileNames)
+					if len(field.FilePaths) > maxCount {
+						maxCount = len(field.FilePaths)
+					}
+					if len(field.FileBase64) > maxCount {
+						maxCount = len(field.FileBase64)
+					}
+
+					for i := 0; i < maxCount; i++ {
+						var fn, fp, b64 string
+						if i < len(field.FileNames) {
+							fn = field.FileNames[i]
+						}
+						if i < len(field.FilePaths) {
+							fp = field.FilePaths[i]
+						}
+						if i < len(field.FileBase64) {
+							b64 = field.FileBase64[i]
+						}
+						items = append(items, fileStreamItem{
+							fileName:   fn,
+							filePath:   fp,
+							base64Data: b64,
+						})
+					}
+
+					// If no array elements, check single fields or Value
+					if len(items) == 0 {
+						fn := field.FileName
+						fp := field.FilePath
+						if fp == "" && field.Value != "" {
+							fp = strings.TrimSpace(field.Value)
+						}
+						b64 := field.Base64Data
+						if fn != "" || fp != "" || b64 != "" {
+							items = append(items, fileStreamItem{
+								fileName:   fn,
+								filePath:   fp,
+								base64Data: b64,
+								mimeType:   field.ContentType,
+							})
+						}
+					}
+
+					if len(items) == 0 {
+						items = append(items, fileStreamItem{
+							fileName: "upload.bin",
+						})
+					}
+
+					for _, item := range items {
+						fileName := item.fileName
+						if fileName == "" && item.filePath != "" {
+							fileName = filepath.Base(item.filePath)
+						}
+						if fileName == "" || fileName == "." || fileName == "/" || fileName == "\\" {
+							fileName = "upload.bin"
+						}
+
+						var writtenBytes int64
+						var sampleHeader []byte
+
+						// 1. Try opening local file from disk path
+						if item.filePath != "" {
+							cleanPath := filepath.Clean(item.filePath)
+							fileInfo, statErr := os.Stat(cleanPath)
+							if statErr != nil {
+								fmt.Printf(">>> [DEBUG] File Stat failed for path '%s': %v\n", cleanPath, statErr)
+							} else {
+								fmt.Printf(">>> [DEBUG] File found on disk: Name=%s, SizeOnDisk=%d bytes\n", fileInfo.Name(), fileInfo.Size())
+							}
+
+							if statErr == nil && !fileInfo.IsDir() {
+								if f, openErr := os.Open(cleanPath); openErr == nil {
+									sampleHeader = make([]byte, 512)
+									n, _ := f.Read(sampleHeader)
+									sampleHeader = sampleHeader[:n]
+									_, _ = f.Seek(0, io.SeekStart)
+
+									partMime := item.mimeType
+									if partMime == "" {
+										partMime = detectMimeType(fileName, sampleHeader)
+									}
+
+									partHeader := make(textproto.MIMEHeader)
+									partHeader.Set("Content-Disposition", fmt.Sprintf(`form-data; name="%s"; filename="%s"`, key, fileName))
+									partHeader.Set("Content-Type", partMime)
+
+									part, partErr := writer.CreatePart(partHeader)
+									if partErr == nil {
+										nCopied, copyErr := io.Copy(part, f)
+										if copyErr == nil && nCopied > 0 {
+											writtenBytes = nCopied
+											fmt.Printf(">>> [SUCCESS] Wrote %d binary bytes from disk for key '%s' (filename: %s)\n", nCopied, key, fileName)
+										} else {
+											fmt.Printf(">>> [ERROR] io.Copy from Disk failed: %v (bytes: %d)\n", copyErr, nCopied)
+										}
+									} else {
+										fmt.Printf(">>> [ERROR] writer.CreatePart failed: %v\n", partErr)
+									}
+									f.Close()
+								} else {
+									fmt.Printf(">>> [ERROR] os.Open failed for path '%s': %v\n", cleanPath, openErr)
+								}
+							}
+						}
+
+						// 2. If not written from disk, decode Base64
+						if writtenBytes == 0 && item.base64Data != "" {
+							fmt.Printf(">>> [DEBUG] Attempting Base64 decode for key '%s' (Input len: %d)\n", key, len(item.base64Data))
+							data, decErr := decodeBase64Data(item.base64Data)
+							if decErr != nil {
+								fmt.Printf(">>> [ERROR] Base64 decoding failed for key '%s': %v\n", key, decErr)
+							} else {
+								fmt.Printf(">>> [DEBUG] Base64 decoded successfully: %d raw bytes\n", len(data))
+								if len(data) > 0 {
+									if len(data) >= 512 {
+										sampleHeader = data[:512]
+									} else {
+										sampleHeader = data
+									}
+
+									partMime := item.mimeType
+									if partMime == "" {
+										partMime = detectMimeType(fileName, sampleHeader)
+									}
+
+									partHeader := make(textproto.MIMEHeader)
+									partHeader.Set("Content-Disposition", fmt.Sprintf(`form-data; name="%s"; filename="%s"`, key, fileName))
+									partHeader.Set("Content-Type", partMime)
+
+									part, partErr := writer.CreatePart(partHeader)
+									if partErr == nil {
+										nWritten, writeErr := part.Write(data)
+										if writeErr == nil && nWritten > 0 {
+											writtenBytes = int64(nWritten)
+											fmt.Printf(">>> [SUCCESS] Wrote %d binary bytes from Base64 for key '%s' (filename: %s, mime: %s)\n", nWritten, key, fileName, partMime)
+										} else {
+											fmt.Printf(">>> [ERROR] part.Write from Base64 failed: %v\n", writeErr)
+										}
+									} else {
+										fmt.Printf(">>> [ERROR] writer.CreatePart for base64 failed: %v\n", partErr)
+									}
+								}
+							}
+						}
+
+						// 3. Fallback: create empty part if no content available
+						if writtenBytes == 0 {
+							fmt.Printf(">>> [WARNING] 0 bytes available for key '%s' (filename: %s) -> created empty part\n", key, fileName)
+							partMime := item.mimeType
+							if partMime == "" {
+								partMime = detectMimeType(fileName, nil)
+							}
+							partHeader := make(textproto.MIMEHeader)
+							partHeader.Set("Content-Disposition", fmt.Sprintf(`form-data; name="%s"; filename="%s"`, key, fileName))
+							partHeader.Set("Content-Type", partMime)
+							_, _ = writer.CreatePart(partHeader)
+						}
+					}
+				} else {
+					// Text field: write field key & value (even if "0", "false", or empty string)
+					_ = writer.WriteField(key, field.Value)
+				}
+			}
+
+			// Ensure writer is closed before reading buffer into http.NewRequest
+			_ = writer.Close()
+			reqBody = bodyBuf
+			contentTypeHeader = writer.FormDataContentType()
+			fmt.Printf(">>> [DEBUG] Total Multipart Body Buffer Size: %d bytes\n", bodyBuf.Len())
+			fmt.Printf(">>> [DEBUG] Generated Content-Type Header: %s\n", contentTypeHeader)
+		default:
+			if payload.BodyContent != "" {
+				reqBody = strings.NewReader(payload.BodyContent)
+			}
+		}
+	}
+
+	httpReq, err := http.NewRequest(method, parsedURL.String(), reqBody)
+	if err != nil {
+		result.Error = fmt.Sprintf("failed to create HTTP request: %v", err)
+		return result, err
+	}
+
+	// Apply headers (Host, User-Agent, Cookie, etc.)
+	for k, v := range payload.Headers {
+		kTrim := strings.TrimSpace(k)
+		if kTrim != "" {
+			if strings.EqualFold(kTrim, "host") {
+				httpReq.Host = v
+			} else if strings.EqualFold(kTrim, "content-type") && payload.BodyType == "form-data" {
+				// Skip Content-Type from payload headers for form-data so dynamic multipart boundary is preserved
+				continue
+			} else {
+				httpReq.Header.Set(kTrim, v)
+			}
+		}
+	}
+
+	// Always set dynamic multipart Content-Type with boundary for form-data
+	if payload.BodyType == "form-data" && contentTypeHeader != "" {
+		httpReq.Header.Set("Content-Type", contentTypeHeader)
+	} else if contentTypeHeader != "" && httpReq.Header.Get("Content-Type") == "" {
+		httpReq.Header.Set("Content-Type", contentTypeHeader)
+	}
+
+	start := time.Now()
+	resp, err := client.Do(httpReq)
+	durationMs := float64(time.Since(start).Microseconds()) / 1000.0
+	result.DurationMs = durationMs
+
+	if err != nil {
+		result.Status = 0
+		result.StatusText = "Network Error"
+		result.Error = err.Error()
+		result.Data = map[string]any{
+			"error": err.Error(),
+			"hint":  "Check target URL, network connection, or server status",
+		}
+		return result, nil
+	}
+	defer resp.Body.Close()
+
+	result.Status = resp.StatusCode
+	result.StatusText = http.StatusText(resp.StatusCode)
+
+	// Collect response headers & cookies
+	for k, v := range resp.Header {
+		result.Headers[k] = strings.Join(v, ", ")
+	}
+	for _, cookie := range resp.Cookies() {
+		result.Cookies = append(result.Cookies, cookie.String())
+	}
+
+	respBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		result.Error = fmt.Sprintf("failed to read response body: %v", err)
+		result.Data = result.Error
+		return result, nil
+	}
+
+	result.SizeKb = float64(len(respBytes)) / 1024.0
+
+	var jsonData any
+	if jsonErr := json.Unmarshal(respBytes, &jsonData); jsonErr == nil {
+		result.Data = jsonData
+	} else {
+		result.Data = string(respBytes)
+	}
 
 	return result, nil
 }

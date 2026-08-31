@@ -181,6 +181,108 @@ export namespace main {
 	    }
 	}
 	
+	export class FormFieldPayload {
+	    key: string;
+	    value: string;
+	    type: string;
+	    fileName?: string;
+	    filePath?: string;
+	    base64Data?: string;
+	    contentType?: string;
+	    fileNames?: string[];
+	    filePaths?: string[];
+	    fileBase64?: string[];
+	
+	    static createFrom(source: any = {}) {
+	        return new FormFieldPayload(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.key = source["key"];
+	        this.value = source["value"];
+	        this.type = source["type"];
+	        this.fileName = source["fileName"];
+	        this.filePath = source["filePath"];
+	        this.base64Data = source["base64Data"];
+	        this.contentType = source["contentType"];
+	        this.fileNames = source["fileNames"];
+	        this.filePaths = source["filePaths"];
+	        this.fileBase64 = source["fileBase64"];
+	    }
+	}
+	export class HttpRequestPayload {
+	    method: string;
+	    url: string;
+	    headers: Record<string, string>;
+	    queryParams?: Record<string, string>;
+	    bodyType: string;
+	    bodyContent: string;
+	    formData?: FormFieldPayload[];
+	    urlEncoded?: Record<string, string>;
+	    timeoutSec?: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new HttpRequestPayload(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.method = source["method"];
+	        this.url = source["url"];
+	        this.headers = source["headers"];
+	        this.queryParams = source["queryParams"];
+	        this.bodyType = source["bodyType"];
+	        this.bodyContent = source["bodyContent"];
+	        this.formData = this.convertValues(source["formData"], FormFieldPayload);
+	        this.urlEncoded = source["urlEncoded"];
+	        this.timeoutSec = source["timeoutSec"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class HttpResponsePayload {
+	    status: number;
+	    statusText: string;
+	    durationMs: number;
+	    sizeKb: number;
+	    data: any;
+	    headers: Record<string, string>;
+	    cookies?: string[];
+	    error?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new HttpResponsePayload(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.status = source["status"];
+	        this.statusText = source["statusText"];
+	        this.durationMs = source["durationMs"];
+	        this.sizeKb = source["sizeKb"];
+	        this.data = source["data"];
+	        this.headers = source["headers"];
+	        this.cookies = source["cookies"];
+	        this.error = source["error"];
+	    }
+	}
 	export class ImportResult {
 	    statementsExecuted: number;
 	    durationMs: number;
@@ -261,6 +363,22 @@ export namespace main {
 	        this.rowId = source["rowId"];
 	        this.column = source["column"];
 	        this.newValue = source["newValue"];
+	    }
+	}
+	export class SelectedFileMeta {
+	    name: string;
+	    filePath: string;
+	    size: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new SelectedFileMeta(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.filePath = source["filePath"];
+	        this.size = source["size"];
 	    }
 	}
 	export class TableColumn {

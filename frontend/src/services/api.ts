@@ -27,6 +27,7 @@ import {
   LoadHttpClientData,
   SaveSqlQueriesData,
   LoadSqlQueriesData,
+  ExecuteHttpRequest,
 } from '../../wailsjs/go/main/App';
 import { main } from '../../wailsjs/go/models';
 import {
@@ -569,5 +570,77 @@ export async function loadSqlQueriesData(): Promise<string> {
   return '';
 }
 
+export interface FormFieldPayload {
+  key: string;
+  value: string;
+  type: 'text' | 'file';
+  fileName?: string;
+  filePath?: string;
+  base64Data?: string;
+  contentType?: string;
+  fileNames?: string[];
+  filePaths?: string[];
+  fileBase64?: string[];
+}
+
+export interface HttpRequestPayload {
+  method: string;
+  url: string;
+  headers: Record<string, string>;
+  queryParams?: Record<string, string>;
+  bodyType: string;
+  bodyContent?: string;
+  formData?: FormFieldPayload[];
+  urlEncoded?: Record<string, string>;
+  timeoutSec?: number;
+}
+
+export interface HttpResponsePayload {
+  status: number;
+  statusText: string;
+  durationMs: number;
+  sizeKb: number;
+  data: any;
+  headers: Record<string, string>;
+  cookies?: string[];
+  error?: string;
+}
+
+export async function executeHttpRequest(payload: HttpRequestPayload): Promise<HttpResponsePayload> {
+  try {
+    if (typeof ExecuteHttpRequest === 'function') {
+      const res = await ExecuteHttpRequest(payload as any);
+      return {
+        status: res.status,
+        statusText: res.statusText || '',
+        durationMs: res.durationMs || 0,
+        sizeKb: Number(res.sizeKb ? res.sizeKb.toFixed(2) : 0),
+        data: res.data,
+        headers: res.headers || {},
+        cookies: res.cookies || [],
+        error: res.error || '',
+      };
+    }
+  } catch (err: any) {
+    console.warn('Backend ExecuteHttpRequest failed:', err);
+    throw err;
+  }
+  throw new Error('Native Go HTTP client is only available in Octa desktop runtime');
+}
 
 
+
+
+
+export async function selectFilesDialog(): Promise<Array<{ name: string; filePath: string; size: number }>> {
+  try {
+    const w = window as any;
+    if (w && w.go && w.go.main && w.go.main.App && typeof w.go.main.App.SelectFilesDialog === 'function') {
+      const res = await w.go.main.App.SelectFilesDialog();
+      return res || [];
+    }
+  } catch (e) {
+    console.warn('SelectFilesDialog binding not available, using fallback', e);
+  }
+  return [];
+}

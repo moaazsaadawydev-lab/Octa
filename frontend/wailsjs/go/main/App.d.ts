@@ -12,6 +12,8 @@ export function DeleteTableRows(arg1:main.ConnectionConfig,arg2:string,arg3:stri
 
 export function DropColumn(arg1:main.ConnectionConfig,arg2:string,arg3:string,arg4:string):Promise<boolean>;
 
+export function ExecuteHttpRequest(arg1:main.HttpRequestPayload):Promise<main.HttpResponsePayload>;
+
 export function ExecuteRawQuery(arg1:main.ConnectionConfig,arg2:string,arg3:string):Promise<Array<main.QueryResult>>;
 
 export function ExplainQuery(arg1:main.ConnectionConfig,arg2:string,arg3:string,arg4:boolean):Promise<main.ExplainPlanResult>;
@@ -51,6 +53,8 @@ export function SaveHttpClientData(arg1:string):Promise<void>;
 export function SaveSQLDumpDialog(arg1:string,arg2:string):Promise<string>;
 
 export function SaveSqlQueriesData(arg1:string):Promise<void>;
+
+export function SelectFilesDialog():Promise<Array<main.SelectedFileMeta>>;
 
 export function TestConnection(arg1:main.ConnectionConfig):Promise<boolean|string>;
 
