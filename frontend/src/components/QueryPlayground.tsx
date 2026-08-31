@@ -58,7 +58,7 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
   // Tabs State (Loaded from localStorage)
   const [tabs, setTabs] = useState<QueryTab[]>(() => {
     try {
-      const saved = localStorage.getItem('octa_query_tabs') || localStorage.getItem('devcockpit_query_tabs');
+      const saved = localStorage.getItem('octa_query_tabs');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
@@ -87,7 +87,7 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
   });
 
   const [activeTabId, setActiveTabId] = useState<string>(() => {
-    const savedActiveId = localStorage.getItem('octa_active_query_tab_id') || localStorage.getItem('devcockpit_active_query_tab_id');
+    const savedActiveId = localStorage.getItem('octa_active_query_tab_id');
     return savedActiveId && tabs.some((t) => t.id === savedActiveId)
       ? savedActiveId
       : tabs[0]?.id || 'tab-1';
@@ -96,7 +96,7 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
   // Query History State (Loaded from localStorage)
   const [history, setHistory] = useState<QueryHistoryEntry[]>(() => {
     try {
-      const saved = localStorage.getItem('octa_query_history') || localStorage.getItem('devcockpit_query_history');
+      const saved = localStorage.getItem('octa_query_history');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
@@ -110,7 +110,7 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
   });
 
   const [isHistoryOpen, setIsHistoryOpen] = useState<boolean>(() => {
-    return (localStorage.getItem('octa_history_panel_open') || localStorage.getItem('devcockpit_history_panel_open')) === 'true';
+    return localStorage.getItem('octa_history_panel_open') === 'true';
   });
 
   // Explain Query Dropdown State
@@ -214,7 +214,7 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
 
   // Resizable Results Panel Height
   const [resultsHeight, setResultsHeight] = useState<number>(() => {
-    const saved = localStorage.getItem('octa_playground_results_height') || localStorage.getItem('devcockpit_playground_results_height');
+    const saved = localStorage.getItem('octa_playground_results_height');
     const num = saved ? Number(saved) : 280;
     return isNaN(num) ? 280 : Math.min(600, Math.max(140, num));
   });
@@ -1196,7 +1196,6 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
           onClearHistory={() => {
             setHistory([]);
             localStorage.removeItem('octa_query_history');
-            localStorage.removeItem('devcockpit_query_history');
           }}
           showToast={showToast}
         />

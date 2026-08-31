@@ -39,7 +39,7 @@ export const QueryConsole: React.FC<QueryConsoleProps> = ({
 
   // Resizable console height state (persisted in localStorage)
   const [consoleHeight, setConsoleHeight] = useState<number>(() => {
-    const saved = localStorage.getItem('octa_query_console_height') || localStorage.getItem('devcockpit_query_console_height');
+    const saved = localStorage.getItem('octa_query_console_height');
     const num = saved ? Number(saved) : 180;
     return isNaN(num) ? 180 : Math.min(600, Math.max(100, num));
   });

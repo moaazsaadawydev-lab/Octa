@@ -7,7 +7,7 @@ import (
 
 func TestConnectionConfigPersistence(t *testing.T) {
 	// Setup temporary config directory
-	tmpDir, err := os.MkdirTemp("", "devcockpit-test-*")
+	tmpDir, err := os.MkdirTemp("", "octa-test-*")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}

@@ -255,11 +255,18 @@ func getConnectionsFilePath() (string, error) {
 	if err != nil {
 		configDir = "."
 	}
-	appDir := filepath.Join(configDir, "devcockpit")
-	if err := os.MkdirAll(appDir, 0755); err != nil {
+	appDir := filepath.Join(configDir, "octa")
+	if err = os.MkdirAll(appDir, 0755); err != nil {
 		return "", err
 	}
-	return filepath.Join(appDir, "connections.json"), nil
+	octaFile := filepath.Join(appDir, "connections.json")
+	if _, err = os.Stat(octaFile); os.IsNotExist(err) {
+		legacyFile := filepath.Join(configDir, "devcockpit", "connections.json")
+		if legacyData, readErr := os.ReadFile(legacyFile); readErr == nil {
+			_ = os.WriteFile(octaFile, legacyData, 0644)
+		}
+	}
+	return octaFile, nil
 }
 
 // TestConnection establishes a test connection to PostgreSQL with a 5-second timeout.
@@ -1933,7 +1940,7 @@ func (a *App) ExportTableSQL(config ConnectionConfig, dbName string, tableName s
 
 	var sb strings.Builder
 	sb.WriteString("-- -------------------------------------------------------------\n")
-	sb.WriteString("-- DevCockpit SQL Dump\n")
+	sb.WriteString("-- Octa SQL Dump\n")
 	sb.WriteString(fmt.Sprintf("-- Database: %s\n", dbName))
 	sb.WriteString(fmt.Sprintf("-- Table: %s\n", tableName))
 	sb.WriteString(fmt.Sprintf("-- Exported At: %s\n", time.Now().Format("2006-01-02 15:04:05 MST")))
@@ -2003,7 +2010,7 @@ func (a *App) ExportDatabaseSQL(config ConnectionConfig, dbName string, exportDa
 
 	var sb strings.Builder
 	sb.WriteString("-- -------------------------------------------------------------\n")
-	sb.WriteString("-- DevCockpit Full Database Dump\n")
+	sb.WriteString("-- Octa Full Database Dump\n")
 	sb.WriteString(fmt.Sprintf("-- Database: %s\n", dbName))
 	sb.WriteString(fmt.Sprintf("-- Total Tables: %d\n", len(tables)))
 	sb.WriteString(fmt.Sprintf("-- Exported At: %s\n", time.Now().Format("2006-01-02 15:04:05 MST")))

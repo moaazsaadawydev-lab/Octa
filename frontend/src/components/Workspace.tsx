@@ -75,7 +75,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({
 
   // Resizable inner Tables sidebar width (persisted in localStorage)
   const [tablesWidth, setTablesWidth] = useState<number>(() => {
-    const saved = localStorage.getItem('octa_tables_sidebar_width') || localStorage.getItem('devcockpit_tables_sidebar_width');
+    const saved = localStorage.getItem('octa_tables_sidebar_width');
     const num = saved ? Number(saved) : 240;
     return isNaN(num) ? 240 : Math.min(400, Math.max(180, num));
   });

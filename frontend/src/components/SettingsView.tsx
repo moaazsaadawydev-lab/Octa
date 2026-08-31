@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import {
   Settings,
   Flame,
@@ -22,7 +22,6 @@ interface SettingsViewProps {
 export const SettingsView: React.FC<SettingsViewProps> = ({ showToast }) => {
   const handleClearCache = () => {
     localStorage.removeItem('octa_query_history');
-    localStorage.removeItem('devcockpit_query_history');
     showToast('Application cache and query history cleared', 'success');
   };
 

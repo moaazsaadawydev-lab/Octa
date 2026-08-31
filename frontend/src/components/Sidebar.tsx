@@ -55,7 +55,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   // Resizable sidebar width state (persisted in localStorage)
   const [width, setWidth] = useState<number>(() => {
-    const saved = localStorage.getItem('octa_sidebar_width') || localStorage.getItem('devcockpit_sidebar_width');
+    const saved = localStorage.getItem('octa_sidebar_width');
     const num = saved ? Number(saved) : 260;
     return isNaN(num) ? 260 : Math.min(450, Math.max(200, num));
   });
