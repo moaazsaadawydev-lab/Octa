@@ -17,6 +17,7 @@ import {
   DeleteTableRows,
   TruncateTable,
   ExecuteRawQuery,
+  GetDatabaseSchemaDetails,
 } from '../../wailsjs/go/main/App';
 import { main } from '../../wailsjs/go/models';
 import {
@@ -26,6 +27,7 @@ import {
   QueryLog,
   RowUpdate,
   QueryResult,
+  DatabaseSchema,
 } from '../types/connection';
 
 function toModelConfig(config: ConnectionConfig): main.ConnectionConfig {
@@ -370,6 +372,44 @@ export async function executeRawQuery(
     throw err;
   }
 }
+
+export async function getDatabaseSchemaDetails(
+  config: ConnectionConfig,
+  dbName: string
+): Promise<DatabaseSchema> {
+  try {
+    const model = toModelConfig(config);
+    const schema = await GetDatabaseSchemaDetails(model, dbName);
+    if (!schema) {
+      return { tables: [], relationships: [] };
+    }
+    return {
+      tables: (schema.tables || []).map((t) => ({
+        name: t.name,
+        rowCount: t.rowCount || 0,
+        columns: (t.columns || []).map((c) => ({
+          name: c.name,
+          dataType: c.dataType,
+          isNullable: Boolean(c.isNullable),
+          isPrimaryKey: Boolean(c.isPrimaryKey),
+          isForeignKey: Boolean(c.isForeignKey),
+          defaultValue: c.defaultValue || '',
+        })),
+      })),
+      relationships: (schema.relationships || []).map((r) => ({
+        constraintName: r.constraintName,
+        sourceTable: r.sourceTable,
+        sourceColumn: r.sourceColumn,
+        targetTable: r.targetTable,
+        targetColumn: r.targetColumn,
+      })),
+    };
+  } catch (err: any) {
+    console.error('Failed to get database schema details:', err);
+    throw err;
+  }
+}
+
 
 
 

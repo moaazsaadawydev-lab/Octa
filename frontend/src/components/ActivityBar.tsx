@@ -1,9 +1,9 @@
-﻿import React from 'react';
+import React from 'react';
 import { Database, Terminal, Settings, Layers, Flame } from 'lucide-react';
 
 interface ActivityBarProps {
-  activeTab: 'explorer' | 'editor' | 'settings';
-  setActiveTab: (tab: 'explorer' | 'editor' | 'settings') => void;
+  activeTab: 'explorer' | 'editor' | 'erd' | 'settings';
+  setActiveTab: (tab: 'explorer' | 'editor' | 'erd' | 'settings') => void;
 }
 
 export const ActivityBar: React.FC<ActivityBarProps> = ({ activeTab, setActiveTab }) => {
@@ -47,9 +47,17 @@ export const ActivityBar: React.FC<ActivityBarProps> = ({ activeTab, setActiveTa
         </button>
 
         <button
-          title="Schema & Tables"
-          className="w-10 h-10 rounded-lg flex items-center justify-center text-gray-500 hover:text-gray-300 hover:bg-surface-800/60 transition-all opacity-60"
+          onClick={() => setActiveTab('erd')}
+          title="Schema & ERD Visualizer"
+          className={`relative w-10 h-10 rounded-lg flex items-center justify-center transition-all ${
+            activeTab === 'erd'
+              ? 'bg-surface-800 text-brand-400 font-medium'
+              : 'text-gray-400 hover:text-gray-200 hover:bg-surface-800/60'
+          }`}
         >
+          {activeTab === 'erd' && (
+            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-brand-500 rounded-r" />
+          )}
           <Layers className="w-5 h-5" />
         </button>
       </div>

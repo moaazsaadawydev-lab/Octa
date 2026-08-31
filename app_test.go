@@ -294,3 +294,25 @@ func TestExecuteRawQueryValidation(t *testing.T) {
 		t.Errorf("Expected connection error on unreachable host")
 	}
 }
+
+func TestGetDatabaseSchemaDetailsValidation(t *testing.T) {
+	app := NewApp()
+
+	// Invalid DB type should fail
+	badTypeConfig := ConnectionConfig{Type: "invalid_type"}
+	_, err := app.GetDatabaseSchemaDetails(badTypeConfig, "testdb")
+	if err == nil {
+		t.Errorf("Expected invalid DB type to fail GetDatabaseSchemaDetails")
+	}
+
+	// Unreachable host should return error
+	badConnConfig := ConnectionConfig{
+		Type: "postgres",
+		Host: "127.0.0.1",
+		Port: 59999,
+	}
+	_, err = app.GetDatabaseSchemaDetails(badConnConfig, "testdb")
+	if err == nil {
+		t.Errorf("Expected unreachable host to return error")
+	}
+}

@@ -3,6 +3,7 @@ import { ActivityBar } from './components/ActivityBar';
 import { Sidebar } from './components/Sidebar';
 import { Workspace } from './components/Workspace';
 import { QueryPlayground } from './components/QueryPlayground';
+import { ErdVisualizer } from './components/ErdVisualizer';
 import { NewConnectionModal } from './components/NewConnectionModal';
 import { ConnectionConfig, ActiveSession } from './types/connection';
 import {
@@ -13,7 +14,7 @@ import {
 import { AlertCircle, CheckCircle2, X } from 'lucide-react';
 
 export function App() {
-  const [activeTab, setActiveTab] = useState<'explorer' | 'editor' | 'settings'>('explorer');
+  const [activeTab, setActiveTab] = useState<'explorer' | 'editor' | 'erd' | 'settings'>('explorer');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [connections, setConnections] = useState<ConnectionConfig[]>([]);
   const [activeSession, setActiveSession] = useState<ActiveSession | null>(null);
@@ -174,9 +175,15 @@ export function App() {
         onDeleteConnection={handleDeleteConnection}
       />
 
-      {/* Main Workspace / Playground View */}
+      {/* Main Workspace / Playground / ERD Visualizer View */}
       {activeTab === 'editor' ? (
         <QueryPlayground
+          activeSession={activeSession}
+          onOpenNewModal={() => setIsModalOpen(true)}
+          showToast={showToast}
+        />
+      ) : activeTab === 'erd' ? (
+        <ErdVisualizer
           activeSession={activeSession}
           onOpenNewModal={() => setIsModalOpen(true)}
           showToast={showToast}

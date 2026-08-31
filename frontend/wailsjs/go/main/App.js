@@ -26,6 +26,10 @@ export function ExecuteRawQuery(arg1, arg2, arg3) {
   return window['go']['main']['App']['ExecuteRawQuery'](arg1, arg2, arg3);
 }
 
+export function GetDatabaseSchemaDetails(arg1, arg2) {
+  return window['go']['main']['App']['GetDatabaseSchemaDetails'](arg1, arg2);
+}
+
 export function GetDatabases(arg1) {
   return window['go']['main']['App']['GetDatabases'](arg1);
 }

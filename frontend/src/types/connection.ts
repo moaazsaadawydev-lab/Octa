@@ -69,5 +69,34 @@ export interface QueryTab {
   isExecuting: boolean;
 }
 
+export interface ColumnMeta {
+  name: string;
+  dataType: string;
+  isNullable: boolean;
+  isPrimaryKey: boolean;
+  isForeignKey: boolean;
+  defaultValue: string;
+}
+
+export interface TableSchema {
+  name: string;
+  columns: ColumnMeta[];
+  rowCount: number;
+}
+
+export interface ForeignKeyRelationship {
+  constraintName: string;
+  sourceTable: string;
+  sourceColumn: string;
+  targetTable: string;
+  targetColumn: string;
+}
+
+export interface DatabaseSchema {
+  tables: TableSchema[];
+  relationships: ForeignKeyRelationship[];
+}
+
+
 
 

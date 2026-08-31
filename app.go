@@ -67,6 +67,38 @@ type QueryResult struct {
 	IsSelect     bool             `json:"isSelect"`
 }
 
+// ColumnMeta represents detailed column attributes for ERD visualization.
+type ColumnMeta struct {
+	Name         string `json:"name"`
+	DataType     string `json:"dataType"`
+	IsNullable   bool   `json:"isNullable"`
+	IsPrimaryKey bool   `json:"isPrimaryKey"`
+	IsForeignKey bool   `json:"isForeignKey"`
+	DefaultValue string `json:"defaultValue"`
+}
+
+// TableSchema holds table metadata, column list, and row count for ERD.
+type TableSchema struct {
+	Name     string       `json:"name"`
+	Columns  []ColumnMeta `json:"columns"`
+	RowCount int64        `json:"rowCount"`
+}
+
+// ForeignKeyRelationship represents a relation between source and target tables/columns.
+type ForeignKeyRelationship struct {
+	ConstraintName string `json:"constraintName"`
+	SourceTable    string `json:"sourceTable"`
+	SourceColumn   string `json:"sourceColumn"`
+	TargetTable    string `json:"targetTable"`
+	TargetColumn   string `json:"targetColumn"`
+}
+
+// DatabaseSchema holds the complete ERD schema for a database.
+type DatabaseSchema struct {
+	Tables        []TableSchema            `json:"tables"`
+	Relationships []ForeignKeyRelationship `json:"relationships"`
+}
+
 // QueryLog represents an executed SQL statement with metadata.
 type QueryLog struct {
 	ID         string  `json:"id"`
@@ -1411,4 +1443,191 @@ func (a *App) ExecuteRawQuery(config ConnectionConfig, dbName string, rawSql str
 	}
 
 	return results, nil
+}
+
+// GetDatabaseSchemaDetails extracts tables, columns, primary keys, and foreign key relationships for ERD visualization.
+func (a *App) GetDatabaseSchemaDetails(config ConnectionConfig, dbName string) (DatabaseSchema, error) {
+	var result DatabaseSchema
+	result.Tables = make([]TableSchema, 0)
+	result.Relationships = make([]ForeignKeyRelationship, 0)
+
+	if config.Type == "" {
+		config.Type = "postgres"
+	}
+	if config.Type != "postgres" {
+		return result, fmt.Errorf("unsupported database type: %s", config.Type)
+	}
+
+	connStr := buildPostgresURLWithDB(config, dbName)
+	connConfig, err := pgx.ParseConfig(connStr)
+	if err != nil {
+		return result, fmt.Errorf("invalid connection configuration: %w", err)
+	}
+	connConfig.ConnectTimeout = 5 * time.Second
+
+	ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
+	defer cancel()
+
+	conn, err := pgx.ConnectConfig(ctx, connConfig)
+	if err != nil {
+		return result, fmt.Errorf("failed to connect to database: %w", err)
+	}
+	defer conn.Close(ctx)
+
+	start := time.Now()
+
+	// 1. Fetch Foreign Key Relationships
+	fkQuery := `
+		SELECT
+			tc.constraint_name,
+			tc.table_name AS source_table,
+			kcu.column_name AS source_column,
+			ccu.table_name AS target_table,
+			ccu.column_name AS target_column
+		FROM
+			information_schema.table_constraints AS tc
+			JOIN information_schema.key_column_usage AS kcu
+				ON tc.constraint_name = kcu.constraint_name
+				AND tc.table_schema = kcu.table_schema
+			JOIN information_schema.constraint_column_usage AS ccu
+				ON ccu.constraint_name = tc.constraint_name
+				AND ccu.table_schema = tc.table_schema
+		WHERE tc.constraint_type = 'FOREIGN KEY' AND tc.table_schema = 'public'
+		ORDER BY tc.table_name, kcu.column_name;
+	`
+	fkRows, err := conn.Query(ctx, fkQuery)
+	if err == nil {
+		for fkRows.Next() {
+			var fk ForeignKeyRelationship
+			if err := fkRows.Scan(&fk.ConstraintName, &fk.SourceTable, &fk.SourceColumn, &fk.TargetTable, &fk.TargetColumn); err == nil {
+				result.Relationships = append(result.Relationships, fk)
+			}
+		}
+		fkRows.Close()
+	}
+
+	// Create FK lookup map: map[table]map[column]bool
+	fkMap := make(map[string]map[string]bool)
+	for _, fk := range result.Relationships {
+		if fkMap[fk.SourceTable] == nil {
+			fkMap[fk.SourceTable] = make(map[string]bool)
+		}
+		fkMap[fk.SourceTable][fk.SourceColumn] = true
+	}
+
+	// 2. Fetch all public tables and row counts
+	tblQuery := `
+		SELECT
+			t.table_name,
+			COALESCE(s.n_live_tup, 0) AS est_row_count
+		FROM
+			information_schema.tables t
+			LEFT JOIN pg_stat_user_tables s ON s.relname = t.table_name
+		WHERE
+			t.table_schema = 'public'
+			AND t.table_type = 'BASE TABLE'
+		ORDER BY t.table_name;
+	`
+	tblRows, err := conn.Query(ctx, tblQuery)
+	if err != nil {
+		durationMs := float64(time.Since(start).Microseconds()) / 1000.0
+		a.logQuery(tblQuery, durationMs, "ERROR", err.Error())
+		return result, fmt.Errorf("failed to fetch tables: %w", err)
+	}
+	defer tblRows.Close()
+
+	type tableMeta struct {
+		name     string
+		rowCount int64
+	}
+	var tablesList []tableMeta
+	for tblRows.Next() {
+		var tm tableMeta
+		if err := tblRows.Scan(&tm.name, &tm.rowCount); err == nil {
+			tablesList = append(tablesList, tm)
+		}
+	}
+	tblRows.Close()
+
+	// 3. For each table, query its column metadata
+	for _, tm := range tablesList {
+		colQuery := `
+			SELECT
+				c.column_name,
+				c.data_type,
+				c.udt_name,
+				c.is_nullable,
+				c.column_default,
+				COALESCE(pk.is_pk, false) AS is_primary_key
+			FROM
+				information_schema.columns c
+				LEFT JOIN (
+					SELECT
+						kcu.column_name,
+						true AS is_pk
+					FROM
+						information_schema.table_constraints tc
+						JOIN information_schema.key_column_usage kcu
+							ON tc.constraint_name = kcu.constraint_name
+							AND tc.table_schema = kcu.table_schema
+					WHERE
+						tc.constraint_type = 'PRIMARY KEY'
+						AND tc.table_schema = 'public'
+						AND tc.table_name = $1
+				) pk ON pk.column_name = c.column_name
+			WHERE
+				c.table_schema = 'public'
+				AND c.table_name = $1
+			ORDER BY c.ordinal_position;
+		`
+		colRows, err := conn.Query(ctx, colQuery, tm.name)
+		if err != nil {
+			continue
+		}
+
+		tableSchema := TableSchema{
+			Name:     tm.name,
+			RowCount: tm.rowCount,
+			Columns:  make([]ColumnMeta, 0),
+		}
+
+		for colRows.Next() {
+			var colName, dataType, udtName, isNullableStr string
+			var colDefault *string
+			var isPk bool
+
+			if err := colRows.Scan(&colName, &dataType, &udtName, &isNullableStr, &colDefault, &isPk); err == nil {
+				displayType := dataType
+				if dataType == "USER-DEFINED" || dataType == "ARRAY" {
+					displayType = udtName
+				}
+				defaultValStr := ""
+				if colDefault != nil {
+					defaultValStr = *colDefault
+				}
+
+				isFk := false
+				if fkMap[tm.name] != nil && fkMap[tm.name][colName] {
+					isFk = true
+				}
+
+				tableSchema.Columns = append(tableSchema.Columns, ColumnMeta{
+					Name:         colName,
+					DataType:     displayType,
+					IsNullable:   isNullableStr == "YES",
+					IsPrimaryKey: isPk,
+					IsForeignKey: isFk,
+					DefaultValue: defaultValStr,
+				})
+			}
+		}
+		colRows.Close()
+
+		result.Tables = append(result.Tables, tableSchema)
+	}
+
+	durationMs := float64(time.Since(start).Microseconds()) / 1000.0
+	a.logQuery("-- Extracted ERD Schema & Relationships", durationMs, "SUCCESS", "")
+
+	return result, nil
 }

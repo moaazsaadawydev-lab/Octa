@@ -10,7 +10,11 @@
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",
+    "@types/dagre": "^0.7.54",
+    "@xyflow/react": "^12.11.5",
     "clsx": "^2.1.1",
+    "dagre": "^0.8.5",
+    "html-to-image": "^1.11.13",
     "lucide-react": "^1.37.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
