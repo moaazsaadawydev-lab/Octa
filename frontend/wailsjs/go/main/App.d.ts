@@ -14,6 +14,10 @@ export function DropColumn(arg1:main.ConnectionConfig,arg2:string,arg3:string,ar
 
 export function ExecuteRawQuery(arg1:main.ConnectionConfig,arg2:string,arg3:string):Promise<Array<main.QueryResult>>;
 
+export function ExportDatabaseSQL(arg1:main.ConnectionConfig,arg2:string,arg3:boolean):Promise<string>;
+
+export function ExportTableSQL(arg1:main.ConnectionConfig,arg2:string,arg3:string,arg4:boolean):Promise<string>;
+
 export function GetDatabaseSchemaDetails(arg1:main.ConnectionConfig,arg2:string):Promise<main.DatabaseSchema>;
 
 export function GetDatabases(arg1:main.ConnectionConfig):Promise<Array<string>>;
@@ -30,9 +34,13 @@ export function GetTableSchema(arg1:main.ConnectionConfig,arg2:string,arg3:strin
 
 export function GetTables(arg1:main.ConnectionConfig,arg2:string):Promise<Array<string>>;
 
+export function ImportSQLScript(arg1:main.ConnectionConfig,arg2:string,arg3:string):Promise<main.ImportResult>;
+
 export function RenameColumn(arg1:main.ConnectionConfig,arg2:string,arg3:string,arg4:string,arg5:string):Promise<boolean>;
 
 export function SaveConnection(arg1:main.ConnectionConfig):Promise<boolean|string>;
+
+export function SaveSQLDumpDialog(arg1:string,arg2:string):Promise<string>;
 
 export function TestConnection(arg1:main.ConnectionConfig):Promise<boolean|string>;
 

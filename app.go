@@ -104,10 +104,27 @@ type DataQueryOptions struct {
 	Page         int    `json:"page"`
 	PageSize     int    `json:"pageSize"`
 	SortColumn   string `json:"sortColumn"`
-	SortOrder    string `json:"sortOrder"`    // "ASC" | "DESC" | ""
+	SortOrder    string `json:"sortOrder"` // "ASC" | "DESC" | ""
 	FilterColumn string `json:"filterColumn"`
-	FilterOp     string `json:"filterOp"`     // "equals", "contains", "starts_with", "gt", "lt", "gte", "lte", "is_null", "is_not_null"
+	FilterOp     string `json:"filterOp"` // "equals", "contains", "starts_with", "gt", "lt", "gte", "lte", "is_null", "is_not_null"
 	FilterValue  string `json:"filterValue"`
+}
+
+// ImportResult contains statistics and status of an imported SQL script.
+type ImportResult struct {
+	StatementsExecuted int     `json:"statementsExecuted"`
+	DurationMs         float64 `json:"durationMs"`
+	Success            bool    `json:"success"`
+	ErrorMessage       string  `json:"errorMessage,omitempty"`
+}
+
+// ExplainPlanResult contains parsed metrics and raw representations of an execution plan.
+type ExplainPlanResult struct {
+	PlanJSON      string  `json:"planJson"`
+	TotalCost     float64 `json:"totalCost"`
+	PlanningTime  float64 `json:"planningTime"`
+	ExecutionTime float64 `json:"executionTime"`
+	RawOutput     string  `json:"rawOutput"`
 }
 
 // QueryLog represents an executed SQL statement with metadata.
@@ -1698,3 +1715,512 @@ func (a *App) GetDatabaseSchemaDetails(config ConnectionConfig, dbName string) (
 
 	return result, nil
 }
+
+// formatSQLValue formats a Go value into a safe SQL literal for dump generation.
+func formatSQLValue(val any) string {
+	if val == nil {
+		return "NULL"
+	}
+	switch v := val.(type) {
+	case bool:
+		if v {
+			return "TRUE"
+		}
+		return "FALSE"
+	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
+		return fmt.Sprintf("%d", v)
+	case float32, float64:
+		return fmt.Sprintf("%v", v)
+	case time.Time:
+		return fmt.Sprintf("'%s'", v.Format("2006-01-02 15:04:05.999999"))
+	case []byte:
+		return fmt.Sprintf("'%s'", strings.ReplaceAll(string(v), "'", "''"))
+	case map[string]any, []any:
+		bytes, err := json.Marshal(v)
+		if err == nil {
+			return fmt.Sprintf("'%s'", strings.ReplaceAll(string(bytes), "'", "''"))
+		}
+		return fmt.Sprintf("'%s'", strings.ReplaceAll(fmt.Sprintf("%v", v), "'", "''"))
+	default:
+		s := fmt.Sprintf("%v", v)
+		return fmt.Sprintf("'%s'", strings.ReplaceAll(s, "'", "''"))
+	}
+}
+
+// generateTableDDL generates the DROP TABLE and CREATE TABLE DDL statement for a table.
+func generateTableDDL(ctx context.Context, conn *pgx.Conn, tableName string) (string, []string, error) {
+	colQuery := `
+		SELECT
+			c.column_name,
+			c.data_type,
+			c.udt_name,
+			c.is_nullable,
+			c.column_default,
+			COALESCE(pk.is_pk, false) AS is_primary_key
+		FROM
+			information_schema.columns c
+			LEFT JOIN (
+				SELECT
+					kcu.column_name,
+					true AS is_pk
+				FROM
+					information_schema.table_constraints tc
+					JOIN information_schema.key_column_usage kcu
+						ON tc.constraint_name = kcu.constraint_name
+						AND tc.table_schema = kcu.table_schema
+				WHERE
+					tc.constraint_type = 'PRIMARY KEY'
+					AND tc.table_schema = 'public'
+					AND tc.table_name = $1
+			) pk ON pk.column_name = c.column_name
+		WHERE
+			c.table_schema = 'public'
+			AND c.table_name = $1
+		ORDER BY c.ordinal_position;
+	`
+	rows, err := conn.Query(ctx, colQuery, tableName)
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to query columns for table %s: %w", tableName, err)
+	}
+	defer rows.Close()
+
+	var columnNames []string
+	var colDefs []string
+	var pkColumns []string
+
+	for rows.Next() {
+		var colName, dataType, udtName, isNullableStr string
+		var colDefault *string
+		var isPk bool
+
+		if err := rows.Scan(&colName, &dataType, &udtName, &isNullableStr, &colDefault, &isPk); err != nil {
+			continue
+		}
+
+		columnNames = append(columnNames, colName)
+		if isPk {
+			pkColumns = append(pkColumns, fmt.Sprintf("%q", colName))
+		}
+
+		typeStr := dataType
+		if dataType == "USER-DEFINED" || dataType == "ARRAY" {
+			typeStr = udtName
+		} else if dataType == "character varying" {
+			typeStr = "VARCHAR(255)"
+		}
+
+		nullStr := ""
+		if isNullableStr == "NO" {
+			nullStr = " NOT NULL"
+		}
+
+		defaultStr := ""
+		if colDefault != nil && *colDefault != "" {
+			defaultStr = fmt.Sprintf(" DEFAULT %s", *colDefault)
+		}
+
+		colDefs = append(colDefs, fmt.Sprintf("    %q %s%s%s", colName, typeStr, nullStr, defaultStr))
+	}
+	rows.Close()
+
+	if len(columnNames) == 0 {
+		return "", nil, fmt.Errorf("table %s has no accessible columns", tableName)
+	}
+
+	if len(pkColumns) > 0 {
+		colDefs = append(colDefs, fmt.Sprintf("    PRIMARY KEY (%s)", strings.Join(pkColumns, ", ")))
+	}
+
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("--\n-- Table structure for table %q\n--\n\n", tableName))
+	sb.WriteString(fmt.Sprintf("DROP TABLE IF EXISTS %q CASCADE;\n", tableName))
+	sb.WriteString(fmt.Sprintf("CREATE TABLE %q (\n", tableName))
+	sb.WriteString(strings.Join(colDefs, ",\n"))
+	sb.WriteString("\n);\n\n")
+
+	return sb.String(), columnNames, nil
+}
+
+// generateTableData generates batch INSERT INTO statements for table rows.
+func generateTableData(ctx context.Context, conn *pgx.Conn, tableName string, columns []string) (string, error) {
+	quotedCols := make([]string, len(columns))
+	for i, c := range columns {
+		quotedCols[i] = fmt.Sprintf("%q", c)
+	}
+	colsList := strings.Join(quotedCols, ", ")
+
+	dataQuery := fmt.Sprintf("SELECT %s FROM %q", colsList, tableName)
+	rows, err := conn.Query(ctx, dataQuery)
+	if err != nil {
+		return "", fmt.Errorf("failed to query rows for table %s: %w", tableName, err)
+	}
+	defer rows.Close()
+
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("--\n-- Dumping data for table %q\n--\n\n", tableName))
+
+	chunkSize := 100
+	var batchRows []string
+	totalExported := 0
+
+	for rows.Next() {
+		vals, err := rows.Values()
+		if err != nil {
+			continue
+		}
+
+		rowFormatted := make([]string, len(vals))
+		for i, v := range vals {
+			rowFormatted[i] = formatSQLValue(v)
+		}
+
+		batchRows = append(batchRows, fmt.Sprintf("  (%s)", strings.Join(rowFormatted, ", ")))
+		totalExported++
+
+		if len(batchRows) >= chunkSize {
+			sb.WriteString(fmt.Sprintf("INSERT INTO %q (%s) VALUES\n", tableName, colsList))
+			sb.WriteString(strings.Join(batchRows, ",\n"))
+			sb.WriteString(";\n\n")
+			batchRows = nil
+		}
+	}
+	rows.Close()
+
+	if len(batchRows) > 0 {
+		sb.WriteString(fmt.Sprintf("INSERT INTO %q (%s) VALUES\n", tableName, colsList))
+		sb.WriteString(strings.Join(batchRows, ",\n"))
+		sb.WriteString(";\n\n")
+	}
+
+	if totalExported == 0 {
+		sb.WriteString(fmt.Sprintf("-- (Table %q is empty, 0 rows dumped)\n\n", tableName))
+	}
+
+	return sb.String(), nil
+}
+
+// getPostgresConn establishes a connection to PostgreSQL for a given configuration and database.
+func (a *App) getPostgresConn(ctx context.Context, config ConnectionConfig, dbName string) (*pgx.Conn, error) {
+	if config.Type == "" {
+		config.Type = "postgres"
+	}
+	if config.Type != "postgres" {
+		return nil, fmt.Errorf("unsupported database type: %s", config.Type)
+	}
+
+	connStr := buildPostgresURLWithDB(config, dbName)
+	connConfig, err := pgx.ParseConfig(connStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid connection configuration: %w", err)
+	}
+	connConfig.ConnectTimeout = 10 * time.Second
+
+	return pgx.ConnectConfig(ctx, connConfig)
+}
+
+// ExportTableSQL generates a complete SQL dump for a specific table.
+func (a *App) ExportTableSQL(config ConnectionConfig, dbName string, tableName string, exportData bool) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+
+	conn, err := a.getPostgresConn(ctx, config, dbName)
+	if err != nil {
+		return "", fmt.Errorf("failed to connect to database %s: %w", dbName, err)
+	}
+	defer conn.Close(ctx)
+
+	start := time.Now()
+
+	var sb strings.Builder
+	sb.WriteString("-- -------------------------------------------------------------\n")
+	sb.WriteString("-- DevCockpit SQL Dump\n")
+	sb.WriteString(fmt.Sprintf("-- Database: %s\n", dbName))
+	sb.WriteString(fmt.Sprintf("-- Table: %s\n", tableName))
+	sb.WriteString(fmt.Sprintf("-- Exported At: %s\n", time.Now().Format("2006-01-02 15:04:05 MST")))
+	sb.WriteString("-- -------------------------------------------------------------\n\n")
+	sb.WriteString("SET statement_timeout = 0;\n")
+	sb.WriteString("SET lock_timeout = 0;\n")
+	sb.WriteString("SET client_encoding = 'UTF8';\n\n")
+
+	ddl, cols, err := generateTableDDL(ctx, conn, tableName)
+	if err != nil {
+		durationMs := float64(time.Since(start).Microseconds()) / 1000.0
+		a.logQuery(fmt.Sprintf("-- Export table %s SQL", tableName), durationMs, "ERROR", err.Error())
+		return "", err
+	}
+	sb.WriteString(ddl)
+
+	if exportData {
+		dataSQL, err := generateTableData(ctx, conn, tableName, cols)
+		if err != nil {
+			durationMs := float64(time.Since(start).Microseconds()) / 1000.0
+			a.logQuery(fmt.Sprintf("-- Export table %s data", tableName), durationMs, "ERROR", err.Error())
+			return "", err
+		}
+		sb.WriteString(dataSQL)
+	}
+
+	durationMs := float64(time.Since(start).Microseconds()) / 1000.0
+	a.logQuery(fmt.Sprintf("-- Exported SQL dump for table %s (Data=%v)", tableName, exportData), durationMs, "SUCCESS", "")
+
+	return sb.String(), nil
+}
+
+// ExportDatabaseSQL generates a complete SQL dump for an entire database.
+func (a *App) ExportDatabaseSQL(config ConnectionConfig, dbName string, exportData bool) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	conn, err := a.getPostgresConn(ctx, config, dbName)
+	if err != nil {
+		return "", fmt.Errorf("failed to connect to database %s: %w", dbName, err)
+	}
+	defer conn.Close(ctx)
+
+	start := time.Now()
+
+	// Get all tables
+	tblQuery := `
+		SELECT table_name
+		FROM information_schema.tables
+		WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
+		ORDER BY table_name;
+	`
+	rows, err := conn.Query(ctx, tblQuery)
+	if err != nil {
+		return "", fmt.Errorf("failed to query database tables: %w", err)
+	}
+	defer rows.Close()
+
+	var tables []string
+	for rows.Next() {
+		var tbl string
+		if err := rows.Scan(&tbl); err == nil {
+			tables = append(tables, tbl)
+		}
+	}
+	rows.Close()
+
+	var sb strings.Builder
+	sb.WriteString("-- -------------------------------------------------------------\n")
+	sb.WriteString("-- DevCockpit Full Database Dump\n")
+	sb.WriteString(fmt.Sprintf("-- Database: %s\n", dbName))
+	sb.WriteString(fmt.Sprintf("-- Total Tables: %d\n", len(tables)))
+	sb.WriteString(fmt.Sprintf("-- Exported At: %s\n", time.Now().Format("2006-01-02 15:04:05 MST")))
+	sb.WriteString("-- -------------------------------------------------------------\n\n")
+	sb.WriteString("SET statement_timeout = 0;\n")
+	sb.WriteString("SET lock_timeout = 0;\n")
+	sb.WriteString("SET client_encoding = 'UTF8';\n\n")
+
+	for _, tbl := range tables {
+		ddl, cols, err := generateTableDDL(ctx, conn, tbl)
+		if err != nil {
+			continue
+		}
+		sb.WriteString(ddl)
+
+		if exportData {
+			dataSQL, err := generateTableData(ctx, conn, tbl, cols)
+			if err == nil {
+				sb.WriteString(dataSQL)
+			}
+		}
+	}
+
+	durationMs := float64(time.Since(start).Microseconds()) / 1000.0
+	a.logQuery(fmt.Sprintf("-- Exported database dump for %s (%d tables, Data=%v)", dbName, len(tables), exportData), durationMs, "SUCCESS", "")
+
+	return sb.String(), nil
+}
+
+// ImportSQLScript executes a multi-statement SQL script against the selected database.
+func (a *App) ImportSQLScript(config ConnectionConfig, dbName string, sqlContent string) (ImportResult, error) {
+	start := time.Now()
+	res := ImportResult{
+		StatementsExecuted: 0,
+		Success:            false,
+	}
+
+	trimmed := strings.TrimSpace(sqlContent)
+	if trimmed == "" {
+		res.ErrorMessage = "SQL script is empty"
+		return res, fmt.Errorf("SQL script is empty")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	conn, err := a.getPostgresConn(ctx, config, dbName)
+	if err != nil {
+		res.DurationMs = float64(time.Since(start).Microseconds()) / 1000.0
+		res.ErrorMessage = fmt.Sprintf("Connection failed: %v", err)
+		return res, err
+	}
+	defer conn.Close(ctx)
+
+	statements := splitSQLStatements(trimmed)
+	if len(statements) == 0 {
+		statements = []string{trimmed}
+	}
+
+	for _, stmt := range statements {
+		stmt = strings.TrimSpace(stmt)
+		if stmt == "" {
+			continue
+		}
+
+		_, execErr := conn.Exec(ctx, stmt)
+		if execErr != nil {
+			res.DurationMs = float64(time.Since(start).Microseconds()) / 1000.0
+			res.ErrorMessage = fmt.Sprintf("Error executing statement #%d: %v", res.StatementsExecuted+1, execErr)
+			a.logQuery(stmt, res.DurationMs, "ERROR", execErr.Error())
+			return res, fmt.Errorf("statement execution failed: %w", execErr)
+		}
+		res.StatementsExecuted++
+	}
+
+	res.Success = true
+	res.DurationMs = float64(time.Since(start).Microseconds()) / 1000.0
+
+	a.logQuery(fmt.Sprintf("-- Imported SQL Script (%d statements executed)", res.StatementsExecuted), res.DurationMs, "SUCCESS", "")
+
+	return res, nil
+}
+
+// SaveSQLDumpDialog opens a native save file dialog and saves the SQL content to disk.
+func (a *App) SaveSQLDumpDialog(defaultFilename string, content string) (string, error) {
+	if a.ctx == nil {
+		return "", fmt.Errorf("application context is not initialized")
+	}
+
+	filePath, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
+		DefaultFilename: defaultFilename,
+		Title:           "Save SQL Dump",
+		Filters: []runtime.FileFilter{
+			{
+				DisplayName: "SQL Files (*.sql)",
+				Pattern:     "*.sql",
+			},
+			{
+				DisplayName: "All Files (*.*)",
+				Pattern:     "*.*",
+			},
+		},
+	})
+	if err != nil {
+		return "", err
+	}
+	if filePath == "" {
+		// User cancelled dialog
+		return "", nil
+	}
+
+	if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
+		return "", fmt.Errorf("failed to save file: %w", err)
+	}
+
+	return filePath, nil
+}
+
+// ExplainQuery executes EXPLAIN or EXPLAIN ANALYZE on a query and returns the structured plan and text output.
+func (a *App) ExplainQuery(config ConnectionConfig, dbName string, query string, analyze bool) (ExplainPlanResult, error) {
+	var result ExplainPlanResult
+
+	trimmed := strings.TrimSpace(query)
+	if trimmed == "" {
+		return result, fmt.Errorf("query is empty")
+	}
+
+	// Remove trailing semicolons from single query statement
+	trimmed = strings.TrimRight(trimmed, "; \t\r\n")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	conn, err := a.getPostgresConn(ctx, config, dbName)
+	if err != nil {
+		return result, fmt.Errorf("failed to connect to database %s: %w", dbName, err)
+	}
+	defer conn.Close(ctx)
+
+	start := time.Now()
+
+	// 1. Fetch JSON Plan
+	var explainJSONStmt string
+	if analyze {
+		explainJSONStmt = fmt.Sprintf("EXPLAIN (ANALYZE, COSTS, VERBOSE, BUFFERS, FORMAT JSON) %s", trimmed)
+	} else {
+		explainJSONStmt = fmt.Sprintf("EXPLAIN (FORMAT JSON) %s", trimmed)
+	}
+
+	var rawPlanAny any
+	err = conn.QueryRow(ctx, explainJSONStmt).Scan(&rawPlanAny)
+	durationMs := float64(time.Since(start).Microseconds()) / 1000.0
+
+	if err != nil {
+		a.logQuery(explainJSONStmt, durationMs, "ERROR", err.Error())
+		return result, fmt.Errorf("failed to execute explain query: %w", err)
+	}
+
+	// Convert raw plan to JSON string
+	var planJSONStr string
+	switch p := rawPlanAny.(type) {
+	case string:
+		planJSONStr = p
+	case []byte:
+		planJSONStr = string(p)
+	default:
+		b, err := json.Marshal(p)
+		if err == nil {
+			planJSONStr = string(b)
+		} else {
+			planJSONStr = fmt.Sprintf("%v", p)
+		}
+	}
+	result.PlanJSON = planJSONStr
+
+	// 2. Parse top-level metrics from JSON Plan
+	var planData []map[string]any
+	if err := json.Unmarshal([]byte(planJSONStr), &planData); err == nil && len(planData) > 0 {
+		top := planData[0]
+		if pt, ok := top["Planning Time"].(float64); ok {
+			result.PlanningTime = pt
+		}
+		if et, ok := top["Execution Time"].(float64); ok {
+			result.ExecutionTime = et
+		}
+		if planObj, ok := top["Plan"].(map[string]any); ok {
+			if tc, ok := planObj["Total Cost"].(float64); ok {
+				result.TotalCost = tc
+			}
+		}
+	}
+
+	// 3. Fetch TEXT Plan for RawOutput
+	var explainTextStmt string
+	if analyze {
+		explainTextStmt = fmt.Sprintf("EXPLAIN (ANALYZE, COSTS, VERBOSE, BUFFERS) %s", trimmed)
+	} else {
+		explainTextStmt = fmt.Sprintf("EXPLAIN %s", trimmed)
+	}
+
+	textRows, textErr := conn.Query(ctx, explainTextStmt)
+	if textErr == nil {
+		var lines []string
+		for textRows.Next() {
+			var line string
+			if err := textRows.Scan(&line); err == nil {
+				lines = append(lines, line)
+			}
+		}
+		textRows.Close()
+		result.RawOutput = strings.Join(lines, "\n")
+	} else {
+		result.RawOutput = planJSONStr
+	}
+
+	a.logQuery(explainJSONStmt, durationMs, "SUCCESS", "")
+
+	return result, nil
+}
+

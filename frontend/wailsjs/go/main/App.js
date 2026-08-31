@@ -26,6 +26,14 @@ export function ExecuteRawQuery(arg1, arg2, arg3) {
   return window['go']['main']['App']['ExecuteRawQuery'](arg1, arg2, arg3);
 }
 
+export function ExportDatabaseSQL(arg1, arg2, arg3) {
+  return window['go']['main']['App']['ExportDatabaseSQL'](arg1, arg2, arg3);
+}
+
+export function ExportTableSQL(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['ExportTableSQL'](arg1, arg2, arg3, arg4);
+}
+
 export function GetDatabaseSchemaDetails(arg1, arg2) {
   return window['go']['main']['App']['GetDatabaseSchemaDetails'](arg1, arg2);
 }
@@ -58,12 +66,20 @@ export function GetTables(arg1, arg2) {
   return window['go']['main']['App']['GetTables'](arg1, arg2);
 }
 
+export function ImportSQLScript(arg1, arg2, arg3) {
+  return window['go']['main']['App']['ImportSQLScript'](arg1, arg2, arg3);
+}
+
 export function RenameColumn(arg1, arg2, arg3, arg4, arg5) {
   return window['go']['main']['App']['RenameColumn'](arg1, arg2, arg3, arg4, arg5);
 }
 
 export function SaveConnection(arg1) {
   return window['go']['main']['App']['SaveConnection'](arg1);
+}
+
+export function SaveSQLDumpDialog(arg1, arg2) {
+  return window['go']['main']['App']['SaveSQLDumpDialog'](arg1, arg2);
 }
 
 export function TestConnection(arg1) {

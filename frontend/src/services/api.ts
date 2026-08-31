@@ -18,6 +18,10 @@ import {
   TruncateTable,
   ExecuteRawQuery,
   GetDatabaseSchemaDetails,
+  ExportTableSQL,
+  ExportDatabaseSQL,
+  ImportSQLScript,
+  SaveSQLDumpDialog,
 } from '../../wailsjs/go/main/App';
 import { main } from '../../wailsjs/go/models';
 import {
@@ -29,6 +33,7 @@ import {
   QueryResult,
   DatabaseSchema,
   DataQueryOptions,
+  ImportResult,
 } from '../types/connection';
 
 function toModelConfig(config: ConnectionConfig): main.ConnectionConfig {
@@ -419,7 +424,76 @@ export async function getDatabaseSchemaDetails(
   }
 }
 
+export async function exportTableSQL(
+  config: ConnectionConfig,
+  dbName: string,
+  tableName: string,
+  exportData: boolean
+): Promise<string> {
+  try {
+    const model = toModelConfig(config);
+    return await ExportTableSQL(model, dbName, tableName, exportData);
+  } catch (err: any) {
+    console.error('Failed to export table SQL:', err);
+    throw err;
+  }
+}
 
+export async function exportDatabaseSQL(
+  config: ConnectionConfig,
+  dbName: string,
+  exportData: boolean
+): Promise<string> {
+  try {
+    const model = toModelConfig(config);
+    return await ExportDatabaseSQL(model, dbName, exportData);
+  } catch (err: any) {
+    console.error('Failed to export database SQL:', err);
+    throw err;
+  }
+}
 
+export async function importSQLScript(
+  config: ConnectionConfig,
+  dbName: string,
+  sqlContent: string
+): Promise<ImportResult> {
+  try {
+    const model = toModelConfig(config);
+    const res = await ImportSQLScript(model, dbName, sqlContent);
+    return {
+      statementsExecuted: res.statementsExecuted || 0,
+      durationMs: res.durationMs || 0,
+      success: Boolean(res.success),
+      errorMessage: res.errorMessage || '',
+    };
+  } catch (err: any) {
+    console.error('Failed to import SQL script:', err);
+    throw err;
+  }
+}
 
+export async function saveSQLDumpDialog(
+  defaultFilename: string,
+  content: string
+): Promise<string> {
+  try {
+    return await SaveSQLDumpDialog(defaultFilename, content);
+  } catch (err: any) {
+    console.error('Failed to save SQL dump dialog:', err);
+    throw err;
+  }
+}
+
+export function downloadSQLFile(filename: string, content: string): void {
+  const blob = new Blob([content], { type: 'text/plain;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
 

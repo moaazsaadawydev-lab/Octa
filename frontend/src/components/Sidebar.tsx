@@ -14,7 +14,10 @@ import {
   Loader2,
   Plug,
   CheckCircle,
-  HardDrive
+  HardDrive,
+  Download,
+  Upload,
+  FileCode
 } from 'lucide-react';
 import { ConnectionConfig, ActiveSession } from '../types/connection';
 
@@ -29,6 +32,8 @@ interface SidebarProps {
   onRefreshConnections: () => void;
   onConnectToDatabase: (server: ConnectionConfig, databaseName: string) => void;
   onDeleteConnection: (id: string, name: string) => void;
+  onExportDatabase?: (server: ConnectionConfig, databaseName: string, exportData: boolean) => void;
+  onImportSQL?: (server: ConnectionConfig, databaseName: string) => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -42,6 +47,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onRefreshConnections,
   onConnectToDatabase,
   onDeleteConnection,
+  onExportDatabase,
+  onImportSQL,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
@@ -281,13 +288,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         <div
                           key={dbName}
                           onClick={() => onConnectToDatabase(conn, dbName)}
-                          className={`flex items-center justify-between px-2 py-1 rounded cursor-pointer text-xs transition-colors ${
+                          className={`group/db flex items-center justify-between px-2 py-1 rounded cursor-pointer text-xs transition-colors ${
                             isActiveDb
                               ? 'bg-brand-600 text-white font-medium shadow-sm'
                               : 'text-gray-400 hover:bg-surface-800 hover:text-gray-200'
                           }`}
                         >
-                          <div className="flex items-center gap-2 min-w-0 truncate">
+                          <div className="flex items-center gap-2 min-w-0 truncate flex-1">
                             <Database
                               className={`w-3 h-3 flex-shrink-0 ${
                                 isActiveDb ? 'text-white' : 'text-gray-400'
@@ -296,11 +303,52 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             <span className="truncate">{dbName}</span>
                           </div>
 
-                          {isActiveDb && (
-                            <span className="text-[9px] bg-brand-700/80 text-white px-1 rounded uppercase font-semibold tracking-wider">
-                              Active
-                            </span>
-                          )}
+                          <div className="flex items-center gap-1">
+                            {isActiveDb && (
+                              <span className="text-[9px] bg-brand-700/80 text-white px-1 rounded uppercase font-semibold tracking-wider">
+                                Active
+                              </span>
+                            )}
+
+                            {/* Database Export & Import Actions */}
+                            <div className="hidden group-hover/db:flex items-center gap-0.5 ml-1">
+                              {onImportSQL && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onImportSQL(conn, dbName);
+                                  }}
+                                  title={`Import SQL into ${dbName}`}
+                                  className={`p-0.5 rounded transition-colors ${
+                                    isActiveDb
+                                      ? 'text-white/80 hover:text-white hover:bg-brand-700'
+                                      : 'text-gray-400 hover:text-cyan-400 hover:bg-surface-700'
+                                  }`}
+                                >
+                                  <Upload className="w-3 h-3" />
+                                </button>
+                              )}
+
+                              {onExportDatabase && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onExportDatabase(conn, dbName, true);
+                                  }}
+                                  title={`Export ${dbName} Dump (Structure + Data)`}
+                                  className={`p-0.5 rounded transition-colors ${
+                                    isActiveDb
+                                      ? 'text-white/80 hover:text-white hover:bg-brand-700'
+                                      : 'text-gray-400 hover:text-emerald-400 hover:bg-surface-700'
+                                  }`}
+                                >
+                                  <Download className="w-3 h-3" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
                         </div>
                       );
                     })}

@@ -74,9 +74,21 @@ export interface QueryTab {
   id: string;
   title: string;
   query: string;
-  results: QueryResult[] | null;
-  activeResultIndex: number;
-  isExecuting: boolean;
+  isDirty?: boolean;
+  results?: QueryResult[] | null;
+  activeResultIndex?: number;
+  isExecuting?: boolean;
+}
+
+export interface QueryHistoryEntry {
+  id: string;
+  query: string;
+  timestamp: number;
+  durationMs: number;
+  status: 'success' | 'error';
+  rowsCount?: number;
+  errorMessage?: string;
+  database: string;
 }
 
 export interface ColumnMeta {
@@ -107,6 +119,9 @@ export interface DatabaseSchema {
   relationships: ForeignKeyRelationship[];
 }
 
-
-
-
+export interface ImportResult {
+  statementsExecuted: number;
+  durationMs: number;
+  success: boolean;
+  errorMessage?: string;
+}

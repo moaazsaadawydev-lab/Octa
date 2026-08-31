@@ -5,11 +5,15 @@ import { Workspace } from './components/Workspace';
 import { QueryPlayground } from './components/QueryPlayground';
 import { ErdVisualizer } from './components/ErdVisualizer';
 import { NewConnectionModal } from './components/NewConnectionModal';
+import { ImportSqlModal } from './components/ImportSqlModal';
 import { ConnectionConfig, ActiveSession } from './types/connection';
 import {
   getSavedConnections,
   getDatabases,
   deleteConnection,
+  exportDatabaseSQL,
+  saveSQLDumpDialog,
+  downloadSQLFile,
 } from './services/api';
 import { AlertCircle, CheckCircle2, X } from 'lucide-react';
 
@@ -18,6 +22,7 @@ export function App() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [connections, setConnections] = useState<ConnectionConfig[]>([]);
   const [activeSession, setActiveSession] = useState<ActiveSession | null>(null);
+  const [sidebarImportSession, setSidebarImportSession] = useState<ActiveSession | null>(null);
 
   // Cached databases per connection ID: { [connId]: ["postgres", "mydb", ...] }
   const [databasesMap, setDatabasesMap] = useState<Record<string, string[]>>({});
@@ -156,6 +161,51 @@ export function App() {
     showToast(`Connected to ${config.name}`, 'success');
   };
 
+  // Handle Export Database Dump from Sidebar
+  const handleExportDatabase = async (
+    server: ConnectionConfig,
+    databaseName: string,
+    exportData: boolean
+  ) => {
+    try {
+      showToast(`Generating SQL dump for "${databaseName}"...`, 'info');
+      const sql = await exportDatabaseSQL(server, databaseName, exportData);
+      const filename = `db_${databaseName}_${exportData ? 'dump' : 'schema'}_${Date.now()}.sql`;
+
+      try {
+        const savedPath = await saveSQLDumpDialog(filename, sql);
+        if (savedPath) {
+          showToast(`Exported database dump to ${savedPath}`, 'success');
+          return;
+        }
+      } catch {
+        // browser fallback
+      }
+
+      downloadSQLFile(filename, sql);
+      showToast(
+        `Exported database "${databaseName}" (${exportData ? 'Structure + Data' : 'Structure Only'})`,
+        'success'
+      );
+    } catch (err: any) {
+      console.error('Database export failed:', err);
+      showToast(`Database export failed: ${err?.message || err}`, 'error');
+    }
+  };
+
+  // Handle Import SQL Trigger from Sidebar
+  const handleImportSQL = (server: ConnectionConfig, databaseName: string) => {
+    const sessionConfig: ConnectionConfig = {
+      ...server,
+      database: databaseName,
+    };
+    setSidebarImportSession({
+      connection: sessionConfig,
+      activeDatabase: databaseName,
+      connectedAt: new Date(),
+    });
+  };
+
   return (
     <div className="flex h-screen w-screen bg-surface-950 text-gray-100 font-sans overflow-hidden select-none">
       {/* Activity Bar (VS Code style slim left rail) */}
@@ -173,6 +223,8 @@ export function App() {
         onRefreshConnections={loadConnections}
         onConnectToDatabase={handleConnectToDatabase}
         onDeleteConnection={handleDeleteConnection}
+        onExportDatabase={handleExportDatabase}
+        onImportSQL={handleImportSQL}
       />
 
       {/* Main Workspace / Playground / ERD Visualizer View */}
@@ -203,6 +255,25 @@ export function App() {
         onSaved={handleSaved}
         onConnectDirect={handleConnectDirect}
       />
+
+      {/* Sidebar Triggered Import SQL Modal */}
+      {sidebarImportSession && (
+        <ImportSqlModal
+          isOpen={Boolean(sidebarImportSession)}
+          onClose={() => setSidebarImportSession(null)}
+          activeSession={sidebarImportSession}
+          onImportSuccess={() => {
+            if (
+              activeSession?.connection.id === sidebarImportSession.connection.id &&
+              activeSession?.activeDatabase === sidebarImportSession.activeDatabase
+            ) {
+              // If current active session is same DB, refresh it
+              showToast('SQL imported successfully', 'success');
+            }
+          }}
+          showToast={showToast}
+        />
+      )}
 
       {/* Toast Notification */}
       {toast.show && (

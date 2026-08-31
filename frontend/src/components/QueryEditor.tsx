@@ -1,10 +1,13 @@
 import React, { useRef, useEffect } from 'react';
 import Editor, { OnMount, BeforeMount } from '@monaco-editor/react';
+import { format } from 'sql-formatter';
 
 interface QueryEditorProps {
   value: string;
   onChange: (newValue: string) => void;
   onExecute: (queryToRun?: string) => void;
+  onFormat?: () => void;
+  onSave?: () => void;
   isExecuting?: boolean;
   tables?: string[];
   columns?: string[];
@@ -14,6 +17,8 @@ export const QueryEditor: React.FC<QueryEditorProps> = ({
   value,
   onChange,
   onExecute,
+  onFormat,
+  onSave,
   isExecuting,
   tables = [],
   columns = [],
@@ -57,6 +62,30 @@ export const QueryEditor: React.FC<QueryEditorProps> = ({
         'editorSuggestWidget.border': '#2d2d2d',
         'editorSuggestWidget.selectedBackground': '#262626',
         'editorSuggestWidget.highlightForeground': '#38bdf8',
+      },
+    });
+
+    // Register Document Formatting Provider using sql-formatter
+    monaco.languages.registerDocumentFormattingEditProvider('sql', {
+      provideDocumentFormattingEdits: (model: any) => {
+        try {
+          const text = model.getValue();
+          const formatted = format(text, {
+            language: 'postgresql',
+            keywordCase: 'upper',
+            tabWidth: 2,
+            linesBetweenQueries: 2,
+          });
+          return [
+            {
+              range: model.getFullModelRange(),
+              text: formatted,
+            },
+          ];
+        } catch (e) {
+          console.warn('SQL format failed:', e);
+          return [];
+        }
       },
     });
 
@@ -210,6 +239,13 @@ export const QueryEditor: React.FC<QueryEditorProps> = ({
       onExecute(queryToExecute);
     });
 
+    // Shortcut: Ctrl+S marks saved
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
+      if (onSave) {
+        onSave();
+      }
+    });
+
     editor.focus();
   };
 
@@ -243,3 +279,4 @@ export const QueryEditor: React.FC<QueryEditorProps> = ({
     </div>
   );
 };
+

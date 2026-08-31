@@ -349,3 +349,65 @@ func TestGetTableDataWithOptionsValidation(t *testing.T) {
 		t.Errorf("Expected unreachable host to return error")
 	}
 }
+
+func TestFormatSQLValue(t *testing.T) {
+	if formatSQLValue(nil) != "NULL" {
+		t.Errorf("Expected NULL for nil value, got %s", formatSQLValue(nil))
+	}
+	if formatSQLValue(true) != "TRUE" || formatSQLValue(false) != "FALSE" {
+		t.Errorf("Expected TRUE / FALSE for boolean values")
+	}
+	if formatSQLValue(12345) != "12345" {
+		t.Errorf("Expected 12345 for integer value")
+	}
+	if formatSQLValue("O'Reilly") != "'O''Reilly'" {
+		t.Errorf("Expected escaped string 'O''Reilly', got %s", formatSQLValue("O'Reilly"))
+	}
+}
+
+func TestSQLExportAndImportValidation(t *testing.T) {
+	app := NewApp()
+
+	// Empty SQL import
+	res, err := app.ImportSQLScript(ConnectionConfig{Type: "postgres"}, "testdb", "   \n\t  ")
+	if err == nil || res.Success {
+		t.Errorf("Expected empty SQL script to fail import")
+	}
+
+	// Bad config export table
+	badConfig := ConnectionConfig{Type: "invalid"}
+	_, err = app.ExportTableSQL(badConfig, "testdb", "users", true)
+	if err == nil {
+		t.Errorf("Expected invalid DB config to fail ExportTableSQL")
+	}
+
+	// Bad config export database
+	_, err = app.ExportDatabaseSQL(badConfig, "testdb", false)
+	if err == nil {
+		t.Errorf("Expected invalid DB config to fail ExportDatabaseSQL")
+	}
+}
+
+func TestExplainQueryValidation(t *testing.T) {
+	app := NewApp()
+
+	// Empty query
+	_, err := app.ExplainQuery(ConnectionConfig{Type: "postgres"}, "testdb", "", false)
+	if err == nil {
+		t.Errorf("Expected empty query to fail ExplainQuery")
+	}
+
+	// Whitespace query
+	_, err = app.ExplainQuery(ConnectionConfig{Type: "postgres"}, "testdb", "   \n\t  ", true)
+	if err == nil {
+		t.Errorf("Expected whitespace query to fail ExplainQuery")
+	}
+
+	// Bad database type
+	badConfig := ConnectionConfig{Type: "sqlite"}
+	_, err = app.ExplainQuery(badConfig, "testdb", "SELECT 1", false)
+	if err == nil {
+		t.Errorf("Expected unsupported database type to fail ExplainQuery")
+	}
+}
+

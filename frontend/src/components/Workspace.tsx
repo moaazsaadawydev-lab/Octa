@@ -13,7 +13,11 @@ import {
   ArrowRight,
   Shield,
   Clock,
-  HardDrive
+  HardDrive,
+  Download,
+  Upload,
+  ChevronDown,
+  FileCode
 } from 'lucide-react';
 import { ActiveSession, TableColumn, TableDataResult, RowUpdate } from '../types/connection';
 import {
@@ -26,10 +30,15 @@ import {
   updateTableRows,
   deleteTableRows,
   truncateTable,
+  exportTableSQL,
+  exportDatabaseSQL,
+  saveSQLDumpDialog,
+  downloadSQLFile,
 } from '../services/api';
 import { DataGrid } from './DataGrid';
 import { QueryConsole } from './QueryConsole';
 import { HomeLanding } from './HomeLanding';
+import { ImportSqlModal } from './ImportSqlModal';
 import interfaceSvg from '../assets/interface.svg';
 
 interface WorkspaceProps {
@@ -122,6 +131,102 @@ export const Workspace: React.FC<WorkspaceProps> = ({
 
   // SQL Query Console expand/collapse
   const [isConsoleExpanded, setIsConsoleExpanded] = useState(true);
+
+  // SQL Dump Export & Import States
+  const [isExporting, setIsExporting] = useState(false);
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const exportDropdownRef = useRef<HTMLDivElement | null>(null);
+
+  // Close export dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (exportDropdownRef.current && !exportDropdownRef.current.contains(e.target as Node)) {
+        setShowExportMenu(false);
+      }
+    };
+    if (showExportMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showExportMenu]);
+
+  // Handle Export Table SQL
+  const handleExportTable = async (exportData: boolean) => {
+    if (!activeSession || !selectedTable) return;
+    setIsExporting(true);
+    setShowExportMenu(false);
+    try {
+      const sql = await exportTableSQL(
+        activeSession.connection,
+        activeSession.activeDatabase,
+        selectedTable,
+        exportData
+      );
+
+      const filename = `${selectedTable}_${exportData ? 'dump' : 'schema'}_${Date.now()}.sql`;
+
+      try {
+        const savedPath = await saveSQLDumpDialog(filename, sql);
+        if (savedPath) {
+          showToast(`Exported table dump to ${savedPath}`, 'success');
+          return;
+        }
+      } catch {
+        // Fallback to browser download
+      }
+
+      downloadSQLFile(filename, sql);
+      showToast(
+        `Exported ${selectedTable} (${exportData ? 'Structure + Data' : 'Structure Only'})`,
+        'success'
+      );
+    } catch (err: any) {
+      console.error('Export failed:', err);
+      showToast(`Export failed: ${err?.message || err}`, 'error');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  // Handle Export Full Database SQL
+  const handleExportDatabase = async (exportData: boolean) => {
+    if (!activeSession) return;
+    setIsExporting(true);
+    setShowExportMenu(false);
+    try {
+      const sql = await exportDatabaseSQL(
+        activeSession.connection,
+        activeSession.activeDatabase,
+        exportData
+      );
+
+      const filename = `db_${activeSession.activeDatabase}_${exportData ? 'dump' : 'schema'}_${Date.now()}.sql`;
+
+      try {
+        const savedPath = await saveSQLDumpDialog(filename, sql);
+        if (savedPath) {
+          showToast(`Exported database dump to ${savedPath}`, 'success');
+          return;
+        }
+      } catch {
+        // Fallback to browser download
+      }
+
+      downloadSQLFile(filename, sql);
+      showToast(
+        `Exported database ${activeSession.activeDatabase} (${exportData ? 'Structure + Data' : 'Structure Only'})`,
+        'success'
+      );
+    } catch (err: any) {
+      console.error('Database export failed:', err);
+      showToast(`Database export failed: ${err?.message || err}`, 'error');
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   // Load tables whenever activeSession changes
   const loadTables = useCallback(async (preferredTable?: string) => {
@@ -391,7 +496,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({
   return (
     <div className="flex-1 bg-surface-950 flex flex-col h-full overflow-hidden select-none">
       {/* 1. Header Bar & Quick Action Controls */}
-      <div className="px-5 py-2.5 border-b border-border-subtle bg-surface-900/90 backdrop-blur flex flex-wrap items-center justify-between gap-3 flex-shrink-0">
+      <div className="px-5 py-2.5 border-b border-border-subtle bg-surface-900/90 backdrop-blur flex flex-wrap items-center justify-between gap-3 flex-shrink-0 relative z-30">
         {/* Left Status & Breadcrumb */}
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 text-xs">
@@ -417,68 +522,150 @@ export const Workspace: React.FC<WorkspaceProps> = ({
           <button
             onClick={handleRefresh}
             title="Refresh Data and Schema"
-            className="p-1.5 rounded-lg bg-surface-800 hover:bg-surface-750 text-gray-300 border border-border/60 transition-colors"
+            className="p-1.5 rounded-lg bg-surface-800 hover:bg-surface-750 text-gray-300 border border-border/60 transition-colors cursor-pointer"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loadingData || loadingTables ? 'animate-spin text-brand-400' : ''}`} />
           </button>
         </div>
 
-        {/* Right Top Action Bar: Quick "Add Column" Controls */}
-        {selectedTable && (
-          <form onSubmit={handleAddColumn} className="flex items-center gap-2 text-xs">
-            <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider hidden sm:inline">
-              Add Column:
-            </span>
+        {/* Right Top Action Bar: Export / Import & Quick "Add Column" Controls */}
+        <div className="flex items-center gap-2 text-xs">
+          {/* Import SQL Script Button */}
+          <button
+            type="button"
+            onClick={() => setIsImportModalOpen(true)}
+            title="Import SQL script (.sql) into active database"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-surface-800 hover:bg-surface-750 text-cyan-300 border border-cyan-500/30 font-medium text-xs shadow-sm transition-all cursor-pointer"
+          >
+            <Upload className="w-3.5 h-3.5 text-cyan-400" />
+            <span className="hidden md:inline">Import SQL</span>
+          </button>
 
-            {/* Column Name Input */}
-            <input
-              type="text"
-              required
-              value={newColName}
-              onChange={(e) => setNewColName(e.target.value)}
-              placeholder="Column name"
-              className="px-2.5 py-1.5 bg-surface-800 border border-border/80 rounded-md text-xs text-gray-100 placeholder-gray-500 focus:outline-none focus:border-brand-500 w-32 font-mono"
-            />
-
-            {/* Column Type Select */}
-            <select
-              value={newColType}
-              onChange={(e) => setNewColType(e.target.value)}
-              className="px-2 py-1.5 bg-surface-800 border border-border/80 rounded-md text-xs text-gray-200 focus:outline-none focus:border-brand-500 font-mono"
-            >
-              {COMMON_COLUMN_TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </select>
-
-            {/* Nullable Checkbox */}
-            <label className="flex items-center gap-1.5 text-[11px] text-gray-300 cursor-pointer bg-surface-800/80 px-2 py-1.5 rounded-md border border-border/60">
-              <input
-                type="checkbox"
-                checked={newColNullable}
-                onChange={(e) => setNewColNullable(e.target.checked)}
-                className="rounded border-border bg-surface-700 text-brand-600 focus:ring-0"
-              />
-              <span>Nullable</span>
-            </label>
-
-            {/* Submit Button */}
+          {/* Export SQL Dropdown */}
+          <div className="relative" ref={exportDropdownRef}>
             <button
-              type="submit"
-              disabled={addingCol || !newColName.trim()}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-md bg-brand-600 hover:bg-brand-500 text-white font-medium text-xs shadow-sm disabled:opacity-50 transition-all"
+              type="button"
+              onClick={() => setShowExportMenu(!showExportMenu)}
+              disabled={isExporting}
+              title="Export database or table SQL dump"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-surface-800 hover:bg-surface-750 text-emerald-300 border border-emerald-500/30 font-medium text-xs shadow-sm transition-all disabled:opacity-50 cursor-pointer"
             >
-              {addingCol ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              {isExporting ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-400" />
               ) : (
-                <Plus className="w-3.5 h-3.5" />
+                <Download className="w-3.5 h-3.5 text-emerald-400" />
               )}
-              <span>Add</span>
+              <span className="hidden md:inline">Export SQL</span>
+              <ChevronDown className="w-3 h-3 text-gray-400" />
             </button>
-          </form>
-        )}
+
+            {showExportMenu && (
+              <div className="absolute right-0 top-full mt-1.5 w-56 bg-[#1f1f1f] border border-zinc-700/80 rounded-md shadow-2xl py-1.5 z-[100] animate-fade-in select-none">
+                {selectedTable && (
+                  <>
+                    <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-zinc-500 font-mono">
+                      Table: {selectedTable}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleExportTable(false)}
+                      className="w-full px-3 py-1.5 text-xs text-left text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors flex items-center gap-2 cursor-pointer"
+                    >
+                      <FileCode className="w-3.5 h-3.5 text-zinc-400" />
+                      <span>Structure only (.sql)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleExportTable(true)}
+                      className="w-full px-3 py-1.5 text-xs text-left text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors flex items-center gap-2 cursor-pointer"
+                    >
+                      <Download className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Structure + Data (.sql)</span>
+                    </button>
+                    <div className="my-1 border-t border-zinc-800" />
+                  </>
+                )}
+
+                <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-zinc-500 font-mono">
+                  Database: {activeSession.activeDatabase}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleExportDatabase(false)}
+                  className="w-full px-3 py-1.5 text-xs text-left text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors flex items-center gap-2 cursor-pointer"
+                >
+                  <FileCode className="w-3.5 h-3.5 text-zinc-400" />
+                  <span>Database Structure only (.sql)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleExportDatabase(true)}
+                  className="w-full px-3 py-1.5 text-xs text-left text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors flex items-center gap-2 cursor-pointer"
+                >
+                  <Download className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Full Database Dump (.sql)</span>
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Quick "Add Column" Controls */}
+          {selectedTable && (
+            <form onSubmit={handleAddColumn} className="flex items-center gap-2 text-xs border-l border-border/60 pl-2">
+              <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider hidden lg:inline">
+                Add Column:
+              </span>
+
+              {/* Column Name Input */}
+              <input
+                type="text"
+                required
+                value={newColName}
+                onChange={(e) => setNewColName(e.target.value)}
+                placeholder="Column name"
+                className="px-2.5 py-1.5 bg-surface-800 border border-border/80 rounded-md text-xs text-gray-100 placeholder-gray-500 focus:outline-none focus:border-brand-500 w-28 font-mono"
+              />
+
+              {/* Column Type Select */}
+              <select
+                value={newColType}
+                onChange={(e) => setNewColType(e.target.value)}
+                className="px-2 py-1.5 bg-surface-800 border border-border/80 rounded-md text-xs text-gray-200 focus:outline-none focus:border-brand-500 font-mono"
+              >
+                {COMMON_COLUMN_TYPES.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
+
+              {/* Nullable Checkbox */}
+              <label className="flex items-center gap-1.5 text-[11px] text-gray-300 cursor-pointer bg-surface-800/80 px-2 py-1.5 rounded-md border border-border/60">
+                <input
+                  type="checkbox"
+                  checked={newColNullable}
+                  onChange={(e) => setNewColNullable(e.target.checked)}
+                  className="rounded border-border bg-surface-700 text-brand-600 focus:ring-0"
+                />
+                <span>Nullable</span>
+              </label>
+
+              {/* Submit Button */}
+              <button
+                type="submit"
+                disabled={addingCol || !newColName.trim()}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-md bg-brand-600 hover:bg-brand-500 text-white font-medium text-xs shadow-sm disabled:opacity-50 transition-all cursor-pointer"
+              >
+                {addingCol ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Plus className="w-3.5 h-3.5" />
+                )}
+                <span>Add</span>
+              </button>
+            </form>
+          )}
+        </div>
       </div>
 
       {/* 2. Main Middle Workspace Area (Inner Tables Sidebar + Data Grid) */}
@@ -614,6 +801,20 @@ export const Workspace: React.FC<WorkspaceProps> = ({
       <QueryConsole
         isExpanded={isConsoleExpanded}
         onToggleExpand={() => setIsConsoleExpanded(!isConsoleExpanded)}
+      />
+
+      {/* 4. Import SQL Script Modal */}
+      <ImportSqlModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        activeSession={activeSession}
+        onImportSuccess={() => {
+          loadTables();
+          if (selectedTable) {
+            handleRefresh();
+          }
+        }}
+        showToast={showToast}
       />
     </div>
   );

@@ -161,6 +161,24 @@ export namespace main {
 		}
 	}
 	
+	export class ImportResult {
+	    statementsExecuted: number;
+	    durationMs: number;
+	    success: boolean;
+	    errorMessage?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ImportResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.statementsExecuted = source["statementsExecuted"];
+	        this.durationMs = source["durationMs"];
+	        this.success = source["success"];
+	        this.errorMessage = source["errorMessage"];
+	    }
+	}
 	export class QueryLog {
 	    id: string;
 	    timestamp: string;
