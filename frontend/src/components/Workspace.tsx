@@ -29,6 +29,8 @@ import {
 } from '../services/api';
 import { DataGrid } from './DataGrid';
 import { QueryConsole } from './QueryConsole';
+import { HomeLanding } from './HomeLanding';
+import interfaceSvg from '../assets/interface.svg';
 
 interface WorkspaceProps {
   activeSession: ActiveSession | null;
@@ -333,38 +335,9 @@ export const Workspace: React.FC<WorkspaceProps> = ({
     t.toLowerCase().includes(tableSearch.toLowerCase().trim())
   );
 
-  // If no connection is active, render welcoming screen
+  // If no connection is active, render sleek VS Code-inspired Home Landing
   if (!activeSession) {
-    return (
-      <div className="flex-1 bg-surface-950 flex flex-col items-center justify-center p-8 text-center select-none">
-        <div className="max-w-md w-full flex flex-col items-center">
-          <div className="w-16 h-16 rounded-2xl bg-brand-500/10 border border-brand-500/20 flex items-center justify-center text-brand-400 mb-6 shadow-xl">
-            <Database className="w-8 h-8" />
-          </div>
-
-          <h1 className="text-xl font-bold text-gray-100 mb-2">DevCockpit</h1>
-          <p className="text-xs text-gray-400 leading-relaxed mb-8">
-            Fast, lightweight, modern database GUI client. Select a server from the explorer or create a new connection to start working.
-          </p>
-
-          <button
-            onClick={onOpenNewModal}
-            className="w-full flex items-center justify-between p-4 rounded-xl bg-surface-900 border border-border/80 hover:border-brand-500/50 hover:bg-surface-850 transition-all text-left group"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-brand-500/15 border border-brand-500/30 flex items-center justify-center text-brand-400 group-hover:scale-105 transition-transform">
-                <Plus className="w-4 h-4" />
-              </div>
-              <div>
-                <div className="text-xs font-semibold text-gray-100">Add New Connection</div>
-                <div className="text-[11px] text-gray-400">Configure PostgreSQL credentials</div>
-              </div>
-            </div>
-            <ArrowRight className="w-4 h-4 text-gray-500 group-hover:text-brand-400 group-hover:translate-x-0.5 transition-all" />
-          </button>
-        </div>
-      </div>
-    );
+    return <HomeLanding onOpenNewModal={onOpenNewModal} />;
   }
 
   return (
@@ -565,9 +538,17 @@ export const Workspace: React.FC<WorkspaceProps> = ({
               onDeleteRows={handleDeleteRows}
             />
           ) : (
-            <div className="flex-1 bg-[#141414] flex flex-col items-center justify-center text-gray-500 text-xs italic select-none">
-              <Table className="w-8 h-8 text-gray-600 mb-2" />
-              <span>Select a table from the sidebar to view records</span>
+            <div className="flex-1 bg-[#121212] flex flex-col items-center justify-center p-8 text-center select-none">
+              <div className="w-48 h-48 max-w-[200px] max-h-[200px] flex items-center justify-center mb-3">
+                <img
+                  src={interfaceSvg}
+                  alt="DevCockpit"
+                  className="w-full h-full object-contain opacity-30 select-none pointer-events-none drop-shadow-lg"
+                />
+              </div>
+              <span className="text-zinc-500 font-medium text-xs">
+                Select a table from the sidebar to inspect schema & records
+              </span>
             </div>
           )}
         </div>

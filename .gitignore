@@ -25,3 +25,6 @@ connections.json
 # IDEs
 .vscode/
 .idea/
+
+untitled.af
+*.svg

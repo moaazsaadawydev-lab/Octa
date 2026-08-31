@@ -23,6 +23,7 @@ import {
 import { ActiveSession, QueryResult, QueryTab } from '../types/connection';
 import { executeRawQuery, getTables, getTableSchema } from '../services/api';
 import { QueryEditor } from './QueryEditor';
+import { HomeLanding } from './HomeLanding';
 
 interface QueryPlaygroundProps {
   activeSession: ActiveSession | null;
@@ -335,38 +336,9 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
     showToast('Editor cleared', 'info');
   };
 
-  // If no connection is active, render welcoming prompt
+  // If no connection is active, render sleek VS Code-inspired Home Landing
   if (!activeSession) {
-    return (
-      <div className="flex-1 bg-surface-950 flex flex-col items-center justify-center p-8 text-center select-none">
-        <div className="max-w-md w-full flex flex-col items-center">
-          <div className="w-16 h-16 rounded-2xl bg-brand-500/10 border border-brand-500/20 flex items-center justify-center text-brand-400 mb-6 shadow-xl">
-            <Terminal className="w-8 h-8" />
-          </div>
-
-          <h1 className="text-xl font-bold text-gray-100 mb-2">SQL Playground</h1>
-          <p className="text-xs text-gray-400 leading-relaxed mb-8">
-            Interactive SQL workspace with multi-tab editor, statement execution, and instant data grid results. Connect to a database to begin.
-          </p>
-
-          <button
-            onClick={onOpenNewModal}
-            className="w-full flex items-center justify-between p-4 rounded-xl bg-surface-900 border border-border/80 hover:border-brand-500/50 hover:bg-surface-850 transition-all text-left group"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-brand-500/15 border border-brand-500/30 flex items-center justify-center text-brand-400 group-hover:scale-105 transition-transform">
-                <Plus className="w-4 h-4" />
-              </div>
-              <div>
-                <div className="text-xs font-semibold text-gray-100">Add New Connection</div>
-                <div className="text-[11px] text-gray-400">Connect to PostgreSQL server</div>
-              </div>
-            </div>
-            <ArrowRight className="w-4 h-4 text-gray-500 group-hover:text-brand-400 group-hover:translate-x-0.5 transition-all" />
-          </button>
-        </div>
-      </div>
-    );
+    return <HomeLanding onOpenNewModal={onOpenNewModal} />;
   }
 
   const activeResult: QueryResult | undefined =
