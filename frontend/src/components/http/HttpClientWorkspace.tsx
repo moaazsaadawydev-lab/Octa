@@ -42,503 +42,45 @@ import {
 import interfaceSvg from '../../assets/interface.svg';
 import { saveHttpClientData, loadHttpClientData, executeHttpRequest, selectFilesDialog, saveEnvironmentsData, loadEnvironmentsData, HttpRequestPayload, FormFieldPayload, HttpResponsePayload } from '../../services/api';
 import { Environment, EnvironmentVariable, EnvironmentVariableType } from '../../types/environments';
+import { mapPostmanCollection } from '../../services/postmanMapper';
 import { UrlHighlightInput } from './UrlHighlightInput';
 import { resolveTemplate, getAvailableVariablesMap } from '../../utils/templateResolver';
 
 // Configure Monaco to use locally bundled version
 loader.config({ monaco });
 
-// Define custom dark theme matching Octa palette
-export const defineOctaTheme = (monacoInstance: typeof monaco) => {
-  monacoInstance.editor.defineTheme('octa-dark', {
-    base: 'vs-dark',
-    inherit: true,
-    rules: [
-      { token: 'string.key.json', foreground: '38bdf8', fontStyle: 'bold' },
-      { token: 'type.property.name', foreground: '38bdf8', fontStyle: 'bold' },
-      { token: 'string.value.json', foreground: '34d399' },
-      { token: 'string', foreground: '34d399' },
-      { token: 'number', foreground: 'f59e0b' },
-      { token: 'number.json', foreground: 'f59e0b' },
-      { token: 'keyword.json', foreground: 'c084fc', fontStyle: 'bold' },
-      { token: 'keyword', foreground: 'c084fc', fontStyle: 'bold' },
-      { token: 'constant.language', foreground: 'f43f5e' },
-      { token: 'null', foreground: 'f43f5e' },
-      { token: 'comment', foreground: '71717a', fontStyle: 'italic' },
-      { token: 'delimiter', foreground: 'a1a1aa' },
-      { token: 'delimiter.bracket', foreground: 'e4e4e7' },
-    ],
-    colors: {
-      'editor.background': '#141416',
-      'editor.foreground': '#f4f4f5',
-      'editor.lineHighlightBackground': '#ffffff08',
-      'editor.lineHighlightBorder': '#00000000',
-      'editorLineNumber.foreground': '#52525b',
-      'editorLineNumber.activeForeground': '#a1a1aa',
-      'editorGutter.background': '#141416',
-      'editorIndentGuide.background': '#27272a',
-      'editorIndentGuide.activeBackground': '#3f3f46',
-      'editorWidget.background': '#18181b',
-      'editorWidget.border': '#27272a',
-      'editorSuggestWidget.background': '#18181b',
-      'editorSuggestWidget.border': '#27272a',
-      'editorSuggestWidget.selectedBackground': '#27272a',
-      'editorSuggestWidget.highlightForeground': '#38bdf8',
-      'scrollbarSlider.background': '#ffffff10',
-      'scrollbarSlider.hoverBackground': '#ffffff18',
-      'scrollbarSlider.activeBackground': '#ffffff24',
-      'editor.selectionBackground': '#38bdf825',
-      'editor.inactiveSelectionBackground': '#38bdf812',
-    },
-  });
-};
+import {
+  HttpMethod,
+  HttpBodyType,
+  HttpHeader,
+  HttpParam,
+  FormFileMeta,
+  FormDataField,
+  UrlEncodedField,
+  HttpRequestItem,
+  HttpFolderItem,
+  HttpTreeItem,
+  HttpResponseState,
+  AutoHeaderDefinition,
+  StoredCookie,
+  DEFAULT_JSON_BODY,
+  HTTP_METHODS,
+  METHOD_COLORS,
+  defineOctaTheme,
+  parseSetCookie,
+  getMatchingCookies,
+  formatCookieHeader,
+  getDynamicAutoHeaderDefinitions,
+  getComputedAutoHeaders,
+  safeDecodeUriComponent,
+  parseQueryParamsFromUrl,
+  buildUrlWithParams,
+  createDefaultRequest,
+  createDefaultFolder,
+  createDefaultCollection,
+} from '../../types/http';
 
-// Immediately register theme
 defineOctaTheme(monaco);
-
-export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'OPTIONS' | 'HEAD';
-export type HttpBodyType = 'none' | 'json' | 'form-data' | 'x-www-form-urlencoded';
-
-export interface HttpHeader {
-  key: string;
-  value: string;
-  enabled: boolean;
-}
-
-export interface HttpParam {
-  key: string;
-  value: string;
-  enabled: boolean;
-}
-
-export interface FormFileMeta {
-  id: string;
-  name: string;
-  size: number;
-  type: string;
-  file?: File | Blob | any;
-  fileObj?: File | Blob | any;
-  filePath?: string;
-  base64?: string;
-}
-
-export interface FormDataField {
-  id: string;
-  key: string;
-  value: string;
-  type: 'text' | 'file';
-  enabled: boolean;
-  file?: File | Blob | any;
-  fileName?: string;
-  filePath?: string;
-  base64Data?: string;
-  files?: FormFileMeta[];
-}
-
-export interface UrlEncodedField {
-  id: string;
-  key: string;
-  value: string;
-  enabled: boolean;
-}
-
-export interface HttpRequestItem {
-  id: string;
-  type: 'request';
-  name: string;
-  method: HttpMethod;
-  url: string;
-  headers: HttpHeader[];
-  params: HttpParam[];
-  bodyType: HttpBodyType;
-  bodyContent: string;
-  bodyFormData?: FormDataField[];
-  bodyUrlEncoded?: UrlEncodedField[];
-  disabledAutoHeaders?: string[];
-  isDirty?: boolean;
-}
-
-export interface HttpFolderItem {
-  id: string;
-  type: 'collection' | 'folder';
-  name: string;
-  isOpen?: boolean;
-  items: (HttpFolderItem | HttpRequestItem)[];
-}
-
-export type HttpTreeItem = HttpFolderItem | HttpRequestItem;
-
-export interface HttpResponseState {
-  status: number;
-  statusText: string;
-  durationMs: number;
-  sizeKb: number;
-  data: any;
-  headers: Record<string, string>;
-}
-
-export interface AutoHeaderDefinition {
-  key: string;
-  value: string | ((req: HttpRequestItem) => string);
-  description: string;
-}
-
-export interface StoredCookie {
-  domain: string;
-  path: string;
-  name: string;
-  value: string;
-  expires?: number;
-  httpOnly?: boolean;
-  secure?: boolean;
-}
-
-// Cookie Jar Helper: Parse Set-Cookie Header
-export function parseSetCookie(headerValue: string, targetUrl: string): StoredCookie | null {
-  try {
-    let parsedUrl: URL;
-    try {
-      let u = targetUrl.trim();
-      if (!u.startsWith('http://') && !u.startsWith('https://')) u = 'https://' + u;
-      parsedUrl = new URL(u);
-    } catch {
-      return null;
-    }
-
-    const parts = headerValue.split(';').map((p) => p.trim());
-    if (parts.length === 0 || !parts[0].includes('=')) return null;
-
-    const [firstPart, ...directives] = parts;
-    const eqIdx = firstPart.indexOf('=');
-    const name = firstPart.substring(0, eqIdx).trim();
-    const value = firstPart.substring(eqIdx + 1).trim();
-    if (!name) return null;
-
-    let domain = parsedUrl.hostname;
-    let path = '/';
-    let expires: number | undefined = undefined;
-    let httpOnly = false;
-    let secure = false;
-
-    for (const dir of directives) {
-      const lower = dir.toLowerCase();
-      if (lower.startsWith('domain=')) {
-        let d = dir.substring(7).trim();
-        if (d.startsWith('.')) d = d.substring(1);
-        if (d) domain = d;
-      } else if (lower.startsWith('path=')) {
-        path = dir.substring(5).trim() || '/';
-      } else if (lower.startsWith('expires=')) {
-        const expDate = new Date(dir.substring(8).trim());
-        if (!isNaN(expDate.getTime())) {
-          expires = expDate.getTime();
-        }
-      } else if (lower.startsWith('max-age=')) {
-        const secs = parseInt(dir.substring(8).trim(), 10);
-        if (!isNaN(secs)) {
-          expires = Date.now() + secs * 1000;
-        }
-      } else if (lower === 'httponly') {
-        httpOnly = true;
-      } else if (lower === 'secure') {
-        secure = true;
-      }
-    }
-
-    return {
-      name,
-      value,
-      domain,
-      path,
-      expires,
-      httpOnly,
-      secure,
-    };
-  } catch {
-    return null;
-  }
-}
-
-// Cookie Jar Helper: Get matching active cookies for URL
-export function getMatchingCookies(cookies: StoredCookie[], targetUrl: string): StoredCookie[] {
-  try {
-    if (!targetUrl || !targetUrl.trim()) return [];
-    let u = targetUrl.trim();
-    if (!u.startsWith('http://') && !u.startsWith('https://')) u = 'https://' + u;
-    const parsed = new URL(u);
-    const host = parsed.hostname.toLowerCase();
-    const path = parsed.pathname || '/';
-    const now = Date.now();
-
-    return cookies.filter((c) => {
-      if (c.expires && c.expires < now) return false;
-      const cookieDomain = c.domain.toLowerCase().replace(/^\./, '');
-      const domainMatch = host === cookieDomain || host.endsWith('.' + cookieDomain);
-      if (!domainMatch) return false;
-      const cookiePath = c.path || '/';
-      const pathMatch = path.startsWith(cookiePath) || cookiePath === '/';
-      if (!pathMatch) return false;
-      return true;
-    });
-  } catch {
-    return [];
-  }
-}
-
-// Cookie Jar Helper: Format Cookie Header String
-export function formatCookieHeader(cookies: StoredCookie[]): string {
-  return cookies.map((c) => `${c.name}=${c.value}`).join('; ');
-}
-
-// Dynamic Auto-Generated Headers Definition based on Method, Body, Cookies, and Token
-export function getDynamicAutoHeaderDefinitions(
-  req: HttpRequestItem,
-  cookieJar: StoredCookie[] = []
-): AutoHeaderDefinition[] {
-  const list: AutoHeaderDefinition[] = [
-    {
-      key: 'Host',
-      value: (r: HttpRequestItem) => {
-        try {
-          if (!r.url) return '<calculated when request is sent>';
-          let u = r.url.trim();
-          if (!u.startsWith('http://') && !u.startsWith('https://')) u = 'https://' + u;
-          const parsed = new URL(u);
-          return parsed.host || '<calculated when request is sent>';
-        } catch {
-          return '<calculated when request is sent>';
-        }
-      },
-      description: 'Target server host',
-    },
-    { key: 'User-Agent', value: 'OctaRuntime/1.0', description: 'Octa HTTP client identifier' },
-    { key: 'Accept', value: '*/*', description: 'Supported response MIME types' },
-    { key: 'Accept-Encoding', value: 'gzip, deflate, br', description: 'Supported response compression algorithms' },
-    { key: 'Connection', value: 'keep-alive', description: 'Persistent connection keep-alive' },
-    { key: 'Cache-Control', value: 'no-cache', description: 'Bypass intermediary caching' },
-    {
-      key: 'Octa-Token',
-      value: (r: HttpRequestItem) => {
-        return 'octa_' + (r.id.startsWith('req-') ? r.id.substring(4) : r.id);
-      },
-      description: 'Octa request tracking identifier',
-    },
-  ];
-
-  // Dynamic Content-Type (based on selected body mode)
-  if (req.bodyType === 'json') {
-    list.push({
-      key: 'Content-Type',
-      value: 'application/json',
-      description: 'JSON payload format',
-    });
-  } else if (req.bodyType === 'form-data') {
-    list.push({
-      key: 'Content-Type',
-      value: 'multipart/form-data; boundary=<calculated when request is sent>',
-      description: 'Multipart form-data boundary',
-    });
-  } else if (req.bodyType === 'x-www-form-urlencoded') {
-    list.push({
-      key: 'Content-Type',
-      value: 'application/x-www-form-urlencoded',
-      description: 'URL-encoded form payload',
-    });
-  }
-
-  // Dynamic Content-Length (based on HTTP method & payload)
-  if (req.method === 'POST' || req.method === 'PUT' || req.method === 'PATCH') {
-    list.push({
-      key: 'Content-Length',
-      value: (r: HttpRequestItem) => {
-        if (r.bodyType === 'json' && r.bodyContent) {
-          try {
-            return String(new TextEncoder().encode(r.bodyContent).length);
-          } catch {
-            return String(r.bodyContent.length);
-          }
-        }
-        if (r.bodyType === 'x-www-form-urlencoded' && r.bodyUrlEncoded && r.bodyUrlEncoded.length > 0) {
-          const params = new URLSearchParams();
-          for (const row of r.bodyUrlEncoded) {
-            if (row.enabled && row.key.trim()) {
-              params.append(row.key, row.value || '');
-            }
-          }
-          const str = params.toString();
-          return String(new TextEncoder().encode(str).length);
-        }
-        if (r.bodyType === 'form-data') {
-          return '<calculated when request is sent>';
-        }
-        if (r.bodyType === 'none') {
-          return '0';
-        }
-        return '<calculated when request is sent>';
-      },
-      description: 'Payload byte length',
-    });
-  }
-
-  // Dynamic Session Cookie (based on matching Cookie Jar entries)
-  const matching = getMatchingCookies(cookieJar, req.url);
-  if (matching.length > 0) {
-    list.push({
-      key: 'Cookie',
-      value: formatCookieHeader(matching),
-      description: 'Active session cookies for target host',
-    });
-  }
-
-  return list;
-}
-
-export function getComputedAutoHeaders(req: HttpRequestItem | null, cookieJar: StoredCookie[] = []) {
-  if (!req) return [];
-  const defs = getDynamicAutoHeaderDefinitions(req, cookieJar);
-  const disabledList = (req.disabledAutoHeaders || []).map((k) => k.toLowerCase());
-  const customKeys = new Set(
-    req.headers.filter((h) => h.enabled && h.key.trim()).map((h) => h.key.trim().toLowerCase())
-  );
-
-  return defs.map((def) => {
-    const keyLower = def.key.toLowerCase();
-    const val = typeof def.value === 'function' ? def.value(req) : def.value;
-    const isOverridden = customKeys.has(keyLower);
-    const isChecked = !disabledList.includes(keyLower);
-    const isEnabled = isChecked && !isOverridden;
-
-    return {
-      key: def.key,
-      value: val,
-      description: def.description,
-      isChecked,
-      isEnabled,
-      isOverridden,
-    };
-  });
-}
-
-export const HTTP_METHODS: { method: HttpMethod; label: string; color: string; badge: string }[] = [
-  { method: 'GET', label: 'GET', color: 'text-emerald-400', badge: 'bg-emerald-950/70 border-emerald-500/40 text-emerald-300' },
-  { method: 'POST', label: 'POST', color: 'text-amber-400', badge: 'bg-amber-950/70 border-amber-500/40 text-amber-300' },
-  { method: 'PUT', label: 'PUT', color: 'text-blue-400', badge: 'bg-blue-950/70 border-blue-500/40 text-blue-300' },
-  { method: 'PATCH', label: 'PATCH', color: 'text-purple-400', badge: 'bg-purple-950/70 border-purple-500/40 text-purple-300' },
-  { method: 'DELETE', label: 'DELETE', color: 'text-rose-400', badge: 'bg-rose-950/70 border-rose-500/40 text-rose-300' },
-  { method: 'OPTIONS', label: 'OPTIONS', color: 'text-zinc-400', badge: 'bg-zinc-900 border-zinc-700 text-zinc-300' },
-  { method: 'HEAD', label: 'HEAD', color: 'text-sky-400', badge: 'bg-sky-950/70 border-sky-500/40 text-sky-300' },
-];
-
-export const METHOD_COLORS: Record<string, { badge: string; text: string }> = HTTP_METHODS.reduce((acc, curr) => {
-  acc[curr.method] = { badge: curr.badge, text: curr.color };
-  return acc;
-}, {} as Record<string, { badge: string; text: string }>);
-
-// Helper: Safely decode URI components without throwing on malformed strings or template variables
-export function safeDecodeUriComponent(str: string): string {
-  try {
-    return decodeURIComponent(str.replace(/\+/g, ' '));
-  } catch {
-    return str;
-  }
-}
-
-// Parse Query Parameters from URL query string into HttpParam[]
-export function parseQueryParamsFromUrl(rawUrl: string, existingParams: HttpParam[] = []): HttpParam[] {
-  const qIndex = rawUrl.indexOf('?');
-  const existingDisabled = existingParams.filter((p) => !p.enabled);
-
-  if (qIndex === -1) {
-    return [...existingDisabled];
-  }
-
-  const queryString = rawUrl.slice(qIndex + 1);
-  if (!queryString) {
-    return [...existingDisabled];
-  }
-
-  const pairs = queryString.split('&');
-  const parsedParams: HttpParam[] = [];
-
-  for (const pair of pairs) {
-    if (!pair && pair !== '') continue;
-    const eqIdx = pair.indexOf('=');
-    if (eqIdx === -1) {
-      parsedParams.push({
-        key: safeDecodeUriComponent(pair),
-        value: '',
-        enabled: true,
-      });
-    } else {
-      const key = safeDecodeUriComponent(pair.slice(0, eqIdx));
-      const value = safeDecodeUriComponent(pair.slice(eqIdx + 1));
-      parsedParams.push({
-        key,
-        value,
-        enabled: true,
-      });
-    }
-  }
-
-  return [...parsedParams, ...existingDisabled];
-}
-
-// Build URL string from base path and active enabled query params
-export function buildUrlWithParams(currentUrl: string, params: HttpParam[]): string {
-  const qIndex = currentUrl.indexOf('?');
-  const basePath = qIndex !== -1 ? currentUrl.slice(0, qIndex) : currentUrl;
-
-  const activeParams = params.filter((p) => p.enabled && (p.key.trim() !== '' || p.value.trim() !== ''));
-  if (activeParams.length === 0) {
-    return basePath;
-  }
-
-  const queryParts = activeParams.map((p) => {
-    const k = p.key;
-    const v = p.value;
-    if (v !== '') {
-      return `${k}=${v}`;
-    }
-    return k;
-  });
-
-  return `${basePath}?${queryParts.join('&')}`;
-}
-
-const DEFAULT_JSON_BODY = '{\n  "key": "value"\n}';
-
-const createDefaultRequest = (name: string = 'Untitled Request'): HttpRequestItem => ({
-  id: 'req-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7),
-  type: 'request',
-  name,
-  method: 'GET',
-  url: '',
-  headers: [],
-  params: [],
-  bodyType: 'none',
-  bodyContent: DEFAULT_JSON_BODY,
-  bodyFormData: [],
-  bodyUrlEncoded: [],
-  disabledAutoHeaders: [],
-  isDirty: false,
-});
-
-const createDefaultFolder = (name: string = 'New Folder'): HttpFolderItem => ({
-  id: 'folder-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7),
-  type: 'folder',
-  name,
-  isOpen: true,
-  items: [],
-});
-
-const createDefaultCollection = (name: string = 'Untitled Collection'): HttpFolderItem => ({
-  id: 'col-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7),
-  type: 'collection',
-  name,
-  isOpen: true,
-  items: [],
-});
-
 // Helper: Format file size in human-readable units
 function formatFileSize(bytes: number): string {
   if (!bytes || bytes <= 0) return '0 B';
@@ -1205,6 +747,62 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
     });
   };
 
+  // Postman File Import Ref and Handler
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileImportChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      const json = JSON.parse(text);
+      const result = mapPostmanCollection(json);
+
+      const nextCols = [...collections, result.collection];
+      saveTreeData(nextCols);
+
+      if (result.variables.length > 0) {
+        const newEnv: Environment = {
+          id: 'env-' + Date.now(),
+          name: `${result.collection.name} Env`,
+          variables: result.variables,
+        };
+        const nextEnvs = [...environments, newEnv];
+        setEnvironments(nextEnvs);
+        if (!activeEnvironmentId) {
+          setActiveEnvironmentId(newEnv.id);
+        }
+        if (onUpdateData) {
+          onUpdateData({
+            collections: nextCols,
+            environments: nextEnvs,
+            globalVariables,
+            activeEnvironmentId: activeEnvironmentId || newEnv.id,
+          });
+        }
+      } else if (onUpdateData) {
+        onUpdateData({
+          collections: nextCols,
+          environments,
+          globalVariables,
+          activeEnvironmentId,
+        });
+      }
+
+      showToast(
+        `Imported "${result.collection.name}" (${result.totalRequests} requests, ${result.totalFolders} folders)`,
+        'success'
+      );
+    } catch (err: any) {
+      showToast(`Failed to import Postman collection: ${err?.message || err}`, 'error');
+    } finally {
+      if (e.target) {
+        e.target.value = '';
+      }
+    }
+  };
+
   // Two-Way Sync Handlers for URL and Query Parameters
   const handleUrlChange = (newUrl: string) => {
     if (!activeRequest) return;
@@ -1813,9 +1411,9 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
                 }
               }
 
-              const firstFilePath = filePaths[0] || (row.value ? String(row.value).trim() : '');
-              const firstBase64 = fileBase64[0] || (row as any).base64Data || '';
-              const firstFileName = fileNames[0] || (row as any).fileName || (row.value ? row.value : 'upload.bin');
+              const firstFilePath = filePaths[0] || (row.filePath ? String(row.filePath).trim() : '') || (row.value ? String(row.value).trim() : '');
+              const firstBase64 = fileBase64[0] || row.base64Data || (row as any).base64Data || '';
+              const firstFileName = fileNames[0] || row.fileName || (row as any).fileName || (row.value ? String(row.value) : 'upload.bin');
 
               formDataPayload.push({
                 key: row.key.trim(),
@@ -1851,6 +1449,7 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
 
       // Diagnostic Logging for Multipart & Request Payload
       if (activeRequest.bodyType === 'form-data') {
+        console.log("[DEBUG Frontend Payload]", activeRequest.bodyFormData);
         console.log("=== [DEBUG] FRONTEND FORM-DATA PAYLOAD ===");
         formDataPayload.forEach((field, index) => {
           console.log(`Field #${index}:`, {
@@ -2330,6 +1929,14 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
             <div className="flex items-center gap-1">
               <button
                 type="button"
+                onClick={() => fileInputRef.current?.click()}
+                title="Import Postman Collection (JSON)"
+                className="p-1.5 rounded-lg bg-surface-800 hover:bg-surface-750 text-zinc-400 hover:text-brand-400 border border-[#2b2b2b] transition-colors cursor-pointer"
+              >
+                <Upload className="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="button"
                 onClick={handleCreateNewCollection}
                 title="New Collection"
                 className="p-1.5 rounded-lg bg-surface-800 hover:bg-surface-750 text-zinc-400 hover:text-zinc-200 border border-[#2b2b2b] transition-colors cursor-pointer"
@@ -2390,6 +1997,14 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
                   >
                     <FolderPlus className="w-3.5 h-3.5 text-zinc-400" />
                     <span>New Collection</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-800 hover:bg-surface-750 text-zinc-300 hover:text-brand-300 border border-[#2b2b2b] text-xs transition-colors cursor-pointer"
+                  >
+                    <Upload className="w-3.5 h-3.5 text-brand-400" />
+                    <span>Import Postman Collection</span>
                   </button>
                 </div>
               </div>
@@ -3328,13 +2943,17 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
                                                   if (nativeFiles && nativeFiles.length > 0) {
                                                     const formattedFiles: FormFileMeta[] = nativeFiles.map((nf: any) => ({
                                                       id: 'file-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6),
-                                                      name: nf.name,
-                                                      size: nf.size,
-                                                      type: 'application/octet-stream',
-                                                      filePath: nf.filePath,
+                                                      name: nf.name || 'file.bin',
+                                                      size: nf.size || 0,
+                                                      type: nf.contentType || 'application/octet-stream',
+                                                      filePath: nf.path || nf.filePath || '',
+                                                      base64: nf.base64Data || nf.base64 || '',
                                                     }));
                                                     const next = [...(activeRequest.bodyFormData || [])];
                                                     next[idx].files = [...(next[idx].files || []), ...formattedFiles];
+                                                    next[idx].fileName = formattedFiles[0]?.name;
+                                                    next[idx].filePath = formattedFiles[0]?.filePath;
+                                                    next[idx].base64Data = formattedFiles[0]?.base64;
                                                     updateActiveRequest({ ...activeRequest, bodyFormData: next });
                                                     showToast('Attached ' + formattedFiles.length + ' file(s)', 'info');
                                                     return;
@@ -3373,6 +2992,9 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
                                                   const newFiles = await Promise.all(promises);
                                                   const next = [...(activeRequest.bodyFormData || [])];
                                                   next[idx].files = [...(next[idx].files || []), ...newFiles];
+                                                  next[idx].fileName = newFiles[0]?.name;
+                                                  next[idx].filePath = newFiles[0]?.filePath;
+                                                  next[idx].base64Data = newFiles[0]?.base64;
                                                   updateActiveRequest({ ...activeRequest, bodyFormData: next });
                                                   showToast('Attached ' + newFiles.length + ' file(s)', 'info');
                                                 }
@@ -3646,6 +3268,15 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
           )}
         </Panel>
       </Group>
+
+      {/* Hidden Postman File Importer Input */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        accept=".json,application/json"
+        onChange={handleFileImportChange}
+        className="hidden"
+      />
 
       {/* Cookie Jar Management Modal */}
       {isCookieJarOpen && (

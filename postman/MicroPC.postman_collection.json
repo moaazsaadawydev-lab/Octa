@@ -1,0 +1,513 @@
+{
+  "info": {
+    "_postman_id": "8fa7bacb-6107-4a7d-b6fc-616e12f5ffb8",
+    "name": "MicroPC",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "33030405"
+  },
+  "item": [
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "Auth",
+          "item": [
+            {
+              "name": "Register",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "username",
+                      "value": "moaz",
+                      "type": "text",
+                      "uuid": "f8c82bd1-5293-430e-93a5-33215e5aefa9"
+                    },
+                    {
+                      "key": "email",
+                      "value": "moaazseadawy@gmail.com",
+                      "type": "text",
+                      "uuid": "b422f03f-aa53-43b1-a7f3-c532e6611e53"
+                    },
+                    {
+                      "key": "password",
+                      "value": "624562",
+                      "type": "text",
+                      "uuid": "0733b5e2-a108-450d-98fd-fdaf554f427b"
+                    },
+                    {
+                      "key": "profileImage",
+                      "type": "file",
+                      "uuid": "6788d8d7-6a2d-4297-8c7c-d3f9f30d65c2",
+                      "src": "postman-cloud:///1f169a4d-0d52-4a60-a8fe-dc590ac0a3f7"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseURL}}/api/v1/users/auth/register",
+                  "host": [
+                    "{{baseURL}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "users",
+                    "auth",
+                    "register"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Login",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"email\": \"moaazseadawy@gmail.com\",\r\n    \"password\": \"624562\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseURL}}/api/v1/users/auth/login",
+                  "host": [
+                    "{{baseURL}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "users",
+                    "auth",
+                    "login"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "CurrentUser",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{json_web_token_0g8b}}",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseURL}}/api/v1/users/auth/profile",
+                  "host": [
+                    "{{baseURL}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "users",
+                    "auth",
+                    "profile"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Refresh",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseURL}}/api/v1/users/auth/refresh",
+                  "host": [
+                    "{{baseURL}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "users",
+                    "auth",
+                    "refresh"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Logout",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{supabase_service_role_api_key_0pbe}}",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseURL}}/api/v1/users/auth/logout",
+                  "host": [
+                    "{{baseURL}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "users",
+                    "auth",
+                    "logout"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Resend verification link",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"email\": \"moaazseadawy@gmail.com\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseURL}}/api/v1/users/auth/resend-verification-link",
+                  "host": [
+                    "{{baseURL}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "users",
+                    "auth",
+                    "resend-verification-link"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "OAuth",
+              "request": {
+                "method": "GET",
+                "header": []
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Update",
+          "item": [
+            {
+              "name": "Updating password",
+              "item": [
+                {
+                  "name": "Update password",
+                  "request": {
+                    "method": "PATCH",
+                    "header": [
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{supabase_service_role_api_key_0pbe}}",
+                        "type": "text"
+                      }
+                    ],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\r\n    \"oldPassword\": \"624562\",\r\n    \"newPassword\": \"123456\",\r\n    \"confirmPassword\": \"123456\"\r\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{baseURL}}/api/v1/users/update-password",
+                      "host": [
+                        "{{baseURL}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "users",
+                        "update-password"
+                      ]
+                    }
+                  },
+                  "response": []
+                },
+                {
+                  "name": "Send forget password code",
+                  "request": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{bearer_token_02fr}}",
+                        "type": "text"
+                      }
+                    ],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\r\n    \"email\": \"moaz787557@gmail.com\"\r\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{baseURL}}/api/v1/users/send-forget-password-code",
+                      "host": [
+                        "{{baseURL}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "users",
+                        "send-forget-password-code"
+                      ]
+                    }
+                  },
+                  "response": []
+                },
+                {
+                  "name": "Verify forget password code",
+                  "request": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{json_web_token_16si}}",
+                        "type": "text"
+                      }
+                    ],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\r\n    \"email\": \"moaz787557@gmail.com\",\r\n    \"code\": 614975\r\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{baseURL}}/api/v1/users/verify-forget-password-code",
+                      "host": [
+                        "{{baseURL}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "users",
+                        "verify-forget-password-code"
+                      ]
+                    }
+                  },
+                  "response": []
+                },
+                {
+                  "name": "Reset forgotten password",
+                  "request": {
+                    "method": "POST",
+                    "header": [
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{bearer_token_0fdt}}",
+                        "type": "text"
+                      }
+                    ],
+                    "body": {
+                      "mode": "raw",
+                      "raw": "{\r\n    \"email\": \"moaz787557@gmail.com\",\r\n    \"password\": \"865486\",\r\n    \"confirmPassword\": \"865486\"\r\n}",
+                      "options": {
+                        "raw": {
+                          "language": "json"
+                        }
+                      }
+                    },
+                    "url": {
+                      "raw": "{{baseURL}}/api/v1/users/reset-password",
+                      "host": [
+                        "{{baseURL}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "users",
+                        "reset-password"
+                      ]
+                    }
+                  },
+                  "response": []
+                }
+              ]
+            },
+            {
+              "name": "updatEmail",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{supabase_service_role_api_key_0u37}}",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"newEmail\": \"moaz787557@gmail.com\",\r\n    \"password\": \"624562\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseURL}}/api/v1/users/update-email",
+                  "host": [
+                    "{{baseURL}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "users",
+                    "update-email"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "UpdateUser",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjM1MjkzMGJjLTA4NTgtNDVjYi1hYzU2LWZhZDQ0MDEyZDVlMSIsInJvbGUiOiJ1c2VyIiwiaWF0IjoxNzgyMjY0MjY2LCJleHAiOjE3ODIyNjQzMjZ9._aogk25XDuEDmvr44rqbKZ4jK7xio-CFG_ogTUlyzfA",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "username",
+                      "value": "mohamed",
+                      "type": "text",
+                      "uuid": "4de42490-754c-450e-a709-80a7d3205fa8"
+                    },
+                    {
+                      "key": "profileImage",
+                      "type": "file",
+                      "uuid": "0ccb763c-eea6-4812-ac9e-16d6736def86",
+                      "src": "/F:/Photos/moaaz.jpg"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseURL}}/api/v1/users/update-user",
+                  "host": [
+                    "{{baseURL}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "users",
+                    "update-user"
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "get all users",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{json_web_token_1bw4}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseURL}}/api/v1/users/all-users",
+              "host": [
+                "{{baseURL}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "all-users"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "packages": {},
+        "requests": {},
+        "exec": [
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "packages": {},
+        "requests": {},
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "supabase_service_role_api_key_0i3j",
+      "secret": true
+    },
+    {
+      "key": "bearer_token_0rp9",
+      "secret": true
+    },
+    {
+      "key": "baseURL",
+      "value": ""
+    },
+    {
+      "key": "json_web_token_0txj",
+      "secret": true
+    },
+    {
+      "key": "bearer_token_05hq",
+      "secret": true
+    }
+  ]
+}

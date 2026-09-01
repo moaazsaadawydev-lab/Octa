@@ -208,6 +208,8 @@ func (s *HTTPService) ExecuteHttpRequest(payload HttpRequestPayload) (HttpRespon
 					if fileName == "" {
 						if entry.path != "" {
 							fileName = filepath.Base(entry.path)
+						} else if item.Value != "" {
+							fileName = filepath.Base(item.Value)
 						} else {
 							fileName = "blob"
 						}
@@ -227,6 +229,16 @@ func (s *HTTPService) ExecuteHttpRequest(payload HttpRequestPayload) (HttpRespon
 						if err == nil && len(decoded) > 0 {
 							fileBytes = decoded
 							readErr = nil
+						}
+					}
+
+					// Fallback to item.Value if path and base64 were empty but Value holds a valid disk path
+					if len(fileBytes) == 0 && item.Value != "" {
+						if _, err := os.Stat(item.Value); err == nil {
+							fileBytes, readErr = os.ReadFile(item.Value)
+							if fileName == "blob" || fileName == "" {
+								fileName = filepath.Base(item.Value)
+							}
 						}
 					}
 
@@ -257,6 +269,11 @@ func (s *HTTPService) ExecuteHttpRequest(payload HttpRequestPayload) (HttpRespon
 		contentType = w.FormDataContentType()
 		reqBody = &b
 
+		println("[DEBUG Backend] Total FormData fields received:", len(payload.FormData))
+		for i, f := range payload.FormData {
+			println(fmt.Sprintf("[DEBUG Backend Field #%d] Key: %s | Type: %s | Value: %s | FilePath: %s | FileName: %s | Base64Len: %d", i, f.Key, f.Type, f.Value, f.FilePath, f.FileName, len(f.Base64Data)))
+		}
+
 	default:
 		if payload.BodyContent != "" {
 			reqBody = strings.NewReader(payload.BodyContent)
@@ -273,13 +290,22 @@ func (s *HTTPService) ExecuteHttpRequest(payload HttpRequestPayload) (HttpRespon
 
 	for k, v := range payload.Headers {
 		if strings.TrimSpace(k) != "" {
+			// For form-data, skip any placeholder or static Content-Type header from request payload
+			if payload.BodyType == "form-data" && strings.EqualFold(k, "Content-Type") {
+				continue
+			}
 			httpReq.Header.Set(k, v)
 		}
 	}
 
-	if contentType != "" && httpReq.Header.Get("Content-Type") == "" {
+	// Always set the dynamic Content-Type with writer boundary for form-data, or fallback if unset
+	if payload.BodyType == "form-data" && contentType != "" {
+		httpReq.Header.Set("Content-Type", contentType)
+	} else if contentType != "" && httpReq.Header.Get("Content-Type") == "" {
 		httpReq.Header.Set("Content-Type", contentType)
 	}
+
+	println("[DEBUG Backend Outgoing Header Content-Type]", httpReq.Header.Get("Content-Type"))
 
 	if httpReq.Header.Get("User-Agent") == "" {
 		httpReq.Header.Set("User-Agent", "Octa-HttpClient/2.0")

@@ -116,7 +116,7 @@ func TestExecuteHttpRequest(t *testing.T) {
 		t.Errorf("Expected status 201, got %d", respPost.Status)
 	}
 
-	// 3. Test Multipart Form Data with Disk File
+	// 3. Test Multipart Form Data with Disk File and Static Placeholder Content-Type
 	tmpFile := filepath.Join(os.TempDir(), fmt.Sprintf("test_avatar_%d.jpg", os.Getpid()))
 	_ = os.WriteFile(tmpFile, []byte("fake-jpeg-binary-data-bytes"), 0644)
 	defer os.Remove(tmpFile)
@@ -125,6 +125,9 @@ func TestExecuteHttpRequest(t *testing.T) {
 		Method:   "POST",
 		URL:      ts.URL + "/upload",
 		BodyType: "form-data",
+		Headers: map[string]string{
+			"Content-Type": "multipart/form-data; boundary=<calculated when request is sent>",
+		},
 		FormData: []FormFieldPayload{
 			{Key: "cropX", Type: "text", Value: "100"},
 			{Key: "name", Type: "text", Value: "moaaz"},
@@ -146,8 +149,11 @@ func TestExecuteHttpRequest(t *testing.T) {
 		Method:   "POST",
 		URL:      ts.URL + "/upload",
 		BodyType: "form-data",
+		Headers: map[string]string{
+			"Content-Type": "multipart/form-data",
+		},
 		FormData: []FormFieldPayload{
-			{Key: "cropX", Type: "200"},
+			{Key: "cropX", Type: "text", Value: "200"},
 			{Key: "name", Type: "text", Value: "base64-user"},
 			{Key: "avatar", Type: "file", FileName: "moaaz.jpg", Base64Data: b64String, ContentType: "image/jpeg"},
 		},
@@ -167,5 +173,88 @@ func TestExecuteHttpRequest(t *testing.T) {
 	})
 	if respErr.Status != 0 || respErr.Error == "" {
 		t.Errorf("Expected network error for unreachable port, got %+v", respErr)
+	}
+}
+
+func TestDiagnosticMultipartTrace(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		println("\n--- [Target Server Received Request] ---")
+		println("Method:", r.Method, "URL:", r.URL.String())
+		println("Header Content-Type:", r.Header.Get("Content-Type"))
+
+		err := r.ParseMultipartForm(32 << 20)
+		if err != nil {
+			println("[Target Server Error] ParseMultipartForm failed:", err.Error())
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(fmt.Sprintf(`{"status": 500, "message": "ParseMultipartForm failed: %v"}`, err)))
+			return
+		}
+
+		println("Multipart Form Values:")
+		for k, v := range r.MultipartForm.Value {
+			println(fmt.Sprintf("  - Key: %q -> Value: %q", k, v))
+		}
+
+		println("Multipart Form Files:")
+		for k, f := range r.MultipartForm.File {
+			for _, fileHeader := range f {
+				println(fmt.Sprintf("  - Key: %q -> Filename: %q, Size: %d bytes", k, fileHeader.Filename, fileHeader.Size))
+			}
+		}
+
+		cropX := r.FormValue("cropX")
+		name := r.FormValue("name")
+		if cropX == "" && len(r.MultipartForm.Value["cropX"]) == 0 {
+			println("[Target Server Warning] 'cropX' is missing or undefined!")
+			t.Errorf("'cropX' is missing or undefined on target server")
+		} else {
+			println(fmt.Sprintf("[Target Server Success] Verified 'cropX'=%q and 'name'=%q successfully received!", cropX, name))
+		}
+
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"status": 200, "message": "User registered successfully", "data": {"id": "usr-123", "name": "` + name + `", "cropX": "` + cropX + `"}}`))
+	}))
+	defer ts.Close()
+
+	app := NewApp()
+
+	tmpFile := filepath.Join(os.TempDir(), "test_avatar_trace.png")
+	_ = os.WriteFile(tmpFile, []byte("\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR...fake-png-binary-stream"), 0644)
+	defer os.Remove(tmpFile)
+
+	println("\n================================================================")
+	println("EXECUTING MULTIPART FORM-DATA REQUEST DIAGNOSTIC TRACE")
+	println("================================================================")
+
+	payload := HttpRequestPayload{
+		Method:   "POST",
+		URL:      ts.URL + "/api/v1/users/auth/register",
+		BodyType: "form-data",
+		Headers: map[string]string{
+			"Authorization": "Bearer fake_token_abc123",
+			"Content-Type":  "multipart/form-data; boundary=<calculated when request is sent>",
+		},
+		FormData: []FormFieldPayload{
+			{Key: "name", Type: "text", Value: "Moaz Saadawy"},
+			{Key: "email", Type: "text", Value: "moaazseadawy@gmail.com"},
+			{Key: "cropX", Type: "text", Value: "120"},
+			{Key: "cropY", Type: "text", Value: "80"},
+			{Key: "cropWidth", Type: "text", Value: "400"},
+			{Key: "cropHeight", Type: "text", Value: "400"},
+			{Key: "cropZoom", Type: "text", Value: "1.5"},
+			{Key: "avatar", Type: "file", FileName: "avatar.png", FilePaths: []string{tmpFile}},
+		},
+	}
+
+	resp, err := app.ExecuteHttpRequest(payload)
+	println("\n--- [Client Execution Result] ---")
+	println("Status:", resp.Status, resp.StatusText)
+	println("Duration:", resp.DurationMs, "ms")
+	println("Response Data:", fmt.Sprintf("%v", resp.Data))
+	if err != nil {
+		t.Fatalf("ExecuteHttpRequest failed: %v", err)
+	}
+	if resp.Status != 200 {
+		t.Fatalf("Expected status 200, got %d", resp.Status)
 	}
 }

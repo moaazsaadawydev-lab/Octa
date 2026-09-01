@@ -1,0 +1,350 @@
+{
+  "info": {
+    "_postman_id": "9bd6500c-c0ab-4d1f-be62-e650506703b0",
+    "name": "Library",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "33030405"
+  },
+  "item": [
+    {
+      "name": "Books",
+      "item": [
+        {
+          "name": "New Request",
+          "request": {
+            "auth": {
+              "type": "jwt",
+              "jwt": [
+                {
+                  "key": "secret",
+                  "value": "",
+                  "type": "string"
+                },
+                {
+                  "key": "isSecretBase64Encoded",
+                  "value": true,
+                  "type": "boolean"
+                },
+                {
+                  "key": "header",
+                  "value": "{}",
+                  "type": "string"
+                },
+                {
+                  "key": "algorithm",
+                  "value": "HS256",
+                  "type": "string"
+                },
+                {
+                  "key": "payload",
+                  "value": "{}",
+                  "type": "string"
+                },
+                {
+                  "key": "addTokenTo",
+                  "value": "header",
+                  "type": "string"
+                },
+                {
+                  "key": "headerPrefix",
+                  "value": "Bearer",
+                  "type": "string"
+                },
+                {
+                  "key": "queryParamKey",
+                  "value": "token",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzY1NjM1MDA3LCJpYXQiOjE3NjQzMzkwMDcsImp0aSI6IjQ5M2NhZGRhNzRhYjQ0ODA5MzA3ZTUyMzBiOGRlMTI2IiwidXNlcl9pZCI6IjIifQ.6vTHemQYxgpN-5mcaQwmYM3buVe-NhjYfQ-w1RcsTN8",
+                "type": "text",
+                "disabled": true
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"email\": \"moaazseadawy@gmail.com\",\r\n    \"password\": \"Moaz777\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/v1/auth/signup",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "signup"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "New Request",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "auth": {
+              "type": "jwt",
+              "jwt": [
+                {
+                  "key": "secret",
+                  "value": "",
+                  "type": "string"
+                },
+                {
+                  "key": "isSecretBase64Encoded",
+                  "value": true,
+                  "type": "boolean"
+                },
+                {
+                  "key": "header",
+                  "value": "{}",
+                  "type": "string"
+                },
+                {
+                  "key": "algorithm",
+                  "value": "HS256",
+                  "type": "string"
+                },
+                {
+                  "key": "payload",
+                  "value": "{}",
+                  "type": "string"
+                },
+                {
+                  "key": "addTokenTo",
+                  "value": "header",
+                  "type": "string"
+                },
+                {
+                  "key": "headerPrefix",
+                  "value": "Bearer",
+                  "type": "string"
+                },
+                {
+                  "key": "queryParamKey",
+                  "value": "token",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIyNmQxNGE0NC1hNTAxLTQyZjItOTFmNi01MjllYzVkZGI1OWMiLCJlbWFpbCI6Im1vYWF6c2VhZGF3eUBnbWFpbC5jb20iLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE3NjY3OTM5NzIsImV4cCI6MTc2NzM5ODc3Mn0.hFDwOFSPHM_qAgry2Ix2LlSLJx_Csch30cKzvjI2S8I",
+                "type": "text",
+                "disabled": true
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"name\": \"sports\",\r\n    \"description\": \"this category is about sports\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/v1/books",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "v1",
+                "books"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "New Request",
+          "request": {
+            "method": "GET",
+            "header": []
+          },
+          "response": []
+        },
+        {
+          "name": "New Request",
+          "request": {
+            "method": "GET",
+            "header": []
+          },
+          "response": []
+        },
+        {
+          "name": "New Request",
+          "request": {
+            "method": "GET",
+            "header": []
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Accounts",
+      "item": [
+        {
+          "name": "New Request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzY1NjE2MzEzLCJpYXQiOjE3NjQzMjAzMTMsImp0aSI6IjkyOTc5MDFmNTc2YzQ4M2VhMDM2Y2QzNmIwNmQxNWQwIiwidXNlcl9pZCI6IjEifQ.-BvNJSgFxZj-4t-mMCLLZg2hJig-TCJDbb9uqyN-_pc",
+                "type": "text",
+                "disabled": true
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"first_name\": \"Ali\",\r\n    \"last_name\": \"Mahmoud\",\r\n    \"email\": \"ali@gmail.com\",\r\n    \"password\": \"789456\",\r\n    \"password_confirm\": \"789456\",\r\n    \"phone_number\": 2012564678\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://127.0.0.1:8000/api/v1/accounts/signup/",
+              "protocol": "http",
+              "host": [
+                "127",
+                "0",
+                "0",
+                "1"
+              ],
+              "port": "8000",
+              "path": [
+                "api",
+                "v1",
+                "accounts",
+                "signup",
+                ""
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "New Request",
+          "request": {
+            "method": "GET",
+            "header": []
+          },
+          "response": []
+        },
+        {
+          "name": "New Request",
+          "request": {
+            "method": "GET",
+            "header": []
+          },
+          "response": []
+        },
+        {
+          "name": "New Request",
+          "request": {
+            "method": "GET",
+            "header": []
+          },
+          "response": []
+        },
+        {
+          "name": "New Request",
+          "request": {
+            "method": "GET",
+            "header": []
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Orders",
+      "item": [
+        {
+          "name": "New Request",
+          "request": {
+            "method": "GET",
+            "header": []
+          },
+          "response": []
+        },
+        {
+          "name": "New Request",
+          "request": {
+            "method": "GET",
+            "header": []
+          },
+          "response": []
+        },
+        {
+          "name": "New Request",
+          "request": {
+            "method": "GET",
+            "header": []
+          },
+          "response": []
+        },
+        {
+          "name": "New Request",
+          "request": {
+            "method": "GET",
+            "header": []
+          },
+          "response": []
+        },
+        {
+          "name": "New Request",
+          "request": {
+            "method": "GET",
+            "header": []
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "New Request",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:3000/tickets",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "3000",
+          "path": [
+            "tickets"
+          ]
+        }
+      },
+      "response": []
+    }
+  ]
+}
