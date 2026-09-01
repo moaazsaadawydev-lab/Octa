@@ -54,6 +54,10 @@ export function ExecuteRawQuery(arg1, arg2, arg3) {
   return window['go']['main']['App']['ExecuteRawQuery'](arg1, arg2, arg3);
 }
 
+export function ExecuteRedisCommand(arg1, arg2) {
+  return window['go']['main']['App']['ExecuteRedisCommand'](arg1, arg2);
+}
+
 export function ExplainQuery(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['ExplainQuery'](arg1, arg2, arg3, arg4);
 }

@@ -682,6 +682,7 @@ import {
   RedisConnectResult,
   RedisScanResult,
   RedisKeyDetail,
+  RedisCommandResult,
 } from '../types/redis';
 
 // ============================================================================
@@ -874,6 +875,36 @@ export async function flushRedisDB(
     console.warn('FlushRedisDB binding error:', e);
   }
   return false;
+}
+
+export async function executeRedisCommand(
+  config: RedisConnectionConfig,
+  commandLine: string
+): Promise<RedisCommandResult> {
+  try {
+    const w = window as any;
+    if (w && w.go && w.go.main && w.go.main.App && typeof w.go.main.App.ExecuteRedisCommand === 'function') {
+      return await w.go.main.App.ExecuteRedisCommand(config, commandLine);
+    }
+  } catch (e: any) {
+    console.warn('ExecuteRedisCommand binding error:', e);
+    return {
+      rawOutput: null,
+      formatted: `(error) ${e?.message || String(e)}`,
+      resultType: 'error',
+      durationMs: 0,
+      command: commandLine,
+      error: e?.message || String(e),
+    };
+  }
+  return {
+    rawOutput: null,
+    formatted: '(error) Wails bridge not available',
+    resultType: 'error',
+    durationMs: 0,
+    command: commandLine,
+    error: 'Wails bridge not available',
+  };
 }
 
 

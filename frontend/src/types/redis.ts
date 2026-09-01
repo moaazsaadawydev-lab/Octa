@@ -55,3 +55,12 @@ export interface RedisKeyDetail {
   setValue?: string[];
   zsetValue?: ZSetMember[];
 }
+
+export interface RedisCommandResult {
+  rawOutput: any;
+  formatted: string;
+  resultType: 'string' | 'integer' | 'slice' | 'map' | 'status' | 'error' | 'nil' | 'float' | 'null';
+  durationMs: number;
+  command: string;
+  error?: string;
+}

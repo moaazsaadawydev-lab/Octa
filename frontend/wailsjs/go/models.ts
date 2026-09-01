@@ -489,6 +489,28 @@ export namespace main {
 	        this.isSelect = source["isSelect"];
 	    }
 	}
+	export class RedisCommandResult {
+	    rawOutput: any;
+	    formatted: string;
+	    resultType: string;
+	    durationMs: number;
+	    command: string;
+	    error?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new RedisCommandResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.rawOutput = source["rawOutput"];
+	        this.formatted = source["formatted"];
+	        this.resultType = source["resultType"];
+	        this.durationMs = source["durationMs"];
+	        this.command = source["command"];
+	        this.error = source["error"];
+	    }
+	}
 	export class RedisServerInfo {
 	    redisVersion: string;
 	    connectedClients: number;

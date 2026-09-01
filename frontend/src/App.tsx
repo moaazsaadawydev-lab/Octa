@@ -674,7 +674,7 @@ export function App() {
   }, [activeProject, projectFilePath, connections, queriesTree]);
 
   return (
-    <div className="flex flex-col h-screen w-screen bg-surface-950 text-gray-100 font-sans overflow-hidden select-none">
+    <div className="flex flex-col h-screen w-screen bg-slate-50 dark:bg-surface-950 text-slate-900 dark:text-gray-100 font-sans overflow-hidden select-none transition-colors">
       {/* Top Frameless TitleBar with Brand, Project Info & Actions */}
       <TitleBar
         activeModule={activeModule}

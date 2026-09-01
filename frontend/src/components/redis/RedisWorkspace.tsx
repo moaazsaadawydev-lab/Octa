@@ -30,7 +30,11 @@ import {
   CheckCircle2,
   AlertCircle,
   Loader2,
-  Key
+  Key,
+  Terminal,
+  Zap,
+  Code2,
+  Play
 } from 'lucide-react';
 import Editor from '@monaco-editor/react';
 import {
@@ -53,7 +57,10 @@ import {
   flushRedisDB,
 } from '../../services/api';
 import { NewRedisConnectionModal } from './NewRedisConnectionModal';
+import { RedisWorkbench } from './RedisWorkbench';
 import { HomeLanding } from '../layout/HomeLanding';
+import { useTheme } from '../../context/ThemeContext';
+import { defineOctaTheme } from '../../types/http';
 
 interface RedisWorkspaceProps {
   connections: RedisConnectionConfig[];
@@ -115,6 +122,7 @@ export const RedisWorkspace: React.FC<RedisWorkspaceProps> = ({
     return connections.length > 0 ? connections[0].id : '';
   });
   const [isConnModalOpen, setIsConnModalOpen] = useState(false);
+  const { monacoTheme } = useTheme();
   const [editingConn, setEditingConn] = useState<RedisConnectionConfig | null>(null);
 
   // Sync activeConnId if connections list changes
@@ -136,6 +144,9 @@ export const RedisWorkspace: React.FC<RedisWorkspaceProps> = ({
 
   // Active DB state (0-15)
   const [activeDb, setActiveDb] = useState<number>(0);
+
+  // Workspace View Mode: Explorer vs Workbench / Playground
+  const [workspaceMode, setWorkspaceMode] = useState<'explorer' | 'workbench'>('explorer');
 
   // Resizable sidebar state (persisted)
   const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
@@ -991,6 +1002,34 @@ export const RedisWorkspace: React.FC<RedisWorkspaceProps> = ({
           </div>
         </div>
 
+        {/* Center: Mode Switcher (Explorer vs Workbench) */}
+        <div className="flex items-center bg-[#18181d] border border-zinc-700/80 rounded-lg p-0.5 shadow-inner">
+          <button
+            type="button"
+            onClick={() => setWorkspaceMode('explorer')}
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+              workspaceMode === 'explorer'
+                ? 'bg-blue-600 text-white shadow-sm'
+                : 'text-zinc-400 hover:text-zinc-200'
+            }`}
+          >
+            <FolderTree className="w-3.5 h-3.5" />
+            <span>Keys Explorer</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setWorkspaceMode('workbench')}
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+              workspaceMode === 'workbench'
+                ? 'bg-blue-600 text-white shadow-sm'
+                : 'text-zinc-400 hover:text-zinc-200'
+            }`}
+          >
+            <Terminal className="w-3.5 h-3.5" />
+            <span>Workbench / CLI</span>
+          </button>
+        </div>
+
         {/* Right: Actions */}
         <div className="flex items-center gap-2">
           {/* Server Info Button */}
@@ -1051,8 +1090,15 @@ export const RedisWorkspace: React.FC<RedisWorkspaceProps> = ({
         </div>
       </div>
 
-      {/* Main Body: Left Sidebar + Divider + Center Tabs / Content */}
-      <div className="flex-1 flex overflow-hidden">
+      {workspaceMode === 'workbench' ? (
+        <RedisWorkbench
+          activeConn={activeConn}
+          activeDb={activeDb}
+          showToast={showToast}
+        />
+      ) : (
+        /* Main Body: Left Sidebar + Divider + Center Tabs / Content */
+        <div className="flex-1 flex overflow-hidden">
         {/* =========================================================================
             STANDARDIZED RESIZABLE LEFT EXPLORER
            ========================================================================= */}
@@ -1454,11 +1500,12 @@ export const RedisWorkspace: React.FC<RedisWorkspaceProps> = ({
                         </button>
                       </div>
                     </div>
-                    <div className="flex-1 min-h-0">
+                    <div className="flex-1 min-h-0 bg-white dark:bg-[#141416]">
                       <Editor
                         height="100%"
                         language="json"
-                        theme="vs-dark"
+                        theme={monacoTheme}
+                        beforeMount={(monaco) => defineOctaTheme(monaco)}
                         value={activeTab.draftString}
                         onChange={(val) => {
                           setTabs((prev) =>
@@ -1790,6 +1837,7 @@ export const RedisWorkspace: React.FC<RedisWorkspaceProps> = ({
           )}
         </div>
       </div>
+      )}
 
       {/* =========================================================================
           MODALS & DIALOGS

@@ -28,6 +28,16 @@ interface VariableToken {
   startIndex?: number;
 }
 
+const SHARED_TYPOGRAPHY_STYLE: React.CSSProperties = {
+  fontFamily: "JetBrains Mono, Fira Code, Menlo, Monaco, Consolas, 'Courier New', monospace",
+  fontSize: '12.5px',
+  lineHeight: '20px',
+  letterSpacing: '0px',
+  fontWeight: 500,
+  boxSizing: 'border-box',
+  whiteSpace: 'pre',
+};
+
 export const UrlHighlightInput: React.FC<UrlHighlightInputProps> = ({
   value,
   onChange,
@@ -51,11 +61,15 @@ export const UrlHighlightInput: React.FC<UrlHighlightInputProps> = ({
   const [editValue, setEditValue] = useState<string>('');
 
   // Sync horizontal scrolling between input and highlight overlay
-  const handleScroll = () => {
+  const handleScroll = useCallback(() => {
     if (inputRef.current && highlightRef.current) {
       highlightRef.current.scrollLeft = inputRef.current.scrollLeft;
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    handleScroll();
+  }, [value, handleScroll]);
 
   // Close popover on outside click or escape
   useEffect(() => {
@@ -237,19 +251,26 @@ export const UrlHighlightInput: React.FC<UrlHighlightInputProps> = ({
         disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={onKeyDown}
+        onKeyUp={handleScroll}
+        onClick={handleScroll}
+        onSelect={handleScroll}
         onScroll={handleScroll}
         placeholder={placeholder}
         spellCheck={false}
         autoComplete="off"
-        className="w-full h-full px-3 py-1.5 text-xs font-mono bg-[#1a1a1d] border border-[#2b2b30] rounded-lg text-transparent caret-brand-400 placeholder:text-zinc-500 selection:bg-brand-500/30 focus:border-brand-500 focus:ring-1 focus:ring-brand-500/20 outline-none transition-all relative z-0"
+        style={SHARED_TYPOGRAPHY_STYLE}
+        className="w-full h-full px-3 py-1.5 bg-[#1a1a1d] border border-[#2b2b30] rounded-lg text-transparent caret-brand-400 placeholder:text-zinc-500 selection:bg-brand-500/30 focus:border-brand-500 focus:ring-1 focus:ring-brand-500/20 outline-none transition-all relative z-0"
       />
 
       {/* Syntax Highlighting & Interactive Hover Trigger Overlay */}
       <div
         ref={highlightRef}
         aria-hidden="true"
-        className="absolute inset-0 px-3 py-1.5 flex items-center whitespace-pre overflow-x-hidden overflow-y-hidden pointer-events-none select-none text-xs font-mono leading-none z-10"
-        style={{ scrollbarWidth: 'none' }}
+        style={{
+          ...SHARED_TYPOGRAPHY_STYLE,
+          scrollbarWidth: 'none',
+        }}
+        className="absolute inset-0 px-3 py-1.5 border border-transparent rounded-lg overflow-x-hidden overflow-y-hidden pointer-events-none select-none z-10"
       >
         {tokens.length === 0 ? (
           <span className="text-transparent"></span>
@@ -277,10 +298,10 @@ export const UrlHighlightInput: React.FC<UrlHighlightInputProps> = ({
                   e.stopPropagation();
                   openTokenPopover(tok, e.currentTarget);
                 }}
-                className={`pointer-events-auto cursor-pointer rounded px-1 py-0.5 font-semibold transition-all shadow-sm hover:brightness-125 active:scale-95 ${
+                className={`pointer-events-auto cursor-pointer rounded-sm px-0 mx-0 font-semibold transition-colors hover:brightness-125 ${
                   isValid
-                    ? 'text-sky-400 bg-sky-500/10 border border-sky-500/25 hover:border-sky-400'
-                    : 'text-rose-400 bg-rose-500/10 border border-rose-500/30 hover:border-rose-400'
+                    ? 'text-sky-400 bg-sky-500/20 shadow-[inset_0_0_0_1px_rgba(56,189,248,0.35)]'
+                    : 'text-rose-400 bg-rose-500/20 shadow-[inset_0_0_0_1px_rgba(244,63,94,0.4)]'
                 }`}
               >
                 {tok.text}

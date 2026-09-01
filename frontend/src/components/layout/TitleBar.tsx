@@ -63,16 +63,16 @@ export const TitleBar: React.FC<TitleBarProps> = ({
   return (
     <div
       style={{ '--wails-draggable': 'drag' } as any}
-      className="h-8 bg-[#0c0c0c] border-b border-[#222222] flex items-center justify-between px-3 select-none flex-shrink-0 z-50 text-xs font-sans"
+      className="h-8 bg-slate-100 dark:bg-[#0c0c0c] border-b border-slate-200 dark:border-[#222222] text-slate-800 dark:text-zinc-200 flex items-center justify-between px-3 select-none flex-shrink-0 z-50 text-xs font-sans transition-colors"
     >
       {/* Left: Brand Identity & Active Project */}
       <div className="flex items-center gap-2">
         <div className="flex items-center gap-1.5">
           <img src={appIcon} alt="Octa" className="w-3.5 h-3.5 object-contain drop-shadow-[0_0_6px_rgba(56,189,248,0.4)]" />
-          <span className="font-semibold text-zinc-200 text-xs tracking-tight">Octa</span>
+          <span className="font-semibold text-slate-800 dark:text-zinc-200 text-xs tracking-tight">Octa</span>
         </div>
 
-        <span className="text-zinc-600">/</span>
+        <span className="text-slate-400 dark:text-zinc-600">/</span>
 
         {activeProject ? (
           /* Active Project Indicator & Menu Trigger */
@@ -81,17 +81,17 @@ export const TitleBar: React.FC<TitleBarProps> = ({
               type="button"
               onClick={() => setIsMenuOpen(!isMenuOpen)}
               title={projectFilePath || 'Active Project'}
-              className="flex items-center gap-1 px-1.5 py-0.5 rounded-md hover:bg-zinc-800/80 text-zinc-200 hover:text-white transition-all cursor-pointer font-medium text-xs group"
+              className="flex items-center gap-1 px-1.5 py-0.5 rounded-md hover:bg-slate-200/80 dark:hover:bg-zinc-800/80 text-slate-700 dark:text-zinc-200 hover:text-slate-900 dark:hover:text-white transition-all cursor-pointer font-medium text-xs group"
             >
-              <Folder className="w-3.5 h-3.5 text-brand-400" />
+              <Folder className="w-3.5 h-3.5 text-brand-500 dark:text-brand-400" />
               <span className="truncate max-w-[180px]">{activeProject.name}</span>
-              <ChevronDown className="w-3 h-3 text-zinc-500 group-hover:text-zinc-300" />
+              <ChevronDown className="w-3 h-3 text-slate-400 dark:text-zinc-500 group-hover:text-slate-700 dark:group-hover:text-zinc-300" />
             </button>
 
             {/* Project Dropdown Menu */}
             {isMenuOpen && (
-              <div className="absolute left-0 top-full mt-1 w-52 bg-[#18181b] border border-zinc-700/80 rounded-xl shadow-2xl py-1 z-50 text-xs text-zinc-200 animate-in fade-in zoom-in-95 duration-100">
-                <div className="px-3 py-1.5 border-b border-zinc-800 text-[11px] text-zinc-500 font-mono truncate">
+              <div className="absolute left-0 top-full mt-1 w-52 bg-white dark:bg-[#18181b] border border-slate-200 dark:border-zinc-700/80 rounded-xl shadow-2xl py-1 z-50 text-xs text-slate-800 dark:text-zinc-200 animate-in fade-in zoom-in-95 duration-100">
+                <div className="px-3 py-1.5 border-b border-slate-200 dark:border-zinc-800 text-[11px] text-slate-400 dark:text-zinc-500 font-mono truncate">
                   {projectFilePath || 'In-Memory Project'}
                 </div>
 

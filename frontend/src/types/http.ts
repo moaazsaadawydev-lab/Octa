@@ -122,52 +122,14 @@ export const METHOD_COLORS: Record<string, { badge: string; text: string }> = HT
   return acc;
 }, {} as Record<string, { badge: string; text: string }>);
 
+import { registerOctaMonacoThemes } from '../utils/monacoThemes';
+
 // ============================================================================
 // MONACO THEME DEFINITION
 // ============================================================================
 
 export const defineOctaTheme = (monacoInstance: typeof monaco) => {
-  monacoInstance.editor.defineTheme('octa-dark', {
-    base: 'vs-dark',
-    inherit: true,
-    rules: [
-      { token: 'string.key.json', foreground: '38bdf8', fontStyle: 'bold' },
-      { token: 'type.property.name', foreground: '38bdf8', fontStyle: 'bold' },
-      { token: 'string.value.json', foreground: '34d399' },
-      { token: 'string', foreground: '34d399' },
-      { token: 'number', foreground: 'f59e0b' },
-      { token: 'number.json', foreground: 'f59e0b' },
-      { token: 'keyword.json', foreground: 'c084fc', fontStyle: 'bold' },
-      { token: 'keyword', foreground: 'c084fc', fontStyle: 'bold' },
-      { token: 'constant.language', foreground: 'f43f5e' },
-      { token: 'null', foreground: 'f43f5e' },
-      { token: 'comment', foreground: '71717a', fontStyle: 'italic' },
-      { token: 'delimiter', foreground: 'a1a1aa' },
-      { token: 'delimiter.bracket', foreground: 'e4e4e7' },
-    ],
-    colors: {
-      'editor.background': '#141416',
-      'editor.foreground': '#f4f4f5',
-      'editor.lineHighlightBackground': '#ffffff08',
-      'editor.lineHighlightBorder': '#00000000',
-      'editorLineNumber.foreground': '#52525b',
-      'editorLineNumber.activeForeground': '#a1a1aa',
-      'editorGutter.background': '#141416',
-      'editorIndentGuide.background': '#27272a',
-      'editorIndentGuide.activeBackground': '#3f3f46',
-      'editorWidget.background': '#18181b',
-      'editorWidget.border': '#27272a',
-      'editorSuggestWidget.background': '#18181b',
-      'editorSuggestWidget.border': '#27272a',
-      'editorSuggestWidget.selectedBackground': '#27272a',
-      'editorSuggestWidget.highlightForeground': '#38bdf8',
-      'scrollbarSlider.background': '#ffffff10',
-      'scrollbarSlider.hoverBackground': '#ffffff18',
-      'scrollbarSlider.activeBackground': '#ffffff24',
-      'editor.selectionBackground': '#38bdf825',
-      'editor.inactiveSelectionBackground': '#38bdf812',
-    },
-  });
+  registerOctaMonacoThemes(monacoInstance);
 };
 
 // ============================================================================

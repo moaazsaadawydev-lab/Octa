@@ -2,6 +2,8 @@ import React, { useRef, useEffect } from 'react';
 import Editor, { loader, OnMount, BeforeMount } from '@monaco-editor/react';
 import * as monaco from 'monaco-editor';
 import { format } from 'sql-formatter';
+import { useTheme } from '../../context/ThemeContext';
+import { registerOctaMonacoThemes } from '../../utils/monacoThemes';
 
 // Configure Monaco to use locally bundled monaco-editor package rather than fetching from CDN
 loader.config({ monaco });
@@ -29,6 +31,7 @@ export const QueryEditor: React.FC<QueryEditorProps> = ({
   tables = [],
   columns = [],
 }) => {
+  const { monacoTheme } = useTheme();
   const editorRef = useRef<any>(null);
   const monacoRef = useRef<any>(null);
   const tablesRef = useRef<string[]>(tables);
@@ -42,34 +45,14 @@ export const QueryEditor: React.FC<QueryEditorProps> = ({
     columnsRef.current = columns;
   }, [columns]);
 
+  useEffect(() => {
+    if (monacoRef.current) {
+      monacoRef.current.editor.setTheme(monacoTheme);
+    }
+  }, [monacoTheme]);
+
   const handleBeforeMount: BeforeMount = (monacoInstance) => {
-    // Define custom dark theme matching Octa palette
-    monacoInstance.editor.defineTheme('octa-dark', {
-      base: 'vs-dark',
-      inherit: true,
-      rules: [
-        { token: 'keyword', foreground: '38bdf8', fontStyle: 'bold' },
-        { token: 'string', foreground: 'a3e635' },
-        { token: 'number', foreground: 'f59e0b' },
-        { token: 'comment', foreground: '6b7280', fontStyle: 'italic' },
-        { token: 'operator.sql', foreground: '94a3b8' },
-        { token: 'type.sql', foreground: 'c084fc' },
-      ],
-      colors: {
-        'editor.background': '#1e1e1e',
-        'editor.foreground': '#f3f4f6',
-        'editor.lineHighlightBackground': '#252528',
-        'editorLineNumber.foreground': '#4b5563',
-        'editorLineNumber.activeForeground': '#9ca3af',
-        'editorGutter.background': '#1a1a1d',
-        'editorIndentGuide.background': '#262626',
-        'editorIndentGuide.activeBackground': '#404040',
-        'editorSuggestWidget.background': '#181818',
-        'editorSuggestWidget.border': '#2d2d2d',
-        'editorSuggestWidget.selectedBackground': '#262626',
-        'editorSuggestWidget.highlightForeground': '#38bdf8',
-      },
-    });
+    registerOctaMonacoThemes(monacoInstance);
 
     if (!isProvidersRegistered) {
       isProvidersRegistered = true;
@@ -236,8 +219,8 @@ export const QueryEditor: React.FC<QueryEditorProps> = ({
     editorRef.current = editor;
     monacoRef.current = monacoInstance;
 
-    // Explicitly set vs-dark theme on editor mount
-    monacoInstance.editor.setTheme('vs-dark');
+    // Set active theme on editor mount
+    monacoInstance.editor.setTheme(monacoTheme);
 
     // Shortcut: Ctrl+Enter / Cmd+Enter runs query
     editor.addCommand(monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.Enter, () => {
@@ -275,17 +258,17 @@ export const QueryEditor: React.FC<QueryEditorProps> = ({
   };
 
   return (
-    <div className="w-full h-full flex flex-col flex-1 min-h-0 relative overflow-hidden bg-[#1e1e1e]">
+    <div className="w-full h-full flex flex-col flex-1 min-h-0 relative overflow-hidden bg-white dark:bg-[#141416]">
       <Editor
         height="100%"
         width="100%"
         defaultLanguage="sql"
         language="sql"
-        theme="vs-dark"
+        theme={monacoTheme}
         value={value ?? ''}
         onChange={(val) => onChange(val || '')}
         loading={
-          <div className="flex items-center justify-center h-full w-full bg-[#1e1e1e] text-zinc-500 text-xs gap-2 font-mono select-none">
+          <div className="flex items-center justify-center h-full w-full bg-white dark:bg-[#141416] text-slate-400 dark:text-zinc-500 text-xs gap-2 font-mono select-none">
             <div className="w-3.5 h-3.5 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
             <span>Loading SQL Editor...</span>
           </div>
@@ -293,7 +276,7 @@ export const QueryEditor: React.FC<QueryEditorProps> = ({
         beforeMount={handleBeforeMount}
         onMount={handleEditorDidMount}
         options={{
-          theme: 'vs-dark',
+          theme: monacoTheme,
           fontSize: 14,
           fontFamily: "Fira Code, MesloLGS NF, Menlo, Monaco, 'Courier New', monospace",
           fontLigatures: true,

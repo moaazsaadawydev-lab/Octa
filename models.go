@@ -179,6 +179,16 @@ type RedisScanResult struct {
 	NextCursor uint64         `json:"nextCursor"`
 }
 
+// RedisCommandResult holds the output from a raw CLI command execution in Redis Workbench.
+type RedisCommandResult struct {
+	RawOutput  any     `json:"rawOutput"`
+	Formatted  string  `json:"formatted"`
+	ResultType string  `json:"resultType"` // "string", "integer", "slice", "map", "status", "error", "nil"
+	DurationMs float64 `json:"durationMs"`
+	Command    string  `json:"command"`
+	Error      string  `json:"error,omitempty"`
+}
+
 // FormFieldPayload represents a key-value or file part in multipart requests.
 type FormFieldPayload struct {
 	Key         string   `json:"key"`

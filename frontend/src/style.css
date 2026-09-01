@@ -3,17 +3,44 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --bg-main: #0e0e11;
+    --bg-surface: #141418;
+    --bg-sidebar: #111114;
+    --bg-card: #18181b;
+    --border-subtle: #242429;
+    --text-main: #f4f4f5;
+    --text-muted: #a1a1aa;
+    color-scheme: dark;
+  }
+
+  html.light {
+    --bg-main: #f8fafc;
+    --bg-surface: #ffffff;
+    --bg-sidebar: #f1f5f9;
+    --bg-card: #ffffff;
+    --border-subtle: #e2e8f0;
+    --text-main: #0f172a;
+    --text-muted: #64748b;
+    color-scheme: light;
+  }
+
   html, body {
     margin: 0;
     padding: 0;
     height: 100%;
     width: 100%;
     overflow: hidden;
-    background-color: #121212;
-    color: #e5e7eb;
+    background-color: var(--bg-main);
+    color: var(--text-main);
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     user-select: none;
     -webkit-user-select: none;
+  }
+
+  html.light, html.light body {
+    background-color: #f8fafc;
+    color: #0f172a;
   }
 
   #root {
@@ -38,6 +65,14 @@
 
   ::-webkit-scrollbar-thumb:hover {
     background: #444444;
+  }
+
+  html.light ::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+  }
+
+  html.light ::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
   }
 }
 

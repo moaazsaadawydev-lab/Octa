@@ -45,6 +45,7 @@ import { Environment, EnvironmentVariable, EnvironmentVariableType } from '../..
 import { mapPostmanCollection } from '../../services/postmanMapper';
 import { UrlHighlightInput } from './UrlHighlightInput';
 import { resolveTemplate, getAvailableVariablesMap } from '../../utils/templateResolver';
+import { useTheme } from '../../context/ThemeContext';
 
 // Configure Monaco to use locally bundled version
 loader.config({ monaco });
@@ -352,6 +353,7 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
   onUpdateData,
   showToast,
 }) => {
+  const { monacoTheme } = useTheme();
   const liveFileObjectsRef = useRef<Map<string, File>>(new Map());
 
   // --- Environments & Variables State ---
@@ -2771,12 +2773,12 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
                               </div>
 
                               {/* Monaco Editor Instance */}
-                              <div className="flex-1 w-full h-full min-h-[220px] relative overflow-hidden bg-[#141416]">
+                              <div className="flex-1 w-full h-full min-h-[220px] relative overflow-hidden bg-white dark:bg-[#141416]">
                                 <Editor
                                   height="100%"
                                   width="100%"
                                   language="json"
-                                  theme="octa-dark"
+                                  theme={monacoTheme}
                                   beforeMount={(monacoInstance) => defineOctaTheme(monacoInstance)}
                                   onMount={(editor) => {
                                     setTimeout(() => {
@@ -3218,12 +3220,12 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
                     </div>
 
                     {/* Response Body Inspector with Read-Only Monaco Editor */}
-                    <div className="flex-1 w-full h-full min-h-0 relative overflow-hidden bg-[#111114]">
+                    <div className="flex-1 w-full h-full min-h-0 relative overflow-hidden bg-white dark:bg-[#111114]">
                       {activeResponseState ? (
                         <Editor
                           height="100%"
                           language={getResponseEditorConfig(activeResponseState).language}
-                          theme="octa-dark"
+                          theme={monacoTheme}
                           beforeMount={(monacoInstance) => defineOctaTheme(monacoInstance)}
                           value={getResponseEditorConfig(activeResponseState).value}
                           options={{

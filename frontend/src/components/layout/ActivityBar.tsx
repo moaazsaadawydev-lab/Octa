@@ -18,13 +18,13 @@ export const ActivityBar: React.FC<ActivityBarProps> = ({
   onOpenSettings,
 }) => {
   return (
-    <div className="w-12 bg-surface-950 border-r border-[#262626] flex flex-col items-center py-3 select-none flex-shrink-0 z-20">
+    <div className="w-12 bg-slate-100 dark:bg-surface-950 border-r border-slate-200 dark:border-[#262626] flex flex-col items-center py-3 select-none flex-shrink-0 z-20 transition-colors">
       {/* App Logo / Brand */}
       <div
         onClick={() => setActiveModule('welcome')}
         title="Welcome Screen"
-        className={`w-8 h-8 rounded-lg bg-brand-600/20 border border-brand-500/30 flex items-center justify-center mb-5 p-1 shadow-sm group hover:scale-105 transition-transform cursor-pointer ${
-          activeModule === 'welcome' ? 'ring-2 ring-brand-400' : ''
+        className={`w-8 h-8 rounded-lg bg-brand-600/10 dark:bg-brand-600/20 border border-brand-500/20 dark:border-brand-500/30 flex items-center justify-center mb-5 p-1 shadow-sm group hover:scale-105 transition-transform cursor-pointer ${
+          activeModule === 'welcome' ? 'ring-2 ring-brand-500 dark:ring-brand-400' : ''
         }`}
       >
         <img src={appIcon} alt="Octa" className="w-full h-full object-contain drop-shadow-[0_0_8px_rgba(56,189,248,0.4)]" />
@@ -40,14 +40,14 @@ export const ActivityBar: React.FC<ActivityBarProps> = ({
           title={hasProject ? "Databases (Tables, SQL Playground, ERD) (Ctrl+1)" : "Open a project to use Databases"}
           className={`relative w-10 h-10 rounded-lg flex items-center justify-center transition-all ${
             !hasProject
-              ? 'opacity-30 cursor-not-allowed text-zinc-600'
+              ? 'opacity-30 cursor-not-allowed text-slate-400 dark:text-zinc-600'
               : activeModule === 'databases'
-              ? 'bg-surface-800 text-brand-400 font-medium shadow-sm cursor-pointer'
-              : 'text-zinc-400 hover:text-zinc-200 hover:bg-surface-800/60 cursor-pointer'
+              ? 'bg-slate-200 dark:bg-surface-800 text-brand-600 dark:text-brand-400 font-medium shadow-sm cursor-pointer'
+              : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-200/60 dark:hover:bg-surface-800/60 cursor-pointer'
           }`}
         >
           {hasProject && activeModule === 'databases' && (
-            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-brand-400 rounded-r shadow-[0_0_8px_rgba(56,189,248,0.8)]" />
+            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-brand-500 dark:bg-brand-400 rounded-r shadow-[0_0_8px_rgba(56,189,248,0.8)]" />
           )}
           <Database className="w-5 h-5" />
         </button>
@@ -60,14 +60,14 @@ export const ActivityBar: React.FC<ActivityBarProps> = ({
           title={hasProject ? "Redis / Cache Explorer (Ctrl+2)" : "Open a project to use Redis Explorer"}
           className={`relative w-10 h-10 rounded-lg flex items-center justify-center transition-all ${
             !hasProject
-              ? 'opacity-30 cursor-not-allowed text-zinc-600'
+              ? 'opacity-30 cursor-not-allowed text-slate-400 dark:text-zinc-600'
               : activeModule === 'redis'
-              ? 'bg-surface-800 text-brand-400 font-medium shadow-sm cursor-pointer'
-              : 'text-zinc-400 hover:text-zinc-200 hover:bg-surface-800/60 cursor-pointer'
+              ? 'bg-slate-200 dark:bg-surface-800 text-brand-600 dark:text-brand-400 font-medium shadow-sm cursor-pointer'
+              : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-200/60 dark:hover:bg-surface-800/60 cursor-pointer'
           }`}
         >
           {hasProject && activeModule === 'redis' && (
-            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-brand-400 rounded-r shadow-[0_0_8px_rgba(56,189,248,0.8)]" />
+            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-brand-500 dark:bg-brand-400 rounded-r shadow-[0_0_8px_rgba(56,189,248,0.8)]" />
           )}
           <Layers className="w-5 h-5" />
         </button>
@@ -80,14 +80,14 @@ export const ActivityBar: React.FC<ActivityBarProps> = ({
           title={hasProject ? "HTTP / API Client (Ctrl+3)" : "Open a project to use HTTP Client"}
           className={`relative w-10 h-10 rounded-lg flex items-center justify-center transition-all ${
             !hasProject
-              ? 'opacity-30 cursor-not-allowed text-zinc-600'
+              ? 'opacity-30 cursor-not-allowed text-slate-400 dark:text-zinc-600'
               : activeModule === 'http'
-              ? 'bg-surface-800 text-brand-400 font-medium shadow-sm cursor-pointer'
-              : 'text-zinc-400 hover:text-zinc-200 hover:bg-surface-800/60 cursor-pointer'
+              ? 'bg-slate-200 dark:bg-surface-800 text-brand-600 dark:text-brand-400 font-medium shadow-sm cursor-pointer'
+              : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-200/60 dark:hover:bg-surface-800/60 cursor-pointer'
           }`}
         >
           {hasProject && activeModule === 'http' && (
-            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-brand-400 rounded-r shadow-[0_0_8px_rgba(56,189,248,0.8)]" />
+            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-brand-500 dark:bg-brand-400 rounded-r shadow-[0_0_8px_rgba(56,189,248,0.8)]" />
           )}
           <Globe className="w-5 h-5" />
         </button>
@@ -105,7 +105,7 @@ export const ActivityBar: React.FC<ActivityBarProps> = ({
             }
           }}
           title="Preferences / Settings (Ctrl+,)"
-          className="relative w-10 h-10 rounded-lg flex items-center justify-center transition-all cursor-pointer text-zinc-400 hover:text-zinc-200 hover:bg-surface-800/60"
+          className="relative w-10 h-10 rounded-lg flex items-center justify-center transition-all cursor-pointer text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-200/60 dark:hover:bg-surface-800/60"
         >
           <Settings className="w-5 h-5" />
         </button>

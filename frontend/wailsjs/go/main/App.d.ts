@@ -28,6 +28,8 @@ export function ExecuteHttpRequest(arg1:main.HttpRequestPayload):Promise<main.Ht
 
 export function ExecuteRawQuery(arg1:main.ConnectionConfig,arg2:string,arg3:string):Promise<Array<main.QueryResult>>;
 
+export function ExecuteRedisCommand(arg1:main.RedisConnectionConfig,arg2:string):Promise<main.RedisCommandResult>;
+
 export function ExplainQuery(arg1:main.ConnectionConfig,arg2:string,arg3:string,arg4:boolean):Promise<main.ExplainPlanResult>;
 
 export function ExportDatabaseSQL(arg1:main.ConnectionConfig,arg2:string,arg3:boolean):Promise<string>;

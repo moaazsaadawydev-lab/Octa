@@ -146,6 +146,9 @@ func (a *App) SetRedisTTL(config RedisConnectionConfig, key string, ttlSeconds i
 func (a *App) FlushRedisDB(config RedisConnectionConfig) (bool, error) {
 	return a.redisService.FlushRedisDB(config)
 }
+func (a *App) ExecuteRedisCommand(config RedisConnectionConfig, commandLine string) (RedisCommandResult, error) {
+	return a.redisService.ExecuteRedisCommand(config, commandLine)
+}
 func (a *App) SaveRedisConnections(jsonData string) error {
 	return a.redisService.SaveRedisConnections(jsonData)
 }
