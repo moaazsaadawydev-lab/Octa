@@ -6,7 +6,15 @@ export function AddColumn(arg1:main.ConnectionConfig,arg2:string,arg3:string,arg
 
 export function ClearQueryLogs():Promise<boolean>;
 
+export function ConnectRedis(arg1:main.RedisConnectionConfig):Promise<main.RedisConnectResult>;
+
+export function CreateRedisKey(arg1:main.RedisConnectionConfig,arg2:string,arg3:string,arg4:any,arg5:number):Promise<boolean>;
+
 export function DeleteConnection(arg1:string):Promise<boolean>;
+
+export function DeleteRedisKey(arg1:main.RedisConnectionConfig,arg2:string):Promise<boolean>;
+
+export function DeleteRedisKeysBatch(arg1:main.RedisConnectionConfig,arg2:Array<string>):Promise<number>;
 
 export function DeleteTableRows(arg1:main.ConnectionConfig,arg2:string,arg3:string,arg4:string,arg5:Array<string>):Promise<boolean>;
 
@@ -22,6 +30,8 @@ export function ExportDatabaseSQL(arg1:main.ConnectionConfig,arg2:string,arg3:bo
 
 export function ExportTableSQL(arg1:main.ConnectionConfig,arg2:string,arg3:string,arg4:boolean):Promise<string>;
 
+export function FlushRedisDB(arg1:main.RedisConnectionConfig):Promise<boolean>;
+
 export function GetDatabaseSchemaDetails(arg1:main.ConnectionConfig,arg2:string):Promise<main.DatabaseSchema>;
 
 export function GetDatabases(arg1:main.ConnectionConfig):Promise<Array<string>>;
@@ -29,6 +39,8 @@ export function GetDatabases(arg1:main.ConnectionConfig):Promise<Array<string>>;
 export function GetEnumValues(arg1:main.ConnectionConfig,arg2:string,arg3:string):Promise<Array<string>>;
 
 export function GetQueryLogs():Promise<Array<main.QueryLog>>;
+
+export function GetRedisKeyDetails(arg1:main.RedisConnectionConfig,arg2:string):Promise<main.RedisKeyDetail>;
 
 export function GetSavedConnections():Promise<Array<main.ConnectionConfig>>;
 
@@ -44,6 +56,8 @@ export function LoadEnvironmentsData():Promise<string>;
 
 export function LoadHttpClientData():Promise<string>;
 
+export function LoadRedisConnections():Promise<string>;
+
 export function LoadSqlQueriesData():Promise<string>;
 
 export function RenameColumn(arg1:main.ConnectionConfig,arg2:string,arg3:string,arg4:string,arg5:string):Promise<boolean>;
@@ -54,14 +68,22 @@ export function SaveEnvironmentsData(arg1:string):Promise<void>;
 
 export function SaveHttpClientData(arg1:string):Promise<void>;
 
+export function SaveRedisConnections(arg1:string):Promise<void>;
+
 export function SaveSQLDumpDialog(arg1:string,arg2:string):Promise<string>;
 
 export function SaveSqlQueriesData(arg1:string):Promise<void>;
 
+export function ScanRedisKeys(arg1:main.RedisConnectionConfig,arg2:string,arg3:number,arg4:number):Promise<main.RedisScanResult>;
+
 export function SelectFilesDialog():Promise<Array<main.SelectedFileMeta>>;
+
+export function SetRedisTTL(arg1:main.RedisConnectionConfig,arg2:string,arg3:number):Promise<boolean>;
 
 export function TestConnection(arg1:main.ConnectionConfig):Promise<boolean|string>;
 
 export function TruncateTable(arg1:main.ConnectionConfig,arg2:string,arg3:string):Promise<boolean>;
+
+export function UpdateRedisKey(arg1:main.RedisConnectionConfig,arg2:string,arg3:string,arg4:any,arg5:number):Promise<boolean>;
 
 export function UpdateTableRows(arg1:main.ConnectionConfig,arg2:string,arg3:string,arg4:string,arg5:Array<main.RowUpdate>):Promise<boolean>;

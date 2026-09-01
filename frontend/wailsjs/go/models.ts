@@ -349,6 +349,201 @@ export namespace main {
 	        this.isSelect = source["isSelect"];
 	    }
 	}
+	export class RedisServerInfo {
+	    redisVersion: string;
+	    connectedClients: string;
+	    usedMemoryHuman: string;
+	    totalKeys: number;
+	    uptimeInDays: string;
+	    rawInfo: Record<string, string>;
+	
+	    static createFrom(source: any = {}) {
+	        return new RedisServerInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.redisVersion = source["redisVersion"];
+	        this.connectedClients = source["connectedClients"];
+	        this.usedMemoryHuman = source["usedMemoryHuman"];
+	        this.totalKeys = source["totalKeys"];
+	        this.uptimeInDays = source["uptimeInDays"];
+	        this.rawInfo = source["rawInfo"];
+	    }
+	}
+	export class RedisConnectResult {
+	    success: boolean;
+	    serverInfo: RedisServerInfo;
+	    error?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new RedisConnectResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.success = source["success"];
+	        this.serverInfo = this.convertValues(source["serverInfo"], RedisServerInfo);
+	        this.error = source["error"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class RedisConnectionConfig {
+	    id: string;
+	    name: string;
+	    host: string;
+	    port: number;
+	    username?: string;
+	    password?: string;
+	    db: number;
+	    ssl: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new RedisConnectionConfig(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.host = source["host"];
+	        this.port = source["port"];
+	        this.username = source["username"];
+	        this.password = source["password"];
+	        this.db = source["db"];
+	        this.ssl = source["ssl"];
+	    }
+	}
+	export class ZSetMember {
+	    member: string;
+	    score: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new ZSetMember(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.member = source["member"];
+	        this.score = source["score"];
+	    }
+	}
+	export class RedisKeyDetail {
+	    key: string;
+	    type: string;
+	    ttl: number;
+	    memoryUsage: number;
+	    stringValue?: string;
+	    hashValue?: Record<string, string>;
+	    listValue?: string[];
+	    setValue?: string[];
+	    zsetValue?: ZSetMember[];
+	
+	    static createFrom(source: any = {}) {
+	        return new RedisKeyDetail(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.key = source["key"];
+	        this.type = source["type"];
+	        this.ttl = source["ttl"];
+	        this.memoryUsage = source["memoryUsage"];
+	        this.stringValue = source["stringValue"];
+	        this.hashValue = source["hashValue"];
+	        this.listValue = source["listValue"];
+	        this.setValue = source["setValue"];
+	        this.zsetValue = this.convertValues(source["zsetValue"], ZSetMember);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class RedisKeyInfo {
+	    key: string;
+	    type: string;
+	    ttl: number;
+	    memoryUsage: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new RedisKeyInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.key = source["key"];
+	        this.type = source["type"];
+	        this.ttl = source["ttl"];
+	        this.memoryUsage = source["memoryUsage"];
+	    }
+	}
+	export class RedisScanResult {
+	    keys: RedisKeyInfo[];
+	    nextCursor: number;
+	    totalKeys: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new RedisScanResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.keys = this.convertValues(source["keys"], RedisKeyInfo);
+	        this.nextCursor = source["nextCursor"];
+	        this.totalKeys = source["totalKeys"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	
 	export class RowUpdate {
 	    rowId: any;
 	    column: string;
@@ -421,6 +616,7 @@ export namespace main {
 	        this.durationMs = source["durationMs"];
 	    }
 	}
+	
 
 }
 

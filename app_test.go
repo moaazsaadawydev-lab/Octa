@@ -763,3 +763,22 @@ func TestEnvironmentsDataPersistence(t *testing.T) {
 		t.Errorf("Loaded environments data mismatch. Expected: %s, Got: %s", testJSON, loaded)
 	}
 }
+
+func TestRedisConnectionsPersistence(t *testing.T) {
+	app := &App{}
+	testJSON := `[{"id":"redis-1","name":"Local Redis","host":"127.0.0.1","port":6379,"db":0,"ssl":false}]`
+
+	err := app.SaveRedisConnections(testJSON)
+	if err != nil {
+		t.Fatalf("SaveRedisConnections failed: %v", err)
+	}
+
+	loaded, err := app.LoadRedisConnections()
+	if err != nil {
+		t.Fatalf("LoadRedisConnections failed: %v", err)
+	}
+
+	if loaded != testJSON {
+		t.Errorf("Loaded Redis connections mismatch. Expected: %s, Got: %s", testJSON, loaded)
+	}
+}

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Flame, Database, Globe, Settings } from 'lucide-react';
+import { Flame, Database, Layers, Globe, Settings } from 'lucide-react';
 import { ActiveSession } from '../types/connection';
 import { ActiveModule } from './ActivityBar';
 
@@ -26,6 +26,12 @@ export const TitleBar: React.FC<TitleBarProps> = ({ activeModule, activeSession 
             <>
               <Database className="w-3 h-3 text-zinc-500" />
               <span>Databases</span>
+            </>
+          )}
+          {activeModule === 'redis' && (
+            <>
+              <Layers className="w-3 h-3 text-zinc-500" />
+              <span>Redis Cache Explorer</span>
             </>
           )}
           {activeModule === 'http' && (

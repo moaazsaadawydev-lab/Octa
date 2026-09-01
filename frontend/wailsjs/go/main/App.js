@@ -10,8 +10,24 @@ export function ClearQueryLogs() {
   return window['go']['main']['App']['ClearQueryLogs']();
 }
 
+export function ConnectRedis(arg1) {
+  return window['go']['main']['App']['ConnectRedis'](arg1);
+}
+
+export function CreateRedisKey(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['main']['App']['CreateRedisKey'](arg1, arg2, arg3, arg4, arg5);
+}
+
 export function DeleteConnection(arg1) {
   return window['go']['main']['App']['DeleteConnection'](arg1);
+}
+
+export function DeleteRedisKey(arg1, arg2) {
+  return window['go']['main']['App']['DeleteRedisKey'](arg1, arg2);
+}
+
+export function DeleteRedisKeysBatch(arg1, arg2) {
+  return window['go']['main']['App']['DeleteRedisKeysBatch'](arg1, arg2);
 }
 
 export function DeleteTableRows(arg1, arg2, arg3, arg4, arg5) {
@@ -42,6 +58,10 @@ export function ExportTableSQL(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['ExportTableSQL'](arg1, arg2, arg3, arg4);
 }
 
+export function FlushRedisDB(arg1) {
+  return window['go']['main']['App']['FlushRedisDB'](arg1);
+}
+
 export function GetDatabaseSchemaDetails(arg1, arg2) {
   return window['go']['main']['App']['GetDatabaseSchemaDetails'](arg1, arg2);
 }
@@ -56,6 +76,10 @@ export function GetEnumValues(arg1, arg2, arg3) {
 
 export function GetQueryLogs() {
   return window['go']['main']['App']['GetQueryLogs']();
+}
+
+export function GetRedisKeyDetails(arg1, arg2) {
+  return window['go']['main']['App']['GetRedisKeyDetails'](arg1, arg2);
 }
 
 export function GetSavedConnections() {
@@ -86,6 +110,10 @@ export function LoadHttpClientData() {
   return window['go']['main']['App']['LoadHttpClientData']();
 }
 
+export function LoadRedisConnections() {
+  return window['go']['main']['App']['LoadRedisConnections']();
+}
+
 export function LoadSqlQueriesData() {
   return window['go']['main']['App']['LoadSqlQueriesData']();
 }
@@ -106,6 +134,10 @@ export function SaveHttpClientData(arg1) {
   return window['go']['main']['App']['SaveHttpClientData'](arg1);
 }
 
+export function SaveRedisConnections(arg1) {
+  return window['go']['main']['App']['SaveRedisConnections'](arg1);
+}
+
 export function SaveSQLDumpDialog(arg1, arg2) {
   return window['go']['main']['App']['SaveSQLDumpDialog'](arg1, arg2);
 }
@@ -114,8 +146,16 @@ export function SaveSqlQueriesData(arg1) {
   return window['go']['main']['App']['SaveSqlQueriesData'](arg1);
 }
 
+export function ScanRedisKeys(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['ScanRedisKeys'](arg1, arg2, arg3, arg4);
+}
+
 export function SelectFilesDialog() {
   return window['go']['main']['App']['SelectFilesDialog']();
+}
+
+export function SetRedisTTL(arg1, arg2, arg3) {
+  return window['go']['main']['App']['SetRedisTTL'](arg1, arg2, arg3);
 }
 
 export function TestConnection(arg1) {
@@ -124,6 +164,10 @@ export function TestConnection(arg1) {
 
 export function TruncateTable(arg1, arg2, arg3) {
   return window['go']['main']['App']['TruncateTable'](arg1, arg2, arg3);
+}
+
+export function UpdateRedisKey(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['main']['App']['UpdateRedisKey'](arg1, arg2, arg3, arg4, arg5);
 }
 
 export function UpdateTableRows(arg1, arg2, arg3, arg4, arg5) {

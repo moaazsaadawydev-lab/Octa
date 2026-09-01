@@ -1,7 +1,7 @@
 import React from 'react';
 import { Database, Globe, Layers, Settings, Flame } from 'lucide-react';
 
-export type ActiveModule = 'databases' | 'http' | 'settings';
+export type ActiveModule = 'databases' | 'redis' | 'http' | 'settings';
 
 interface ActivityBarProps {
   activeModule: ActiveModule;
@@ -38,11 +38,28 @@ export const ActivityBar: React.FC<ActivityBarProps> = ({ activeModule, setActiv
           <Database className="w-5 h-5" />
         </button>
 
-        {/* 2. HTTP / API Client Workspace */}
+        {/* 2. Redis Cache Explorer Workspace */}
+        <button
+          type="button"
+          onClick={() => setActiveModule('redis')}
+          title="Redis / Cache Explorer (Ctrl+2)"
+          className={`relative w-10 h-10 rounded-lg flex items-center justify-center transition-all cursor-pointer ${
+            activeModule === 'redis'
+              ? 'bg-surface-800 text-brand-400 font-medium shadow-sm'
+              : 'text-zinc-400 hover:text-zinc-200 hover:bg-surface-800/60'
+          }`}
+        >
+          {activeModule === 'redis' && (
+            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-brand-400 rounded-r shadow-[0_0_8px_rgba(56,189,248,0.8)]" />
+          )}
+          <Layers className="w-5 h-5" />
+        </button>
+
+        {/* 3. HTTP / API Client Workspace */}
         <button
           type="button"
           onClick={() => setActiveModule('http')}
-          title="HTTP / API Client (Ctrl+2)"
+          title="HTTP / API Client (Ctrl+3)"
           className={`relative w-10 h-10 rounded-lg flex items-center justify-center transition-all cursor-pointer ${
             activeModule === 'http'
               ? 'bg-surface-800 text-brand-400 font-medium shadow-sm'

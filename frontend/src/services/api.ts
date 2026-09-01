@@ -669,3 +669,203 @@ export async function loadEnvironmentsData(): Promise<string> {
   }
   return '[]';
 }
+
+
+import {
+  RedisConnectionConfig,
+  RedisConnectResult,
+  RedisScanResult,
+  RedisKeyDetail,
+} from '../types/redis';
+
+// ============================================================================
+// REDIS BRIDGE METHODS
+// ============================================================================
+
+export async function saveRedisConnections(jsonData: string): Promise<void> {
+  try {
+    const w = window as any;
+    if (w && w.go && w.go.main && w.go.main.App && typeof w.go.main.App.SaveRedisConnections === 'function') {
+      await w.go.main.App.SaveRedisConnections(jsonData);
+      return;
+    }
+  } catch (e) {
+    console.warn('SaveRedisConnections binding error:', e);
+  }
+}
+
+export async function loadRedisConnections(): Promise<string> {
+  try {
+    const w = window as any;
+    if (w && w.go && w.go.main && w.go.main.App && typeof w.go.main.App.LoadRedisConnections === 'function') {
+      const res = await w.go.main.App.LoadRedisConnections();
+      return res || '[]';
+    }
+  } catch (e) {
+    console.warn('LoadRedisConnections binding error:', e);
+  }
+  return '[]';
+}
+
+export async function connectRedis(config: RedisConnectionConfig): Promise<RedisConnectResult> {
+  try {
+    const w = window as any;
+    if (w && w.go && w.go.main && w.go.main.App && typeof w.go.main.App.ConnectRedis === 'function') {
+      return await w.go.main.App.ConnectRedis(config);
+    }
+  } catch (e: any) {
+    console.warn('ConnectRedis binding error:', e);
+    return {
+      success: false,
+      serverInfo: {
+        redisVersion: '',
+        connectedClients: '0',
+        usedMemoryHuman: '0B',
+        totalKeys: 0,
+        uptimeInDays: '0',
+        rawInfo: {},
+      },
+      error: e?.message || String(e),
+    };
+  }
+  return {
+    success: false,
+    serverInfo: {
+      redisVersion: '',
+      connectedClients: '0',
+      usedMemoryHuman: '0B',
+      totalKeys: 0,
+      uptimeInDays: '0',
+      rawInfo: {},
+    },
+    error: 'Wails bridge not available',
+  };
+}
+
+export async function scanRedisKeys(
+  config: RedisConnectionConfig,
+  pattern: string = '*',
+  cursor: number = 0,
+  count: number = 500
+): Promise<RedisScanResult> {
+  try {
+    const w = window as any;
+    if (w && w.go && w.go.main && w.go.main.App && typeof w.go.main.App.ScanRedisKeys === 'function') {
+      return await w.go.main.App.ScanRedisKeys(config, pattern, cursor, count);
+    }
+  } catch (e) {
+    console.warn('ScanRedisKeys binding error:', e);
+  }
+  return { keys: [], nextCursor: 0, totalKeys: 0 };
+}
+
+export async function getRedisKeyDetails(
+  config: RedisConnectionConfig,
+  key: string
+): Promise<RedisKeyDetail | null> {
+  try {
+    const w = window as any;
+    if (w && w.go && w.go.main && w.go.main.App && typeof w.go.main.App.GetRedisKeyDetails === 'function') {
+      return await w.go.main.App.GetRedisKeyDetails(config, key);
+    }
+  } catch (e) {
+    console.warn('GetRedisKeyDetails binding error:', e);
+  }
+  return null;
+}
+
+export async function createRedisKey(
+  config: RedisConnectionConfig,
+  key: string,
+  keyType: string,
+  payload: any,
+  ttlSeconds: number = -1
+): Promise<boolean> {
+  try {
+    const w = window as any;
+    if (w && w.go && w.go.main && w.go.main.App && typeof w.go.main.App.CreateRedisKey === 'function') {
+      return await w.go.main.App.CreateRedisKey(config, key, keyType, payload, ttlSeconds);
+    }
+  } catch (e) {
+    console.warn('CreateRedisKey binding error:', e);
+  }
+  return false;
+}
+
+export async function updateRedisKey(
+  config: RedisConnectionConfig,
+  key: string,
+  keyType: string,
+  payload: any,
+  ttlSeconds: number = -1
+): Promise<boolean> {
+  try {
+    const w = window as any;
+    if (w && w.go && w.go.main && w.go.main.App && typeof w.go.main.App.UpdateRedisKey === 'function') {
+      return await w.go.main.App.UpdateRedisKey(config, key, keyType, payload, ttlSeconds);
+    }
+  } catch (e) {
+    console.warn('UpdateRedisKey binding error:', e);
+  }
+  return false;
+}
+
+export async function deleteRedisKey(
+  config: RedisConnectionConfig,
+  key: string
+): Promise<boolean> {
+  try {
+    const w = window as any;
+    if (w && w.go && w.go.main && w.go.main.App && typeof w.go.main.App.DeleteRedisKey === 'function') {
+      return await w.go.main.App.DeleteRedisKey(config, key);
+    }
+  } catch (e) {
+    console.warn('DeleteRedisKey binding error:', e);
+  }
+  return false;
+}
+
+export async function deleteRedisKeysBatch(
+  config: RedisConnectionConfig,
+  keys: string[]
+): Promise<number> {
+  try {
+    const w = window as any;
+    if (w && w.go && w.go.main && w.go.main.App && typeof w.go.main.App.DeleteRedisKeysBatch === 'function') {
+      return await w.go.main.App.DeleteRedisKeysBatch(config, keys);
+    }
+  } catch (e) {
+    console.warn('DeleteRedisKeysBatch binding error:', e);
+  }
+  return 0;
+}
+
+export async function setRedisTTL(
+  config: RedisConnectionConfig,
+  key: string,
+  ttlSeconds: number
+): Promise<boolean> {
+  try {
+    const w = window as any;
+    if (w && w.go && w.go.main && w.go.main.App && typeof w.go.main.App.SetRedisTTL === 'function') {
+      return await w.go.main.App.SetRedisTTL(config, key, ttlSeconds);
+    }
+  } catch (e) {
+    console.warn('SetRedisTTL binding error:', e);
+  }
+  return false;
+}
+
+export async function flushRedisDB(
+  config: RedisConnectionConfig
+): Promise<boolean> {
+  try {
+    const w = window as any;
+    if (w && w.go && w.go.main && w.go.main.App && typeof w.go.main.App.FlushRedisDB === 'function') {
+      return await w.go.main.App.FlushRedisDB(config);
+    }
+  } catch (e) {
+    console.warn('FlushRedisDB binding error:', e);
+  }
+  return false;
+}

@@ -1,9 +1,10 @@
 package main
 
 import (
+	"crypto/tls"
+	"github.com/redis/go-redis/v9"
 	"bytes"
 	"context"
-	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -2895,4 +2896,572 @@ func (a *App) ExecuteHttpRequest(payload HttpRequestPayload) (HttpResponsePayloa
 	}
 
 	return result, nil
+}
+
+
+// ============================================================================
+// REDIS CACHE EXPLORER MODELS & METHODS
+// ============================================================================
+
+// RedisConnectionConfig holds settings to connect to a Redis instance.
+type RedisConnectionConfig struct {
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	Host     string `json:"host"`
+	Port     int    `json:"port"`
+	Username string `json:"username,omitempty"`
+	Password string `json:"password,omitempty"`
+	DB       int    `json:"db"`
+	SSL      bool   `json:"ssl"`
+}
+
+// RedisServerInfo contains telemetry about the connected Redis instance.
+type RedisServerInfo struct {
+	RedisVersion     string            `json:"redisVersion"`
+	ConnectedClients string            `json:"connectedClients"`
+	UsedMemoryHuman  string            `json:"usedMemoryHuman"`
+	TotalKeys        int64             `json:"totalKeys"`
+	UptimeInDays     string            `json:"uptimeInDays"`
+	RawInfo          map[string]string `json:"rawInfo"`
+}
+
+// RedisConnectResult is returned by ConnectRedis.
+type RedisConnectResult struct {
+	Success    bool            `json:"success"`
+	ServerInfo RedisServerInfo `json:"serverInfo"`
+	Error      string          `json:"error,omitempty"`
+}
+
+// RedisKeyInfo contains summary metadata for a key.
+type RedisKeyInfo struct {
+	Key         string `json:"key"`
+	Type        string `json:"type"` // "string" | "hash" | "list" | "set" | "zset"
+	TTL         int64  `json:"ttl"`  // seconds, -1 for persist, -2 for not exist
+	MemoryUsage int64  `json:"memoryUsage"`
+}
+
+// RedisScanResult contains paginated keys from SCAN.
+type RedisScanResult struct {
+	Keys       []RedisKeyInfo `json:"keys"`
+	NextCursor uint64         `json:"nextCursor"`
+	TotalKeys  int64          `json:"totalKeys"`
+}
+
+// ZSetMember represents a member with score in sorted sets.
+type ZSetMember struct {
+	Member string  `json:"member"`
+	Score  float64 `json:"score"`
+}
+
+// RedisKeyDetail represents the full structured value and metadata of a key.
+type RedisKeyDetail struct {
+	Key         string            `json:"key"`
+	Type        string            `json:"type"`
+	TTL         int64             `json:"ttl"`
+	MemoryUsage int64             `json:"memoryUsage"`
+	StringValue string            `json:"stringValue,omitempty"`
+	HashValue   map[string]string `json:"hashValue,omitempty"`
+	ListValue   []string          `json:"listValue,omitempty"`
+	SetValue    []string          `json:"setValue,omitempty"`
+	ZSetValue   []ZSetMember      `json:"zsetValue,omitempty"`
+}
+
+// getRedisConnectionsFilePath returns the path to redis_connections.json.
+func getRedisConnectionsFilePath() (string, error) {
+	configDir, err := os.UserConfigDir()
+	if err != nil {
+		configDir = "."
+	}
+	appDir := filepath.Join(configDir, "octa")
+	if err = os.MkdirAll(appDir, 0755); err != nil {
+		return "", err
+	}
+	return filepath.Join(appDir, "redis_connections.json"), nil
+}
+
+// SaveRedisConnections persists Redis connection configurations to disk.
+func (a *App) SaveRedisConnections(jsonData string) error {
+	filePath, err := getRedisConnectionsFilePath()
+	if err != nil {
+		return fmt.Errorf("failed to get Redis connections file path: %w", err)
+	}
+
+	trimmed := strings.TrimSpace(jsonData)
+	if trimmed == "" {
+		trimmed = "[]"
+	}
+
+	return os.WriteFile(filePath, []byte(trimmed), 0644)
+}
+
+// LoadRedisConnections reads Redis connection configurations from disk.
+func (a *App) LoadRedisConnections() (string, error) {
+	filePath, err := getRedisConnectionsFilePath()
+	if err != nil {
+		return "[]", nil
+	}
+
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "[]", nil
+		}
+		return "[]", err
+	}
+
+	return string(data), nil
+}
+
+// getRedisClient builds a new go-redis client with timeout.
+func getRedisClient(config RedisConnectionConfig) *redis.Client {
+	port := config.Port
+	if port <= 0 {
+		port = 6379
+	}
+	host := config.Host
+	if host == "" {
+		host = "127.0.0.1"
+	}
+	addr := net.JoinHostPort(host, fmt.Sprintf("%d", port))
+
+	opts := &redis.Options{
+		Addr:         addr,
+		Username:     config.Username,
+		Password:     config.Password,
+		DB:           config.DB,
+		DialTimeout:  3 * time.Second,
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 5 * time.Second,
+	}
+
+	if config.SSL {
+		opts.TLSConfig = &tls.Config{
+			InsecureSkipVerify: true,
+		}
+	}
+
+	return redis.NewClient(opts)
+}
+
+// ConnectRedis verifies connectivity and retrieves server metadata.
+func (a *App) ConnectRedis(config RedisConnectionConfig) (RedisConnectResult, error) {
+	client := getRedisClient(config)
+	defer client.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
+	defer cancel()
+
+	pingRes, err := client.Ping(ctx).Result()
+	if err != nil {
+		return RedisConnectResult{
+			Success: false,
+			Error:   fmt.Sprintf("Failed to connect to Redis at %s:%d: %v", config.Host, config.Port, err),
+		}, nil
+	}
+
+	infoStr, _ := client.Info(ctx).Result()
+	dbSize, _ := client.DBSize(ctx).Result()
+
+	rawInfo := make(map[string]string)
+	lines := strings.Split(infoStr, "\n")
+	for _, l := range lines {
+		l = strings.TrimSpace(l)
+		if strings.HasPrefix(l, "#") || !strings.Contains(l, ":") {
+			continue
+		}
+		parts := strings.SplitN(l, ":", 2)
+		if len(parts) == 2 {
+			rawInfo[parts[0]] = parts[1]
+		}
+	}
+
+	serverInfo := RedisServerInfo{
+		RedisVersion:     rawInfo["redis_version"],
+		ConnectedClients: rawInfo["connected_clients"],
+		UsedMemoryHuman:  rawInfo["used_memory_human"],
+		TotalKeys:        dbSize,
+		UptimeInDays:     rawInfo["uptime_in_days"],
+		RawInfo:          rawInfo,
+	}
+
+	a.logQuery(fmt.Sprintf("-- Redis Ping %s:%d (DB %d): %s", config.Host, config.Port, config.DB, pingRes), 0, "SUCCESS", "")
+
+	return RedisConnectResult{
+		Success:    true,
+		ServerInfo: serverInfo,
+	}, nil
+}
+
+// ScanRedisKeys scans keys matching a pattern using non-blocking SCAN.
+func (a *App) ScanRedisKeys(config RedisConnectionConfig, pattern string, cursor uint64, count int64) (RedisScanResult, error) {
+	client := getRedisClient(config)
+	defer client.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if pattern == "" {
+		pattern = "*"
+	}
+	if count <= 0 {
+		count = 500
+	}
+
+	keys, nextCursor, err := client.Scan(ctx, cursor, pattern, count).Result()
+	if err != nil {
+		return RedisScanResult{}, fmt.Errorf("failed to scan keys: %w", err)
+	}
+
+	dbSize, _ := client.DBSize(ctx).Result()
+
+	// Pipeline to fetch key types, TTLs, and memory usage
+	pipe := client.Pipeline()
+	typeCmds := make([]*redis.StatusCmd, len(keys))
+	ttlCmds := make([]*redis.DurationCmd, len(keys))
+	memCmds := make([]*redis.IntCmd, len(keys))
+
+	for i, k := range keys {
+		typeCmds[i] = pipe.Type(ctx, k)
+		ttlCmds[i] = pipe.TTL(ctx, k)
+		memCmds[i] = pipe.MemoryUsage(ctx, k)
+	}
+
+	_, _ = pipe.Exec(ctx)
+
+	results := make([]RedisKeyInfo, len(keys))
+	for i, k := range keys {
+		kType := typeCmds[i].Val()
+		if kType == "" {
+			kType = "string"
+		}
+
+		var ttlSec int64 = -1
+		if ttlDur, err := ttlCmds[i].Result(); err == nil {
+			if ttlDur == -1*time.Second || ttlDur == -1 {
+				ttlSec = -1
+			} else if ttlDur == -2*time.Second || ttlDur == -2 {
+				ttlSec = -2
+			} else {
+				ttlSec = int64(ttlDur.Seconds())
+			}
+		}
+
+		var memUsage int64 = 0
+		if mem, err := memCmds[i].Result(); err == nil {
+			memUsage = mem
+		}
+
+		results[i] = RedisKeyInfo{
+			Key:         k,
+			Type:        kType,
+			TTL:         ttlSec,
+			MemoryUsage: memUsage,
+		}
+	}
+
+	return RedisScanResult{
+		Keys:       results,
+		NextCursor: nextCursor,
+		TotalKeys:  dbSize,
+	}, nil
+}
+
+// GetRedisKeyDetails returns full metadata and value for a specific key.
+func (a *App) GetRedisKeyDetails(config RedisConnectionConfig, key string) (RedisKeyDetail, error) {
+	client := getRedisClient(config)
+	defer client.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+
+	kType, err := client.Type(ctx, key).Result()
+	if err != nil {
+		return RedisKeyDetail{}, fmt.Errorf("failed to get key type: %w", err)
+	}
+
+	var ttlSec int64 = -1
+	if ttlDur, err := client.TTL(ctx, key).Result(); err == nil {
+		if ttlDur == -1*time.Second || ttlDur == -1 {
+			ttlSec = -1
+		} else if ttlDur == -2*time.Second || ttlDur == -2 {
+			ttlSec = -2
+		} else {
+			ttlSec = int64(ttlDur.Seconds())
+		}
+	}
+
+	memUsage, _ := client.MemoryUsage(ctx, key).Result()
+
+	detail := RedisKeyDetail{
+		Key:         key,
+		Type:        kType,
+		TTL:         ttlSec,
+		MemoryUsage: memUsage,
+	}
+
+	switch strings.ToLower(kType) {
+	case "string":
+		strVal, err := client.Get(ctx, key).Result()
+		if err == nil {
+			detail.StringValue = strVal
+		}
+	case "hash":
+		hMap, err := client.HGetAll(ctx, key).Result()
+		if err == nil {
+			detail.HashValue = hMap
+		}
+	case "list":
+		lItems, err := client.LRange(ctx, key, 0, 1000).Result()
+		if err == nil {
+			detail.ListValue = lItems
+		}
+	case "set":
+		sItems, err := client.SMembers(ctx, key).Result()
+		if err == nil {
+			detail.SetValue = sItems
+		}
+	case "zset":
+		zItems, err := client.ZRangeWithScores(ctx, key, 0, 1000).Result()
+		if err == nil {
+			var members []ZSetMember
+			for _, z := range zItems {
+				members = append(members, ZSetMember{
+					Member: fmt.Sprintf("%v", z.Member),
+					Score:  z.Score,
+				})
+			}
+			detail.ZSetValue = members
+		}
+	}
+
+	return detail, nil
+}
+
+// CreateRedisKey creates a new key with specified type and initial value.
+func (a *App) CreateRedisKey(config RedisConnectionConfig, key string, keyType string, payload any, ttlSeconds int64) (bool, error) {
+	client := getRedisClient(config)
+	defer client.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+
+	key = strings.TrimSpace(key)
+	if key == "" {
+		return false, fmt.Errorf("key name cannot be empty")
+	}
+
+	switch strings.ToLower(keyType) {
+	case "string":
+		valStr := fmt.Sprintf("%v", payload)
+		if err := client.Set(ctx, key, valStr, 0).Err(); err != nil {
+			return false, err
+		}
+	case "hash":
+		if m, ok := payload.(map[string]any); ok {
+			strMap := make(map[string]any)
+			for k, v := range m {
+				strMap[k] = fmt.Sprintf("%v", v)
+			}
+			if len(strMap) > 0 {
+				if err := client.HSet(ctx, key, strMap).Err(); err != nil {
+					return false, err
+				}
+			} else {
+				_ = client.HSet(ctx, key, "__init__", "1").Err()
+			}
+		} else {
+			_ = client.HSet(ctx, key, "field1", "value1").Err()
+		}
+	case "list":
+		if items, ok := payload.([]any); ok && len(items) > 0 {
+			for _, it := range items {
+				_ = client.RPush(ctx, key, fmt.Sprintf("%v", it)).Err()
+			}
+		} else {
+			_ = client.RPush(ctx, key, "item1").Err()
+		}
+	case "set":
+		if items, ok := payload.([]any); ok && len(items) > 0 {
+			for _, it := range items {
+				_ = client.SAdd(ctx, key, fmt.Sprintf("%v", it)).Err()
+			}
+		} else {
+			_ = client.SAdd(ctx, key, "member1").Err()
+		}
+	case "zset":
+		if items, ok := payload.([]any); ok && len(items) > 0 {
+			for _, it := range items {
+				if zm, ok := it.(map[string]any); ok {
+					member := fmt.Sprintf("%v", zm["member"])
+					score := 0.0
+					if s, ok := zm["score"].(float64); ok {
+						score = s
+					}
+					_ = client.ZAdd(ctx, key, redis.Z{Member: member, Score: score}).Err()
+				}
+			}
+		} else {
+			_ = client.ZAdd(ctx, key, redis.Z{Member: "member1", Score: 1.0}).Err()
+		}
+	default:
+		return false, fmt.Errorf("unsupported key type: %s", keyType)
+	}
+
+	if ttlSeconds > 0 {
+		_ = client.Expire(ctx, key, time.Duration(ttlSeconds)*time.Second).Err()
+	}
+
+	return true, nil
+}
+
+// UpdateRedisKey replaces or updates the contents of an existing key.
+func (a *App) UpdateRedisKey(config RedisConnectionConfig, key string, keyType string, payload any, ttlSeconds int64) (bool, error) {
+	client := getRedisClient(config)
+	defer client.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+
+	key = strings.TrimSpace(key)
+	if key == "" {
+		return false, fmt.Errorf("key name cannot be empty")
+	}
+
+	switch strings.ToLower(keyType) {
+	case "string":
+		valStr := fmt.Sprintf("%v", payload)
+		if err := client.Set(ctx, key, valStr, 0).Err(); err != nil {
+			return false, err
+		}
+	case "hash":
+		if m, ok := payload.(map[string]any); ok {
+			client.Del(ctx, key)
+			strMap := make(map[string]any)
+			for k, v := range m {
+				strMap[k] = fmt.Sprintf("%v", v)
+			}
+			if len(strMap) > 0 {
+				if err := client.HSet(ctx, key, strMap).Err(); err != nil {
+					return false, err
+				}
+			}
+		}
+	case "list":
+		if items, ok := payload.([]any); ok {
+			client.Del(ctx, key)
+			if len(items) > 0 {
+				for _, it := range items {
+					_ = client.RPush(ctx, key, fmt.Sprintf("%v", it)).Err()
+				}
+			}
+		}
+	case "set":
+		if items, ok := payload.([]any); ok {
+			client.Del(ctx, key)
+			if len(items) > 0 {
+				for _, it := range items {
+					_ = client.SAdd(ctx, key, fmt.Sprintf("%v", it)).Err()
+				}
+			}
+		}
+	case "zset":
+		if items, ok := payload.([]any); ok {
+			client.Del(ctx, key)
+			if len(items) > 0 {
+				for _, it := range items {
+					if zm, ok := it.(map[string]any); ok {
+						member := fmt.Sprintf("%v", zm["member"])
+						score := 0.0
+						if s, ok := zm["score"].(float64); ok {
+							score = s
+						}
+						_ = client.ZAdd(ctx, key, redis.Z{Member: member, Score: score}).Err()
+					}
+				}
+			}
+		}
+	default:
+		return false, fmt.Errorf("unsupported key type: %s", keyType)
+	}
+
+	if ttlSeconds == -1 {
+		_ = client.Persist(ctx, key).Err()
+	} else if ttlSeconds > 0 {
+		_ = client.Expire(ctx, key, time.Duration(ttlSeconds)*time.Second).Err()
+	}
+
+	return true, nil
+}
+
+// DeleteRedisKey removes a key from Redis.
+func (a *App) DeleteRedisKey(config RedisConnectionConfig, key string) (bool, error) {
+	client := getRedisClient(config)
+	defer client.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	res, err := client.Del(ctx, key).Result()
+	if err != nil {
+		return false, err
+	}
+	return res > 0, nil
+}
+
+// DeleteRedisKeysBatch removes multiple keys from Redis in one operation.
+func (a *App) DeleteRedisKeysBatch(config RedisConnectionConfig, keys []string) (int64, error) {
+	if len(keys) == 0 {
+		return 0, nil
+	}
+
+	client := getRedisClient(config)
+	defer client.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	return client.Del(ctx, keys...).Result()
+}
+
+// SetRedisTTL sets or removes the expiration time on a key.
+func (a *App) SetRedisTTL(config RedisConnectionConfig, key string, ttlSeconds int64) (bool, error) {
+	client := getRedisClient(config)
+	defer client.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if ttlSeconds == -1 {
+		res, err := client.Persist(ctx, key).Result()
+		if err != nil {
+			return false, err
+		}
+		return res, nil
+	}
+
+	if ttlSeconds <= 0 {
+		_, err := client.Del(ctx, key).Result()
+		return err == nil, err
+	}
+
+	res, err := client.Expire(ctx, key, time.Duration(ttlSeconds)*time.Second).Result()
+	if err != nil {
+		return false, err
+	}
+	return res, nil
+}
+
+// FlushRedisDB deletes all keys from the currently selected database.
+func (a *App) FlushRedisDB(config RedisConnectionConfig) (bool, error) {
+	client := getRedisClient(config)
+	defer client.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	res, err := client.FlushDB(ctx).Result()
+	if err != nil {
+		return false, err
+	}
+	return res == "OK", nil
 }

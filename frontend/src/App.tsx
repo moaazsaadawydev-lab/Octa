@@ -5,6 +5,7 @@ import { Sidebar } from './components/Sidebar';
 import { Workspace } from './components/Workspace';
 import { QueryPlayground } from './components/QueryPlayground';
 import { ErdVisualizer } from './components/ErdVisualizer';
+import { RedisWorkspace } from './components/RedisWorkspace';
 import { HttpClientWorkspace } from './components/HttpClientWorkspace';
 import { SettingsView } from './components/SettingsView';
 import { NewConnectionModal } from './components/NewConnectionModal';
@@ -384,6 +385,9 @@ export function App() {
           setActiveModule('databases');
         } else if (e.key === '2') {
           e.preventDefault();
+          setActiveModule('redis');
+        } else if (e.key === '3') {
+          e.preventDefault();
           setActiveModule('http');
         } else if (e.key === ',') {
           e.preventDefault();
@@ -406,7 +410,9 @@ export function App() {
         <ActivityBar activeModule={activeModule} setActiveModule={setActiveModule} />
 
         {/* Dynamic Module Content */}
-        {activeModule === 'http' ? (
+        {activeModule === 'redis' ? (
+          <RedisWorkspace showToast={showToast} />
+        ) : activeModule === 'http' ? (
           <HttpClientWorkspace showToast={showToast} />
         ) : activeModule === 'settings' ? (
           <SettingsView showToast={showToast} />
