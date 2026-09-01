@@ -193,6 +193,7 @@ func (a *App) SaveProjectFile(filePath string, jsonData string) (bool, error) {
 	return a.projectService.SaveProjectFile(filePath, jsonData)
 }
 func (a *App) CloseProjectConnections() (bool, error) {
+	a.dbService.ClosePools()
 	return a.projectService.CloseProjectConnections()
 }
 func (a *App) WipeLegacyStorage() (bool, error) {

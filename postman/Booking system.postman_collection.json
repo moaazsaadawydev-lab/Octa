@@ -1,0 +1,869 @@
+{
+  "info": {
+    "_postman_id": "e95aabbd-e543-42bf-864e-3022b7921432",
+    "name": "Booking system",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "33030405"
+  },
+  "item": [
+    {
+      "name": "Api-gateway",
+      "item": [
+        {
+          "name": "Users",
+          "item": [
+            {
+              "name": "Update",
+              "item": [
+                {
+                  "name": "password",
+                  "item": [
+                    {
+                      "name": "Forget password",
+                      "item": [
+                        {
+                          "name": "Reset code",
+                          "request": {
+                            "method": "POST",
+                            "header": [],
+                            "body": {
+                              "mode": "raw",
+                              "raw": "{\r\n    \"email\": \"moaazseadawy@gmail.com\"\r\n}",
+                              "options": {
+                                "raw": {
+                                  "language": "json"
+                                }
+                              }
+                            },
+                            "url": {
+                              "raw": "{{baseURL}}/auth/users/password/forgot",
+                              "host": [
+                                "{{baseURL}}"
+                              ],
+                              "path": [
+                                "auth",
+                                "users",
+                                "password",
+                                "forgot"
+                              ]
+                            }
+                          },
+                          "response": []
+                        },
+                        {
+                          "name": "Reset password",
+                          "request": {
+                            "method": "POST",
+                            "header": [],
+                            "body": {
+                              "mode": "raw",
+                              "raw": "{\r\n  \"email\": \"moaazseadawy@gmail.com\",\r\n  \"otp\": \"496074\",\r\n  \"newPassword\": \"123456789@\",\r\n  \"confirmPassword\": \"123456789@\"\r\n}",
+                              "options": {
+                                "raw": {
+                                  "language": "json"
+                                }
+                              }
+                            },
+                            "url": {
+                              "raw": "{{baseURL}}/auth/users/password/reset",
+                              "host": [
+                                "{{baseURL}}"
+                              ],
+                              "path": [
+                                "auth",
+                                "users",
+                                "password",
+                                "reset"
+                              ]
+                            }
+                          },
+                          "response": []
+                        }
+                      ]
+                    },
+                    {
+                      "name": "Update password",
+                      "request": {
+                        "method": "PATCH",
+                        "header": [
+                          {
+                            "key": "Authorization",
+                            "value": "Bearer {{bearer_token_11lx}}",
+                            "type": "text"
+                          }
+                        ],
+                        "body": {
+                          "mode": "raw",
+                          "raw": "{\r\n    \"oldPassword\": \"624562\",\r\n    \"newPassword\": \"123456789\",\r\n    \"confirmPassword\": \"123456789\"\r\n}",
+                          "options": {
+                            "raw": {
+                              "language": "json"
+                            }
+                          }
+                        },
+                        "url": {
+                          "raw": "{{baseURL}}/api/v1/auth/users/password/change",
+                          "host": [
+                            "{{baseURL}}"
+                          ],
+                          "path": [
+                            "api",
+                            "v1",
+                            "auth",
+                            "users",
+                            "password",
+                            "change"
+                          ]
+                        }
+                      },
+                      "response": []
+                    }
+                  ]
+                },
+                {
+                  "name": "Email",
+                  "item": [
+                    {
+                      "name": "Email change request",
+                      "request": {
+                        "method": "POST",
+                        "header": [
+                          {
+                            "key": "Authorization",
+                            "value": "Bearer {{bearer_token_10mg}}",
+                            "type": "text"
+                          }
+                        ],
+                        "body": {
+                          "mode": "raw",
+                          "raw": "{\r\n    \"currentPassword\": \"624562\",\r\n    \"newEmail\": \"moaz787557@gmail.com\"\r\n}",
+                          "options": {
+                            "raw": {
+                              "language": "json"
+                            }
+                          }
+                        },
+                        "url": {
+                          "raw": "{{baseURL}}/auth/users/email/change/request",
+                          "host": [
+                            "{{baseURL}}"
+                          ],
+                          "path": [
+                            "auth",
+                            "users",
+                            "email",
+                            "change",
+                            "request"
+                          ]
+                        }
+                      },
+                      "response": []
+                    },
+                    {
+                      "name": "Confirm",
+                      "request": {
+                        "method": "POST",
+                        "header": [
+                          {
+                            "key": "Authorization",
+                            "value": "Bearer {{json_web_token_17sy}}",
+                            "type": "text"
+                          }
+                        ],
+                        "body": {
+                          "mode": "raw",
+                          "raw": "{\r\n    \"code\": \"408453\"\r\n}",
+                          "options": {
+                            "raw": {
+                              "language": "json"
+                            }
+                          }
+                        },
+                        "url": {
+                          "raw": "{{baseURL}}/auth/users/email/change/confirm",
+                          "host": [
+                            "{{baseURL}}"
+                          ],
+                          "path": [
+                            "auth",
+                            "users",
+                            "email",
+                            "change",
+                            "confirm"
+                          ]
+                        }
+                      },
+                      "response": []
+                    }
+                  ]
+                },
+                {
+                  "name": "Status",
+                  "item": [
+                    {
+                      "name": "New Request",
+                      "request": {
+                        "method": "PATCH",
+                        "header": [
+                          {
+                            "key": "Authorization",
+                            "value": "Bearer {{bearer_token_0s1e}}",
+                            "type": "text"
+                          }
+                        ],
+                        "body": {
+                          "mode": "raw",
+                          "raw": "{\r\n    \"status\": \"BLOCKED\"\r\n}",
+                          "options": {
+                            "raw": {
+                              "language": "json"
+                            }
+                          }
+                        },
+                        "url": {
+                          "raw": "{{baseURL}}/admin/users/:id/status",
+                          "host": [
+                            "{{baseURL}}"
+                          ],
+                          "path": [
+                            "admin",
+                            "users",
+                            ":id",
+                            "status"
+                          ],
+                          "variable": [
+                            {
+                              "key": "id",
+                              "value": "97f01ef3-6f78-4d2e-8b63-f30cf5098f06"
+                            }
+                          ]
+                        }
+                      },
+                      "response": []
+                    }
+                  ]
+                },
+                {
+                  "name": "Update user",
+                  "request": {
+                    "method": "PATCH",
+                    "header": [
+                      {
+                        "key": "Authorization",
+                        "value": "Bearer {{supabase_service_role_api_key_0wth}}",
+                        "type": "text"
+                      }
+                    ],
+                    "body": {
+                      "mode": "formdata",
+                      "formdata": []
+                    },
+                    "url": {
+                      "raw": "{{baseURL}}/api/v1/auth/users/profile/update",
+                      "host": [
+                        "{{baseURL}}"
+                      ],
+                      "path": [
+                        "api",
+                        "v1",
+                        "auth",
+                        "users",
+                        "profile",
+                        "update"
+                      ]
+                    }
+                  },
+                  "response": []
+                }
+              ]
+            },
+            {
+              "name": "Register new user",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "name",
+                      "value": "Moaz Saadawy",
+                      "type": "text",
+                      "uuid": "1b11e523-b609-4c28-9972-fba5da7c1b34"
+                    },
+                    {
+                      "key": "email",
+                      "value": "moaazseadawy@gmail.com",
+                      "type": "text",
+                      "uuid": "a01a39ce-17aa-4785-80de-63b101c77c98"
+                    },
+                    {
+                      "key": "age",
+                      "value": "18",
+                      "type": "text",
+                      "uuid": "284172d6-ed79-445f-afe9-00500a55f6e4"
+                    },
+                    {
+                      "key": "gender",
+                      "value": "male",
+                      "type": "text",
+                      "uuid": "47cd88d8-31c5-4603-8de3-4bff0f5e57c6"
+                    },
+                    {
+                      "key": "country",
+                      "value": "Egypt",
+                      "type": "text",
+                      "uuid": "a7a6e851-ae3a-4a63-9d50-db7af77d2276"
+                    },
+                    {
+                      "key": "avatar",
+                      "type": "file",
+                      "uuid": "ec0094ac-5e20-4301-9175-cfaa28c6f108",
+                      "src": "postman-cloud:///1f140277-69a4-4540-89a3-d7cb50abdd7e"
+                    },
+                    {
+                      "key": "password",
+                      "value": "624562",
+                      "type": "text",
+                      "uuid": "0f34d335-29a3-4f12-9c71-2dab481bc9f8"
+                    },
+                    {
+                      "key": "cropX",
+                      "value": "0",
+                      "type": "text",
+                      "uuid": "94c70a46-2cc3-4d2b-a116-232468344098"
+                    },
+                    {
+                      "key": "cropY",
+                      "value": "445",
+                      "type": "text",
+                      "uuid": "4479bb50-3206-4145-af92-527d28098a55"
+                    },
+                    {
+                      "key": "cropWidth",
+                      "value": "1800",
+                      "type": "text",
+                      "uuid": "ef8aa5bf-8414-4f46-a75b-f217c589ef6c"
+                    },
+                    {
+                      "key": "cropHeight",
+                      "value": "1800",
+                      "type": "text",
+                      "uuid": "ff9b0f4c-abd4-4117-8acf-2284a68e2cf6"
+                    },
+                    {
+                      "key": "cropZoom",
+                      "value": "1",
+                      "type": "text",
+                      "uuid": "0f3dcd3f-d874-4d7d-ac02-62c6253efe86"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{baseURL}}/users/auth/register",
+                  "host": [
+                    "{{baseURL}}"
+                  ],
+                  "path": [
+                    "users",
+                    "auth",
+                    "register"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Verify email",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"email\": \"moaazseadawy@gmail.com\",\r\n    \"code\": \"440679\"\r\n}\r\n",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseURL}}/users/auth/verify",
+                  "host": [
+                    "{{baseURL}}"
+                  ],
+                  "path": [
+                    "users",
+                    "auth",
+                    "verify"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Login",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"email\": \"customer.pay.1787602590956@test.com\",\r\n    \"password\": \"Password123!\"\r\n}\r\n",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseURL}}/users/auth/login",
+                  "host": [
+                    "{{baseURL}}"
+                  ],
+                  "path": [
+                    "users",
+                    "auth",
+                    "login"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "CurrentUser",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{supabase_service_role_api_key_19p8}}",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseURL}}/users/profile",
+                  "host": [
+                    "{{baseURL}}"
+                  ],
+                  "path": [
+                    "users",
+                    "profile"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "RefreshToken",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{baseURL}}/users/auth/refresh",
+                  "host": [
+                    "{{baseURL}}"
+                  ],
+                  "path": [
+                    "users",
+                    "auth",
+                    "refresh"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Resend verification code",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"email\": \"moaazseadawy@gmail.com\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseURL}}/auth/users/account/resend-verification",
+                  "host": [
+                    "{{baseURL}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "users",
+                    "account",
+                    "resend-verification"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "New Request",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n  \"token\": \"666e72bb6c5335facd4806f3d28be5e54143a01bb5356f1791e0d3e394e5b8f0\",\r\n  \"password\": \"582641\"\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "http://localhost:3000/api/v1/auth/setup-password",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "3000",
+                  "path": [
+                    "api",
+                    "v1",
+                    "auth",
+                    "setup-password"
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "Catalog",
+          "item": [
+            {
+              "name": "Get genres",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseURL}}/movies/genres",
+                  "host": [
+                    "{{baseURL}}"
+                  ],
+                  "path": [
+                    "movies",
+                    "genres"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Create movie",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{json_web_token_05ot}}",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n    \"title\": \"Interstaller\",\r\n    \"description\": \"When Earth becomes uninhabitable in the future, a farmer and ex-NASA pilot, Joseph Cooper, is tasked to pilot a spacecraft, along with a team of researchers, to find a new planet for humans.\",\r\n    \"durationMinutes\": 169,\r\n    \"releaseDate\": \"2014-11-07\",\r\n    \"ageRating\": \"PG_13\",\r\n    \"status\": \"NOW_SHOWING\",\r\n    \"originalLanguage\": \"en\",\r\n    \"spokenLanguages\": [\r\n        \"en\",\r\n        \"ja\"\r\n    ],\r\n    \"subtitles\": [\r\n        \"ar\",\r\n        \"en\"\r\n    ],\r\n    \"directors\": [\r\n        \"Christopher Nolan\"\r\n    ],\r\n    \"cast\": [\r\n        \"Leonardo DiCaprio\",\r\n        \"Joseph Gordon-Levitt\"\r\n    ],\r\n    \"genreIds\": [\r\n        \"c1d8884f-9e1b-46f3-933a-bbe8aabc1d27\",\r\n        \"38aaaf1d-2bfd-4e16-a494-816905e44514\",\r\n        \"5122cdf4-4f18-4006-ac9a-a0224fd93820\"\r\n    ],\r\n    \"posterUrl\": \"https://m.media-amazon.com/images/M/MV5BYzdjMDAxZGItMjI2My00ODA1LTlkNzItOWFjMDU5ZDJlYWY3XkEyXkFqcGc@._V1_.jpg\",\r\n    \"bannerUrl\": \"https://image.tmdb.org/t/p/original/xJHokMbljvjADYdit5fK5VQsXEG.jpg\",\r\n    \"trailerUrl\": \"https://www.youtube.com/watch?v=zSWdZVtXT7E\",\r\n    \"galleryUrls\": [\r\n        \"https://image.tmdb.org/t/p/original/rAiYTsqzbmuVoGR1PRozo0giMwO.jpg\",\r\n        \"https://image.tmdb.org/t/p/original/pbrkL804c8yAv3zBZR4QPEafpAR.jpg\",\r\n        \"https://image.tmdb.org/t/p/original/7nO5DUMnZqH85g7XGev82b53xW6.jpg\"\r\n    ]\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "http://localhost:3000/api/v1/movies",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "3000",
+                  "path": [
+                    "api",
+                    "v1",
+                    "movies"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Create cinema",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{supabase_service_role_api_key_0t3v}}",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n  \"name\": \"Grand Cinema Cairo\",\r\n  \"city\": \"Cairo\",\r\n  \"address\": \"Downtown, Mall of Cairo\",\r\n  \"latitude\": 30.0444,\r\n  \"longitude\": 31.2357,\r\n  \"phoneNumber\": \"+201000000000\",\r\n  \"facilities\": [\"Parking\", \"VIP Lounge\", \"Food Court\"]\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseURL}}/cinemas",
+                  "host": [
+                    "{{baseURL}}"
+                  ],
+                  "path": [
+                    "cinemas"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "create auditorium",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{json_web_token_0t3v}}",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n  \"name\": \"Screen 1 - IMAX\",\r\n  \"experienceType\": \"IMAX_3D\",\r\n  \"soundSystem\": \"Dolby Atmos 7.1\",\r\n  \"totalRows\": 5,\r\n  \"totalColumns\": 8\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseURL}}/cinemas/:id/auditoriums",
+                  "host": [
+                    "{{baseURL}}"
+                  ],
+                  "path": [
+                    "cinemas",
+                    ":id",
+                    "auditoriums"
+                  ],
+                  "variable": [
+                    {
+                      "key": "id",
+                      "value": "e93f1094-0ada-45fd-9a2a-600a74b4f80b"
+                    }
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Get seats and auditorium",
+              "protocolProfileBehavior": {
+                "disableBodyPruning": true
+              },
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{supabase_service_role_api_key_0t3v}}",
+                    "type": "text",
+                    "disabled": true
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseURL}}/seats/auditorium/:id",
+                  "host": [
+                    "{{baseURL}}"
+                  ],
+                  "path": [
+                    "seats",
+                    "auditorium",
+                    ":id"
+                  ],
+                  "variable": [
+                    {
+                      "key": "id",
+                      "value": "87fe2c33-ba2f-4a8b-adbe-e67300fb5818"
+                    }
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Create show time",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{json_web_token_02k4}}",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n  \"movieId\": \"9e32d0a8-adaa-476f-a968-d9b4aece1c40\",\r\n  \"auditoriumId\": \"87fe2c33-ba2f-4a8b-adbe-e67300fb5818\",\r\n  \"startTime\": \"2026-09-01T18:00:00.000Z\",\r\n  \"endTime\": \"2026-09-01T20:30:00.000Z\",\r\n  \"experienceType\": \"IMAX_3D\",\r\n  \"basePrice\": 120.00\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseURL}}/showtimes",
+                  "host": [
+                    "{{baseURL}}"
+                  ],
+                  "path": [
+                    "showtimes"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "Set Custom Tier Pricing",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{json_web_token_02k4}}",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n  \"pricings\": [\r\n    { \"seatType\": \"REGULAR\", \"price\": 120.00 },\r\n    { \"seatType\": \"VIP\", \"price\": 180.00 },\r\n    { \"seatType\": \"PREMIUM\", \"price\": 150.00 }\r\n  ]\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseURL}}/showtimes/c28a5043-a191-45dc-aa07-f601273e5e5a/pricing",
+                  "host": [
+                    "{{baseURL}}"
+                  ],
+                  "path": [
+                    "showtimes",
+                    "c28a5043-a191-45dc-aa07-f601273e5e5a",
+                    "pricing"
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "New Request",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseURL}}/showtimes/grouped?movieId=9e32d0a8-adaa-476f-a968-d9b4aece1c40&date=2026-09-01",
+                  "host": [
+                    "{{baseURL}}"
+                  ],
+                  "path": [
+                    "showtimes",
+                    "grouped"
+                  ],
+                  "query": [
+                    {
+                      "key": "movieId",
+                      "value": "9e32d0a8-adaa-476f-a968-d9b4aece1c40"
+                    },
+                    {
+                      "key": "date",
+                      "value": "2026-09-01"
+                    }
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        },
+        {
+          "name": "payment",
+          "item": [
+            {
+              "name": "New Request",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "{{bearer_token_15bj}}",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\r\n  \"bookingId\": \"fb63117b-9731-4ba1-802f-0798a78e8565\",\r\n  \"amount\": 150.00,\r\n  \"currency\": \"EGP\",\r\n  \"method\": \"CARD\",\r\n  \"billingData\": {\r\n    \"first_name\": \"Moaz\",\r\n    \"last_name\": \"Saadawy\",\r\n    \"email\": \"customer@booking.local\",\r\n    \"phone_number\": \"+201012345678\",\r\n    \"city\": \"Cairo\",\r\n    \"country\": \"EG\"\r\n  }\r\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "http://localhost:3000/api/v1/payments/initiate",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "3000",
+                  "path": [
+                    "api",
+                    "v1",
+                    "payments",
+                    "initiate"
+                  ]
+                }
+              },
+              "response": []
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "bearer_token_0j5g",
+      "secret": true
+    },
+    {
+      "key": "json_web_token_134u",
+      "secret": true
+    },
+    {
+      "key": "bearer_token_0lg9",
+      "secret": true
+    },
+    {
+      "key": "supabase_service_role_api_key_07i3",
+      "secret": true
+    }
+  ]
+}

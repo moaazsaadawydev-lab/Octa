@@ -14,26 +14,79 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
-// DBService encapsulates PostgreSQL and multi-database connectivity, schema queries, raw queries, and logging.
+// DBService encapsulates PostgreSQL and multi-database connectivity using connection pools.
 type DBService struct {
 	ctx       context.Context
 	mu        sync.RWMutex
 	queryLogs []QueryLog
+	poolsMu   sync.Mutex
+	pools     map[string]*pgxpool.Pool
 }
 
 // NewDBService creates a new DBService.
 func NewDBService() *DBService {
 	return &DBService{
 		queryLogs: make([]QueryLog, 0),
+		pools:     make(map[string]*pgxpool.Pool),
 	}
 }
 
 // SetContext sets the Wails runtime context.
 func (s *DBService) SetContext(ctx context.Context) {
 	s.ctx = ctx
+}
+
+// getPool returns an existing pool from cache or creates a new connection pool.
+func (s *DBService) getPool(config ConnectionConfig, dbName string) (*pgxpool.Pool, error) {
+	s.poolsMu.Lock()
+	defer s.poolsMu.Unlock()
+
+	connStr := buildPostgresURLWithDB(config, dbName)
+	if pool, exists := s.pools[connStr]; exists && pool != nil {
+		return pool, nil
+	}
+
+	poolConfig, err := pgxpool.ParseConfig(connStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid pool configuration: %w", err)
+	}
+
+	poolConfig.MaxConns = 15
+	poolConfig.MinConns = 1
+	poolConfig.MaxConnIdleTime = 5 * time.Minute
+	poolConfig.MaxConnLifetime = 30 * time.Minute
+	poolConfig.ConnConfig.ConnectTimeout = 5 * time.Second
+
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+
+	pool, err := pgxpool.NewWithConfig(ctx, poolConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create connection pool: %w", err)
+	}
+
+	if s.pools == nil {
+		s.pools = make(map[string]*pgxpool.Pool)
+	}
+	s.pools[connStr] = pool
+	return pool, nil
+}
+
+// ClosePools gracefully terminates all active connection pools.
+func (s *DBService) ClosePools() {
+	s.poolsMu.Lock()
+	defer s.poolsMu.Unlock()
+
+	for _, pool := range s.pools {
+		if pool != nil {
+			pool.Close()
+		}
+	}
+	s.pools = make(map[string]*pgxpool.Pool)
 }
 
 // logQuery records an executed query in the internal query logs.
@@ -293,25 +346,17 @@ func (s *DBService) GetDatabases(config ConnectionConfig) ([]string, error) {
 		return nil, fmt.Errorf("unsupported database type: %s", config.Type)
 	}
 
-	connStr := buildPostgresURL(config)
-	connConfig, err := pgx.ParseConfig(connStr)
+	pool, err := s.getPool(config, config.Database)
 	if err != nil {
-		return nil, fmt.Errorf("invalid connection configuration: %w", err)
+		return nil, err
 	}
-	connConfig.ConnectTimeout = 5 * time.Second
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	conn, err := pgx.ConnectConfig(ctx, connConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to connect: %w", err)
-	}
-	defer conn.Close(ctx)
-
 	query := "SELECT datname FROM pg_database WHERE datistemplate = false ORDER BY datname;"
 	start := time.Now()
-	rows, err := conn.Query(ctx, query)
+	rows, err := pool.Query(ctx, query)
 	durationMs := float64(time.Since(start).Microseconds()) / 1000.0
 
 	if err != nil {
@@ -386,21 +431,13 @@ func (s *DBService) GetTables(config ConnectionConfig, dbName string) ([]string,
 		return nil, fmt.Errorf("unsupported database type: %s", config.Type)
 	}
 
-	connStr := buildPostgresURLWithDB(config, dbName)
-	connConfig, err := pgx.ParseConfig(connStr)
+	pool, err := s.getPool(config, dbName)
 	if err != nil {
-		return nil, fmt.Errorf("invalid connection configuration: %w", err)
+		return nil, err
 	}
-	connConfig.ConnectTimeout = 5 * time.Second
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-
-	conn, err := pgx.ConnectConfig(ctx, connConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to connect: %w", err)
-	}
-	defer conn.Close(ctx)
 
 	query := `SELECT table_name 
 	          FROM information_schema.tables 
@@ -408,7 +445,7 @@ func (s *DBService) GetTables(config ConnectionConfig, dbName string) ([]string,
 	          ORDER BY table_name;`
 
 	start := time.Now()
-	rows, err := conn.Query(ctx, query)
+	rows, err := pool.Query(ctx, query)
 	durationMs := float64(time.Since(start).Microseconds()) / 1000.0
 
 	if err != nil {
@@ -434,7 +471,7 @@ func (s *DBService) GetTables(config ConnectionConfig, dbName string) ([]string,
 	return tables, nil
 }
 
-// GetTableSchema queries column definitions, types, nullability, defaults, and primary keys.
+// GetTableSchema queries column definitions, types, nullability, defaults, and primary keys in a single unified query.
 func (s *DBService) GetTableSchema(config ConnectionConfig, dbName string, tableName string) ([]TableColumn, error) {
 	if config.Type == "" {
 		config.Type = "postgres"
@@ -443,29 +480,38 @@ func (s *DBService) GetTableSchema(config ConnectionConfig, dbName string, table
 		return nil, fmt.Errorf("unsupported database type: %s", config.Type)
 	}
 
-	connStr := buildPostgresURLWithDB(config, dbName)
-	connConfig, err := pgx.ParseConfig(connStr)
+	pool, err := s.getPool(config, dbName)
 	if err != nil {
-		return nil, fmt.Errorf("invalid connection configuration: %w", err)
+		return nil, err
 	}
-	connConfig.ConnectTimeout = 5 * time.Second
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	conn, err := pgx.ConnectConfig(ctx, connConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to connect: %w", err)
-	}
-	defer conn.Close(ctx)
-
-	colQuery := `SELECT column_name, data_type, udt_name, is_nullable, column_default
-	              FROM information_schema.columns
-	              WHERE table_schema = 'public' AND table_name = $1
-	              ORDER BY ordinal_position;`
+	// Single atomic query fetching all columns, data types, nullability, defaults, and primary key status simultaneously
+	colQuery := `SELECT 
+	    c.column_name, 
+	    c.data_type, 
+	    c.udt_name, 
+	    c.is_nullable, 
+	    c.column_default,
+	    CASE WHEN pk.column_name IS NOT NULL THEN true ELSE false END AS is_primary_key
+	FROM information_schema.columns c
+	LEFT JOIN (
+	    SELECT kcu.column_name
+	    FROM information_schema.table_constraints tc
+	    JOIN information_schema.key_column_usage kcu
+	      ON tc.constraint_name = kcu.constraint_name
+	      AND tc.table_schema = kcu.table_schema
+	    WHERE tc.constraint_type = 'PRIMARY KEY'
+	      AND tc.table_schema = 'public'
+	      AND tc.table_name = $1
+	) pk ON c.column_name = pk.column_name
+	WHERE c.table_schema = 'public' AND c.table_name = $1
+	ORDER BY c.ordinal_position;`
 
 	start := time.Now()
-	rows, err := conn.Query(ctx, colQuery, tableName)
+	rows, err := pool.Query(ctx, colQuery, tableName)
 	durationMs := float64(time.Since(start).Microseconds()) / 1000.0
 
 	if err != nil {
@@ -476,36 +522,13 @@ func (s *DBService) GetTableSchema(config ConnectionConfig, dbName string, table
 
 	s.logQuery(fmt.Sprintf("%s (table: %s)", colQuery, tableName), durationMs, "SUCCESS", "")
 
-	pkQuery := `SELECT kcu.column_name
-	             FROM information_schema.table_constraints tc
-	             JOIN information_schema.key_column_usage kcu
-	               ON tc.constraint_name = kcu.constraint_name
-	               AND tc.table_schema = kcu.table_schema
-	             WHERE tc.constraint_type = 'PRIMARY KEY'
-	               AND tc.table_schema = 'public'
-	               AND tc.table_name = $1;`
-
-	pkRows, err := conn.Query(ctx, pkQuery, tableName)
-	if err != nil {
-		return nil, fmt.Errorf("failed to query primary keys: %w", err)
-	}
-	defer pkRows.Close()
-
-	pkSet := make(map[string]bool)
-	for pkRows.Next() {
-		var pkCol string
-		if err := pkRows.Scan(&pkCol); err == nil {
-			pkSet[pkCol] = true
-		}
-	}
-
 	var columns []TableColumn
 	for rows.Next() {
 		var colName, dataType, udtName, isNullableStr string
 		var colDefault *string
+		var isPK bool
 
-		if err := rows.Scan(&colName, &dataType, &udtName, &isNullableStr, &colDefault); err == nil {
-			isPK := pkSet[colName]
+		if err := rows.Scan(&colName, &dataType, &udtName, &isNullableStr, &colDefault, &isPK); err == nil {
 			isNullable := strings.EqualFold(isNullableStr, "YES")
 
 			displayType := dataType
@@ -525,11 +548,8 @@ func (s *DBService) GetTableSchema(config ConnectionConfig, dbName string, table
 		}
 	}
 
-	for i, col := range columns {
-		enumVals, err := s.GetEnumValues(config, dbName, col.Type)
-		if err == nil && len(enumVals) > 0 {
-			columns[i].EnumValues = enumVals
-		}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating table columns: %w", err)
 	}
 
 	return columns, nil
@@ -549,21 +569,13 @@ func (s *DBService) GetTableData(config ConnectionConfig, dbName string, tableNa
 		return result, fmt.Errorf("unsupported database type: %s", config.Type)
 	}
 
-	connStr := buildPostgresURLWithDB(config, dbName)
-	connConfig, err := pgx.ParseConfig(connStr)
+	pool, err := s.getPool(config, dbName)
 	if err != nil {
-		return result, fmt.Errorf("invalid connection configuration: %w", err)
+		return result, err
 	}
-	connConfig.ConnectTimeout = 5 * time.Second
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-
-	conn, err := pgx.ConnectConfig(ctx, connConfig)
-	if err != nil {
-		return result, fmt.Errorf("failed to connect: %w", err)
-	}
-	defer conn.Close(ctx)
 
 	page := options.Page
 	if page < 1 {
@@ -621,7 +633,7 @@ func (s *DBService) GetTableData(config ConnectionConfig, dbName string, tableNa
 
 	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM %s%s;", sanitizedTable, whereClause)
 	var totalRows int64
-	err = conn.QueryRow(ctx, countQuery, args...).Scan(&totalRows)
+	err = pool.QueryRow(ctx, countQuery, args...).Scan(&totalRows)
 	if err != nil {
 		return result, fmt.Errorf("failed to get row count: %w", err)
 	}
@@ -640,7 +652,7 @@ func (s *DBService) GetTableData(config ConnectionConfig, dbName string, tableNa
 	dataQuery := fmt.Sprintf("SELECT * FROM %s%s%s LIMIT %d OFFSET %d;", sanitizedTable, whereClause, orderClause, pageSize, offset)
 
 	start := time.Now()
-	rows, err := conn.Query(ctx, dataQuery, args...)
+	rows, err := pool.Query(ctx, dataQuery, args...)
 	durationMs := float64(time.Since(start).Microseconds()) / 1000.0
 	result.DurationMs = durationMs
 
@@ -690,19 +702,12 @@ func (s *DBService) GetTableData(config ConnectionConfig, dbName string, tableNa
 
 // AddColumn adds a new column to a table.
 func (s *DBService) AddColumn(config ConnectionConfig, dbName, tableName, colName, colType string, isNullable bool) (bool, error) {
-	connStr := buildPostgresURLWithDB(config, dbName)
-	connConfig, err := pgx.ParseConfig(connStr)
+	pool, err := s.getPool(config, dbName)
 	if err != nil {
 		return false, err
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-
-	conn, err := pgx.ConnectConfig(ctx, connConfig)
-	if err != nil {
-		return false, err
-	}
-	defer conn.Close(ctx)
 
 	safeTable := pgx.Identifier{tableName}.Sanitize()
 	safeCol := pgx.Identifier{colName}.Sanitize()
@@ -714,7 +719,7 @@ func (s *DBService) AddColumn(config ConnectionConfig, dbName, tableName, colNam
 
 	query := fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s %s %s;", safeTable, safeCol, colType, nullClause)
 	start := time.Now()
-	_, err = conn.Exec(ctx, query)
+	_, err = pool.Exec(ctx, query)
 	durationMs := float64(time.Since(start).Microseconds()) / 1000.0
 
 	if err != nil {
@@ -727,26 +732,19 @@ func (s *DBService) AddColumn(config ConnectionConfig, dbName, tableName, colNam
 
 // DropColumn removes a column from a table.
 func (s *DBService) DropColumn(config ConnectionConfig, dbName, tableName, colName string) (bool, error) {
-	connStr := buildPostgresURLWithDB(config, dbName)
-	connConfig, err := pgx.ParseConfig(connStr)
+	pool, err := s.getPool(config, dbName)
 	if err != nil {
 		return false, err
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	conn, err := pgx.ConnectConfig(ctx, connConfig)
-	if err != nil {
-		return false, err
-	}
-	defer conn.Close(ctx)
-
 	safeTable := pgx.Identifier{tableName}.Sanitize()
 	safeCol := pgx.Identifier{colName}.Sanitize()
 
 	query := fmt.Sprintf("ALTER TABLE %s DROP COLUMN %s;", safeTable, safeCol)
 	start := time.Now()
-	_, err = conn.Exec(ctx, query)
+	_, err = pool.Exec(ctx, query)
 	durationMs := float64(time.Since(start).Microseconds()) / 1000.0
 
 	if err != nil {
@@ -759,19 +757,12 @@ func (s *DBService) DropColumn(config ConnectionConfig, dbName, tableName, colNa
 
 // RenameColumn renames a column.
 func (s *DBService) RenameColumn(config ConnectionConfig, dbName, tableName, oldName, newName string) (bool, error) {
-	connStr := buildPostgresURLWithDB(config, dbName)
-	connConfig, err := pgx.ParseConfig(connStr)
+	pool, err := s.getPool(config, dbName)
 	if err != nil {
 		return false, err
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-
-	conn, err := pgx.ConnectConfig(ctx, connConfig)
-	if err != nil {
-		return false, err
-	}
-	defer conn.Close(ctx)
 
 	safeTable := pgx.Identifier{tableName}.Sanitize()
 	safeOld := pgx.Identifier{oldName}.Sanitize()
@@ -779,7 +770,7 @@ func (s *DBService) RenameColumn(config ConnectionConfig, dbName, tableName, old
 
 	query := fmt.Sprintf("ALTER TABLE %s RENAME COLUMN %s TO %s;", safeTable, safeOld, safeNew)
 	start := time.Now()
-	_, err = conn.Exec(ctx, query)
+	_, err = pool.Exec(ctx, query)
 	durationMs := float64(time.Since(start).Microseconds()) / 1000.0
 
 	if err != nil {
@@ -792,19 +783,12 @@ func (s *DBService) RenameColumn(config ConnectionConfig, dbName, tableName, old
 
 // GetEnumValues queries allowed values for an enum type.
 func (s *DBService) GetEnumValues(config ConnectionConfig, dbName, typeName string) ([]string, error) {
-	connStr := buildPostgresURLWithDB(config, dbName)
-	connConfig, err := pgx.ParseConfig(connStr)
+	pool, err := s.getPool(config, dbName)
 	if err != nil {
 		return nil, err
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-
-	conn, err := pgx.ConnectConfig(ctx, connConfig)
-	if err != nil {
-		return nil, err
-	}
-	defer conn.Close(ctx)
 
 	query := `SELECT e.enumlabel
 	          FROM pg_type t
@@ -812,7 +796,7 @@ func (s *DBService) GetEnumValues(config ConnectionConfig, dbName, typeName stri
 	          WHERE t.typname = $1
 	          ORDER BY e.enumsortorder;`
 
-	rows, err := conn.Query(ctx, query, typeName)
+	rows, err := pool.Query(ctx, query, typeName)
 	if err != nil {
 		return nil, err
 	}
@@ -828,7 +812,7 @@ func (s *DBService) GetEnumValues(config ConnectionConfig, dbName, typeName stri
 	return enums, nil
 }
 
-// UpdateTableRows updates cells in the database.
+// UpdateTableRows updates cells in the database within a transaction.
 func (s *DBService) UpdateTableRows(config ConnectionConfig, dbName, tableName, pkColumn string, updates []RowUpdate) (bool, error) {
 	if len(updates) == 0 {
 		return true, nil
@@ -837,21 +821,14 @@ func (s *DBService) UpdateTableRows(config ConnectionConfig, dbName, tableName, 
 		return false, fmt.Errorf("primary key column is required for updates")
 	}
 
-	connStr := buildPostgresURLWithDB(config, dbName)
-	connConfig, err := pgx.ParseConfig(connStr)
+	pool, err := s.getPool(config, dbName)
 	if err != nil {
 		return false, err
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	conn, err := pgx.ConnectConfig(ctx, connConfig)
-	if err != nil {
-		return false, err
-	}
-	defer conn.Close(ctx)
-
-	tx, err := conn.Begin(ctx)
+	tx, err := pool.Begin(ctx)
 	if err != nil {
 		return false, err
 	}
@@ -890,19 +867,12 @@ func (s *DBService) DeleteTableRows(config ConnectionConfig, dbName, tableName, 
 		return false, fmt.Errorf("primary key column is required for delete")
 	}
 
-	connStr := buildPostgresURLWithDB(config, dbName)
-	connConfig, err := pgx.ParseConfig(connStr)
+	pool, err := s.getPool(config, dbName)
 	if err != nil {
 		return false, err
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-
-	conn, err := pgx.ConnectConfig(ctx, connConfig)
-	if err != nil {
-		return false, err
-	}
-	defer conn.Close(ctx)
 
 	safeTable := pgx.Identifier{tableName}.Sanitize()
 	safePK := pgx.Identifier{pkColumn}.Sanitize()
@@ -910,7 +880,7 @@ func (s *DBService) DeleteTableRows(config ConnectionConfig, dbName, tableName, 
 	query := fmt.Sprintf("DELETE FROM %s WHERE %s = ANY($1);", safeTable, safePK)
 
 	start := time.Now()
-	_, err = conn.Exec(ctx, query, pkValues)
+	_, err = pool.Exec(ctx, query, pkValues)
 	durationMs := float64(time.Since(start).Microseconds()) / 1000.0
 
 	if err != nil {
@@ -923,25 +893,18 @@ func (s *DBService) DeleteTableRows(config ConnectionConfig, dbName, tableName, 
 
 // TruncateTable empties all data from a table.
 func (s *DBService) TruncateTable(config ConnectionConfig, dbName, tableName string) (bool, error) {
-	connStr := buildPostgresURLWithDB(config, dbName)
-	connConfig, err := pgx.ParseConfig(connStr)
+	pool, err := s.getPool(config, dbName)
 	if err != nil {
 		return false, err
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	conn, err := pgx.ConnectConfig(ctx, connConfig)
-	if err != nil {
-		return false, err
-	}
-	defer conn.Close(ctx)
-
 	safeTable := pgx.Identifier{tableName}.Sanitize()
 	query := fmt.Sprintf("TRUNCATE TABLE %s CASCADE;", safeTable)
 
 	start := time.Now()
-	_, err = conn.Exec(ctx, query)
+	_, err = pool.Exec(ctx, query)
 	durationMs := float64(time.Since(start).Microseconds()) / 1000.0
 
 	if err != nil {
@@ -961,21 +924,13 @@ func (s *DBService) ExecuteRawQuery(config ConnectionConfig, dbName string, sqlQ
 		return results, nil
 	}
 
-	connStr := buildPostgresURLWithDB(config, dbName)
-	connConfig, err := pgx.ParseConfig(connStr)
+	pool, err := s.getPool(config, dbName)
 	if err != nil {
-		return results, fmt.Errorf("invalid connection configuration: %w", err)
+		return results, fmt.Errorf("failed to get connection pool: %w", err)
 	}
-	connConfig.ConnectTimeout = 5 * time.Second
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
-
-	conn, err := pgx.ConnectConfig(ctx, connConfig)
-	if err != nil {
-		return results, fmt.Errorf("failed to connect: %w", err)
-	}
-	defer conn.Close(ctx)
 
 	statements := splitSQLStatements(trimmedQuery)
 
@@ -996,12 +951,12 @@ func (s *DBService) ExecuteRawQuery(config ConnectionConfig, dbName string, sqlQ
 		}
 
 		start := time.Now()
-		rows, err := conn.Query(ctx, stmt)
+		rows, err := pool.Query(ctx, stmt)
 		durationMs := float64(time.Since(start).Microseconds()) / 1000.0
 		qr.DurationMs = durationMs
 
 		if err != nil {
-			tag, execErr := conn.Exec(ctx, stmt)
+			tag, execErr := pool.Exec(ctx, stmt)
 			if execErr != nil {
 				qr.Success = false
 				qr.ErrorMessage = execErr.Error()
@@ -1173,21 +1128,13 @@ func (s *DBService) GetDatabaseSchemaDetails(config ConnectionConfig, dbName str
 	schema.Tables = []TableSchema{}
 	schema.Relationships = []ForeignKeyRelationship{}
 
-	connStr := buildPostgresURLWithDB(config, dbName)
-	connConfig, err := pgx.ParseConfig(connStr)
+	pool, err := s.getPool(config, dbName)
 	if err != nil {
-		return schema, fmt.Errorf("invalid connection configuration: %w", err)
+		return schema, err
 	}
-	connConfig.ConnectTimeout = 5 * time.Second
 
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
-
-	conn, err := pgx.ConnectConfig(ctx, connConfig)
-	if err != nil {
-		return schema, fmt.Errorf("failed to connect: %w", err)
-	}
-	defer conn.Close(ctx)
 
 	tables, err := s.GetTables(config, dbName)
 	if err != nil {
@@ -1209,7 +1156,7 @@ func (s *DBService) GetDatabaseSchemaDetails(config ConnectionConfig, dbName str
 
 		var rowCount int64
 		countQuery := fmt.Sprintf("SELECT COUNT(*) FROM %s;", pgx.Identifier{tbl}.Sanitize())
-		_ = conn.QueryRow(ctx, countQuery).Scan(&rowCount)
+		_ = pool.QueryRow(ctx, countQuery).Scan(&rowCount)
 
 		schema.Tables = append(schema.Tables, TableSchema{
 			Name:        tbl,
@@ -1236,7 +1183,7 @@ func (s *DBService) GetDatabaseSchemaDetails(config ConnectionConfig, dbName str
 	  AND tc.table_schema = 'public';`
 
 	start := time.Now()
-	fkRows, err := conn.Query(ctx, fkQuery)
+	fkRows, err := pool.Query(ctx, fkQuery)
 	durationMs := float64(time.Since(start).Microseconds()) / 1000.0
 
 	if err == nil {
@@ -1257,20 +1204,6 @@ func (s *DBService) GetDatabaseSchemaDetails(config ConnectionConfig, dbName str
 
 // ExportTableSQL exports DDL schema and optionally INSERT data statements.
 func (s *DBService) ExportTableSQL(config ConnectionConfig, dbName, tableName string, includeData bool) (string, error) {
-	connStr := buildPostgresURLWithDB(config, dbName)
-	connConfig, err := pgx.ParseConfig(connStr)
-	if err != nil {
-		return "", err
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	conn, err := pgx.ConnectConfig(ctx, connConfig)
-	if err != nil {
-		return "", err
-	}
-	defer conn.Close(ctx)
-
 	cols, err := s.GetTableSchema(config, dbName, tableName)
 	if err != nil {
 		return "", err
@@ -1398,25 +1331,16 @@ func (s *DBService) ImportSQLScript(config ConnectionConfig, dbName string, scri
 		return result, nil
 	}
 
-	connStr := buildPostgresURLWithDB(config, dbName)
-	connConfig, err := pgx.ParseConfig(connStr)
+	pool, err := s.getPool(config, dbName)
 	if err != nil {
 		result.ErrorMessage = fmt.Sprintf("Invalid connection: %v", err)
 		return result, err
 	}
-	connConfig.ConnectTimeout = 10 * time.Second
 
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
-	conn, err := pgx.ConnectConfig(ctx, connConfig)
-	if err != nil {
-		result.ErrorMessage = fmt.Sprintf("Connection failed: %v", err)
-		return result, err
-	}
-	defer conn.Close(ctx)
-
-	tx, err := conn.Begin(ctx)
+	tx, err := pool.Begin(ctx)
 	if err != nil {
 		result.ErrorMessage = fmt.Sprintf("Failed to start transaction: %v", err)
 		return result, err
@@ -1496,21 +1420,13 @@ func (s *DBService) ExplainQuery(config ConnectionConfig, dbName, sqlQuery strin
 		return result, fmt.Errorf("query cannot be empty")
 	}
 
-	connStr := buildPostgresURLWithDB(config, dbName)
-	connConfig, err := pgx.ParseConfig(connStr)
+	pool, err := s.getPool(config, dbName)
 	if err != nil {
 		return result, fmt.Errorf("invalid connection: %w", err)
 	}
-	connConfig.ConnectTimeout = 5 * time.Second
 
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
-
-	conn, err := pgx.ConnectConfig(ctx, connConfig)
-	if err != nil {
-		return result, fmt.Errorf("failed to connect: %w", err)
-	}
-	defer conn.Close(ctx)
 
 	explainCmd := "EXPLAIN (FORMAT JSON"
 	if analyze {
@@ -1520,7 +1436,7 @@ func (s *DBService) ExplainQuery(config ConnectionConfig, dbName, sqlQuery strin
 
 	start := time.Now()
 	var jsonOutput string
-	err = conn.QueryRow(ctx, explainCmd).Scan(&jsonOutput)
+	err = pool.QueryRow(ctx, explainCmd).Scan(&jsonOutput)
 	durationMs := float64(time.Since(start).Microseconds()) / 1000.0
 
 	if err != nil {
@@ -1552,7 +1468,7 @@ func (s *DBService) ExplainQuery(config ConnectionConfig, dbName, sqlQuery strin
 	}
 	textExplainCmd += trimmed
 
-	rows, err := conn.Query(ctx, textExplainCmd)
+	rows, err := pool.Query(ctx, textExplainCmd)
 	if err == nil {
 		defer rows.Close()
 		var textLines []string

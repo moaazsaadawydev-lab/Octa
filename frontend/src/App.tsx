@@ -20,8 +20,10 @@ import {
 } from './types/connection';
 import {
   ProjectWorkspace,
-  RecentProject
+  RecentProject,
+  ProjectHttpClient
 } from './types/project';
+import { RedisConnectionConfig } from './types/redis';
 import {
   AppSettings,
   DEFAULT_APP_SETTINGS
@@ -95,6 +97,13 @@ export function App() {
 
   // Database Connections & Sessions
   const [connections, setConnections] = useState<ConnectionConfig[]>([]);
+  const [redisConnections, setRedisConnections] = useState<RedisConnectionConfig[]>([]);
+  const [httpData, setHttpData] = useState<ProjectHttpClient>({
+    collections: [],
+    environments: [],
+    globalVariables: [],
+    activeEnvironmentId: null,
+  });
   const [activeSession, setActiveSession] = useState<ActiveSession | null>(null);
   const [sidebarImportSession, setSidebarImportSession] = useState<ActiveSession | null>(null);
 
@@ -209,6 +218,13 @@ export function App() {
       setProjectFilePath(filePath);
       setConnections(proj.databases || []);
       setQueriesTree(proj.sqlQueries || []);
+      setRedisConnections(proj.redis || []);
+      setHttpData(proj.httpClient || {
+        collections: [],
+        environments: [],
+        globalVariables: [],
+        activeEnvironmentId: null,
+      });
       setActiveSession(null);
       setActiveModule('databases');
       recordRecentProject(proj.name, filePath);
@@ -329,6 +345,13 @@ export function App() {
     setActiveSession(null);
     setConnections([]);
     setQueriesTree([]);
+    setRedisConnections([]);
+    setHttpData({
+      collections: [],
+      environments: [],
+      globalVariables: [],
+      activeEnvironmentId: null,
+    });
     setActiveModule('welcome');
     showToast('Project closed', 'info');
   };
@@ -343,6 +366,8 @@ export function App() {
         updatedAt: new Date().toISOString(),
         databases: connections,
         sqlQueries: queriesTree,
+        redis: redisConnections,
+        httpClient: httpData,
       };
       const ok = await saveProjectFile(projectFilePath, updatedProj);
       if (ok) {
@@ -371,6 +396,8 @@ export function App() {
         updatedAt: new Date().toISOString(),
         databases: connections,
         sqlQueries: queriesTree,
+        redis: redisConnections,
+        httpClient: httpData,
       };
       await saveProjectFile(res.filePath, updatedProj);
       loadProjectIntoWorkspace(updatedProj, res.filePath);
@@ -392,6 +419,8 @@ export function App() {
           updatedAt: new Date().toISOString(),
           databases: connections,
           sqlQueries: queriesTree,
+          redis: redisConnections,
+          httpClient: httpData,
         };
         await saveProjectFile(projectFilePath, updatedProj);
       } catch (err) {
@@ -402,7 +431,7 @@ export function App() {
     }, 600);
 
     return () => clearTimeout(timer);
-  }, [activeProject, projectFilePath, connections, queriesTree]);
+  }, [activeProject, projectFilePath, connections, queriesTree, redisConnections, httpData]);
 
   // Save queries tree callback
   const handleSaveQueriesTree = useCallback((nextTree: (SqlQueryFolder | SqlQueryItem)[]) => {
@@ -682,9 +711,21 @@ export function App() {
             isOpening={isOpeningProject}
           />
         ) : activeModule === 'redis' ? (
-          <RedisWorkspace showToast={showToast} />
+          <RedisWorkspace
+            connections={redisConnections}
+            onUpdateConnections={(conns) => {
+              setRedisConnections(conns);
+            }}
+            showToast={showToast}
+          />
         ) : activeModule === 'http' ? (
-          <HttpClientWorkspace showToast={showToast} />
+          <HttpClientWorkspace
+            data={httpData}
+            onUpdateData={(newData) => {
+              setHttpData(newData);
+            }}
+            showToast={showToast}
+          />
         ) : activeModule === 'settings' ? (
           <SettingsView showToast={showToast} />
         ) : (

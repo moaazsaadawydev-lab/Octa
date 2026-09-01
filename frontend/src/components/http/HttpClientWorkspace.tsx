@@ -434,6 +434,77 @@ export const METHOD_COLORS: Record<string, { badge: string; text: string }> = HT
   return acc;
 }, {} as Record<string, { badge: string; text: string }>);
 
+// Helper: Safely decode URI components without throwing on malformed strings or template variables
+export function safeDecodeUriComponent(str: string): string {
+  try {
+    return decodeURIComponent(str.replace(/\+/g, ' '));
+  } catch {
+    return str;
+  }
+}
+
+// Parse Query Parameters from URL query string into HttpParam[]
+export function parseQueryParamsFromUrl(rawUrl: string, existingParams: HttpParam[] = []): HttpParam[] {
+  const qIndex = rawUrl.indexOf('?');
+  const existingDisabled = existingParams.filter((p) => !p.enabled);
+
+  if (qIndex === -1) {
+    return [...existingDisabled];
+  }
+
+  const queryString = rawUrl.slice(qIndex + 1);
+  if (!queryString) {
+    return [...existingDisabled];
+  }
+
+  const pairs = queryString.split('&');
+  const parsedParams: HttpParam[] = [];
+
+  for (const pair of pairs) {
+    if (!pair && pair !== '') continue;
+    const eqIdx = pair.indexOf('=');
+    if (eqIdx === -1) {
+      parsedParams.push({
+        key: safeDecodeUriComponent(pair),
+        value: '',
+        enabled: true,
+      });
+    } else {
+      const key = safeDecodeUriComponent(pair.slice(0, eqIdx));
+      const value = safeDecodeUriComponent(pair.slice(eqIdx + 1));
+      parsedParams.push({
+        key,
+        value,
+        enabled: true,
+      });
+    }
+  }
+
+  return [...parsedParams, ...existingDisabled];
+}
+
+// Build URL string from base path and active enabled query params
+export function buildUrlWithParams(currentUrl: string, params: HttpParam[]): string {
+  const qIndex = currentUrl.indexOf('?');
+  const basePath = qIndex !== -1 ? currentUrl.slice(0, qIndex) : currentUrl;
+
+  const activeParams = params.filter((p) => p.enabled && (p.key.trim() !== '' || p.value.trim() !== ''));
+  if (activeParams.length === 0) {
+    return basePath;
+  }
+
+  const queryParts = activeParams.map((p) => {
+    const k = p.key;
+    const v = p.value;
+    if (v !== '') {
+      return `${k}=${v}`;
+    }
+    return k;
+  });
+
+  return `${basePath}?${queryParts.join('&')}`;
+}
+
 const DEFAULT_JSON_BODY = '{\n  "key": "value"\n}';
 
 const createDefaultRequest = (name: string = 'Untitled Request'): HttpRequestItem => ({
@@ -726,9 +797,19 @@ const getResponseEditorConfig = (responseState: HttpResponseState | null) => {
   return { language, value };
 };
 
-export const HttpClientWorkspace: React.FC<{
+import { ProjectHttpClient } from '../../types/project';
+
+interface HttpClientWorkspaceProps {
+  data?: ProjectHttpClient;
+  onUpdateData?: (data: ProjectHttpClient) => void;
   showToast: (message: string, type?: 'success' | 'error' | 'info') => void;
-}> = ({ showToast }) => {
+}
+
+export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
+  data: propData,
+  onUpdateData,
+  showToast,
+}) => {
   const liveFileObjectsRef = useRef<Map<string, File>>(new Map());
 
   // --- Environments & Variables State ---
@@ -742,48 +823,15 @@ export const HttpClientWorkspace: React.FC<{
     } catch (e) {
       console.warn('Failed to parse environments from localStorage', e);
     }
-    return [
-      {
-        id: 'env-localhost',
-        name: 'Localhost',
-        variables: [
-          { id: 'v-1', key: 'baseUrl', value: 'http://localhost:3000/api/v1', enabled: true, type: 'default' },
-          { id: 'v-2', key: 'token', value: 'mock_jwt_token_123', enabled: true, type: 'secret' },
-        ],
-      },
-      {
-        id: 'env-staging',
-        name: 'Staging',
-        variables: [
-          { id: 'v-3', key: 'baseUrl', value: 'https://staging.api.example.com/v1', enabled: true, type: 'default' },
-        ],
-      },
-    ];
+    return propData?.environments || [];
   });
 
   const [activeEnvironmentId, setActiveEnvironmentId] = useState<string | null>(() => {
-    try {
-      const saved = localStorage.getItem('octa_http_active_env_id');
-      if (saved === 'null') return null;
-      return saved || 'env-localhost';
-    } catch {
-      return 'env-localhost';
-    }
+    return propData?.activeEnvironmentId ?? null;
   });
 
   const [globalVariables, setGlobalVariables] = useState<EnvironmentVariable[]>(() => {
-    try {
-      const saved = localStorage.getItem('octa_http_global_vars');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) return parsed;
-      }
-    } catch (e) {
-      console.warn('Failed to parse global variables from localStorage', e);
-    }
-    return [
-      { id: 'gv-1', key: 'appVersion', value: '1.0.0', enabled: true, type: 'default' },
-    ];
+    return propData?.globalVariables || [];
   });
 
   const [isEnvModalOpen, setIsEnvModalOpen] = useState(false);
@@ -957,57 +1005,10 @@ export const HttpClientWorkspace: React.FC<{
 
   // 1. Collections & Requests Tree State
   const [collections, setCollections] = useState<HttpFolderItem[]>(() => {
-    try {
-      const saved = localStorage.getItem('octa_http_collections');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return normalizeCollections(parsed);
-        }
-      }
-    } catch (e) {
-      console.warn('Failed to parse http collections from localStorage', e);
+    if (propData?.collections && propData.collections.length > 0) {
+      return normalizeCollections(propData.collections);
     }
-    return [
-      {
-        id: 'col-default',
-        type: 'collection',
-        name: 'My Collection',
-        isOpen: true,
-        items: [
-          {
-            id: 'req-users',
-            type: 'request',
-            name: 'Get Users List',
-            method: 'GET',
-            url: 'https://jsonplaceholder.typicode.com/users',
-            headers: [{ key: 'Accept', value: 'application/json', enabled: true }],
-            params: [{ key: 'page', value: '1', enabled: true }],
-            bodyType: 'none',
-            bodyContent: '',
-            bodyFormData: [],
-            bodyUrlEncoded: [],
-            disabledAutoHeaders: [],
-            isDirty: false,
-          },
-          {
-            id: 'req-create-user',
-            type: 'request',
-            name: 'Create User',
-            method: 'POST',
-            url: 'https://jsonplaceholder.typicode.com/users',
-            headers: [],
-            params: [],
-            bodyType: 'json',
-            bodyContent: '{\n  "name": "Alex Mercer",\n  "email": "alex@octa.dev"\n}',
-            bodyFormData: [],
-            bodyUrlEncoded: [],
-            disabledAutoHeaders: [],
-            isDirty: false,
-          },
-        ],
-      },
-    ];
+    return [];
   });
 
   // Cookie Jar State (Persisted in localStorage)
@@ -1021,14 +1022,7 @@ export const HttpClientWorkspace: React.FC<{
     } catch (e) {
       console.warn('Failed to parse cookie jar from localStorage', e);
     }
-    return [
-      {
-        domain: 'jsonplaceholder.typicode.com',
-        path: '/',
-        name: 'session_id',
-        value: 'octa_sess_9a8b7c6d',
-      },
-    ];
+    return [];
   });
 
   const saveCookieJar = (newJar: StoredCookie[]) => {
@@ -1064,9 +1058,17 @@ export const HttpClientWorkspace: React.FC<{
     };
   }, []);
 
-  // Persist tree helper
+  // Persist tree helper and notify parent project store
   const saveTreeData = (nextCols: HttpFolderItem[]) => {
     setCollections(nextCols);
+    if (onUpdateData) {
+      onUpdateData({
+        collections: nextCols,
+        environments,
+        globalVariables,
+        activeEnvironmentId,
+      });
+    }
     try {
       const jsonStr = JSON.stringify(nextCols);
       localStorage.setItem('octa_http_collections', jsonStr);
@@ -1078,11 +1080,8 @@ export const HttpClientWorkspace: React.FC<{
     }
   };
 
-  // 2. Multi-Tab State
-  const [openTabs, setOpenTabs] = useState<HttpRequestItem[]>(() => {
-    const firstReq = collections[0]?.items.find((i) => i.type === 'request') as HttpRequestItem | undefined;
-    return firstReq ? [firstReq] : [];
-  });
+  // 2. Multi-Tab State (strictly empty on clean project load)
+  const [openTabs, setOpenTabs] = useState<HttpRequestItem[]>([]);
 
   const [activeTabId, setActiveTabId] = useState<string>(() => {
     return openTabs[0]?.id || '';
@@ -1203,6 +1202,27 @@ export const HttpClientWorkspace: React.FC<{
     updateActiveRequest({
       ...activeRequest,
       disabledAutoHeaders: nextDisabled,
+    });
+  };
+
+  // Two-Way Sync Handlers for URL and Query Parameters
+  const handleUrlChange = (newUrl: string) => {
+    if (!activeRequest) return;
+    const newParams = parseQueryParamsFromUrl(newUrl, activeRequest.params);
+    updateActiveRequest({
+      ...activeRequest,
+      url: newUrl,
+      params: newParams,
+    });
+  };
+
+  const handleParamsChange = (newParams: HttpParam[]) => {
+    if (!activeRequest) return;
+    const newUrl = buildUrlWithParams(activeRequest.url, newParams);
+    updateActiveRequest({
+      ...activeRequest,
+      url: newUrl,
+      params: newParams,
     });
   };
 
@@ -2644,7 +2664,7 @@ export const HttpClientWorkspace: React.FC<{
                   {/* URL Input with Variable Syntax Highlighting & Visual Badging */}
                   <UrlHighlightInput
                     value={activeRequest.url}
-                    onChange={(val) => updateActiveRequest({ ...activeRequest, url: val })}
+                    onChange={handleUrlChange}
                     placeholder="https://api.example.com/v1/resource"
                     activeEnv={activeEnvironment}
                     globalVariables={globalVariables}
@@ -2727,12 +2747,24 @@ export const HttpClientWorkspace: React.FC<{
 
                     {/* Request Tab Content */}
                     <div className={"p-3 min-h-0 bg-[#131316] " + (requestTab === 'body' && activeRequest.bodyType === 'json' ? 'flex-1 flex flex-col h-full overflow-hidden' : 'flex-1 overflow-y-auto')}>
-                      {/* 1. QUERY PARAMS TAB */}
+                      {/* 1. QUERY PARAMS TAB with Bidirectional Two-Way URL Sync */}
                       {requestTab === 'params' && (
                         <div className="space-y-2">
-                          <div className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider">
-                            Query Parameters
+                          <div className="flex items-center justify-between">
+                            <div className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider">
+                              Query Parameters ({activeRequest.params.length})
+                            </div>
+                            <span className="text-[10px] text-zinc-500 font-mono">
+                              Auto-syncs with URL
+                            </span>
                           </div>
+
+                          {activeRequest.params.length === 0 && (
+                            <div className="text-xs text-zinc-500 py-3 text-center border border-dashed border-zinc-800 rounded-lg">
+                              No query parameters. Type <code className="text-zinc-400 font-mono">?key=value</code> in the URL bar or click below.
+                            </div>
+                          )}
+
                           {activeRequest.params.map((p, idx) => (
                             <div key={idx} className="flex items-center gap-2">
                               <input
@@ -2740,8 +2772,8 @@ export const HttpClientWorkspace: React.FC<{
                                 checked={p.enabled}
                                 onChange={(e) => {
                                   const next = [...activeRequest.params];
-                                  next[idx].enabled = e.target.checked;
-                                  updateActiveRequest({ ...activeRequest, params: next });
+                                  next[idx] = { ...next[idx], enabled: e.target.checked };
+                                  handleParamsChange(next);
                                 }}
                                 className="rounded bg-zinc-800 border-zinc-700 text-brand-500 cursor-pointer"
                               />
@@ -2750,8 +2782,8 @@ export const HttpClientWorkspace: React.FC<{
                                 value={p.key}
                                 onChange={(e) => {
                                   const next = [...activeRequest.params];
-                                  next[idx].key = e.target.value;
-                                  updateActiveRequest({ ...activeRequest, params: next });
+                                  next[idx] = { ...next[idx], key: e.target.value };
+                                  handleParamsChange(next);
                                 }}
                                 placeholder="Key"
                                 className="flex-1 px-2.5 py-1 text-xs bg-[#1a1a1e] border border-[#2b2b30] rounded text-zinc-200 font-mono outline-none focus:border-brand-500"
@@ -2761,8 +2793,8 @@ export const HttpClientWorkspace: React.FC<{
                                 value={p.value}
                                 onChange={(e) => {
                                   const next = [...activeRequest.params];
-                                  next[idx].value = e.target.value;
-                                  updateActiveRequest({ ...activeRequest, params: next });
+                                  next[idx] = { ...next[idx], value: e.target.value };
+                                  handleParamsChange(next);
                                 }}
                                 placeholder="Value"
                                 className="flex-1 px-2.5 py-1 text-xs bg-[#1a1a1e] border border-[#2b2b30] rounded text-zinc-200 font-mono outline-none focus:border-brand-500"
@@ -2771,7 +2803,7 @@ export const HttpClientWorkspace: React.FC<{
                                 type="button"
                                 onClick={() => {
                                   const next = activeRequest.params.filter((_, i) => i !== idx);
-                                  updateActiveRequest({ ...activeRequest, params: next });
+                                  handleParamsChange(next);
                                 }}
                                 title="Remove Parameter"
                                 className="p-1 text-zinc-500 hover:text-rose-400 cursor-pointer transition-colors"
@@ -2780,13 +2812,12 @@ export const HttpClientWorkspace: React.FC<{
                               </button>
                             </div>
                           ))}
+
                           <button
                             type="button"
                             onClick={() => {
-                              updateActiveRequest({
-                                ...activeRequest,
-                                params: [...activeRequest.params, { key: '', value: '', enabled: true }],
-                              });
+                              const next = [...activeRequest.params, { key: '', value: '', enabled: true }];
+                              handleParamsChange(next);
                             }}
                             className="text-xs text-brand-400 hover:text-brand-300 font-medium flex items-center gap-1 cursor-pointer mt-2"
                           >

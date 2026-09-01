@@ -18,27 +18,19 @@ import {
   Info,
   Server,
   AlertTriangle,
-  Flame,
   List,
   FolderTree,
   FileCode,
   Hash,
   ListOrdered,
   Tag,
-  BarChart2,
-  Eye,
-  EyeOff,
-  MoreVertical,
   X,
   ExternalLink,
   Edit2,
   CheckCircle2,
   AlertCircle,
   Loader2,
-  AlignLeft,
-  Minimize2,
-  PlusCircle,
-  Scissors
+  Key
 } from 'lucide-react';
 import Editor from '@monaco-editor/react';
 import {
@@ -50,8 +42,6 @@ import {
   ZSetMember,
 } from '../../types/redis';
 import {
-  loadRedisConnections,
-  saveRedisConnections,
   connectRedis,
   scanRedisKeys,
   getRedisKeyDetails,
@@ -63,8 +53,11 @@ import {
   flushRedisDB,
 } from '../../services/api';
 import { NewRedisConnectionModal } from './NewRedisConnectionModal';
+import { HomeLanding } from '../layout/HomeLanding';
 
 interface RedisWorkspaceProps {
+  connections: RedisConnectionConfig[];
+  onUpdateConnections: (connections: RedisConnectionConfig[]) => void;
   showToast: (message: string, type?: 'success' | 'error' | 'info') => void;
 }
 
@@ -78,13 +71,26 @@ interface KeyTreeNode {
   isOpen?: boolean;
 }
 
-const DEFAULT_REDIS_CONN: RedisConnectionConfig = {
-  id: 'redis-default',
-  name: 'Local Redis',
-  host: '127.0.0.1',
-  port: 6379,
-  db: 0,
-  ssl: false,
+// Multi-Tab definition for active key inspection
+interface RedisTab {
+  id: string; // key string
+  key: string;
+  type: RedisKeyType;
+  detail: RedisKeyDetail | null;
+  isLoading: boolean;
+  isDirty: boolean;
+  draftString: string;
+  draftHash: Array<{ field: string; value: string }>;
+  draftList: string[];
+  draftSet: string[];
+  draftZSet: ZSetMember[];
+}
+
+const formatBytes = (bytes?: number): string => {
+  if (!bytes || bytes <= 0) return '0 B';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
 };
 
 // Helper to recursively collect all key strings under a tree node
@@ -99,12 +105,28 @@ const getAllKeysInNode = (node: KeyTreeNode): string[] => {
   return result;
 };
 
-export const RedisWorkspace: React.FC<RedisWorkspaceProps> = ({ showToast }) => {
-  // Connections state
-  const [connections, setConnections] = useState<RedisConnectionConfig[]>([DEFAULT_REDIS_CONN]);
-  const [activeConnId, setActiveConnId] = useState<string>(DEFAULT_REDIS_CONN.id);
+export const RedisWorkspace: React.FC<RedisWorkspaceProps> = ({
+  connections,
+  onUpdateConnections,
+  showToast,
+}) => {
+  // Active Connection state
+  const [activeConnId, setActiveConnId] = useState<string>(() => {
+    return connections.length > 0 ? connections[0].id : '';
+  });
   const [isConnModalOpen, setIsConnModalOpen] = useState(false);
   const [editingConn, setEditingConn] = useState<RedisConnectionConfig | null>(null);
+
+  // Sync activeConnId if connections list changes
+  useEffect(() => {
+    if (connections.length > 0) {
+      if (!connections.some((c) => c.id === activeConnId)) {
+        setActiveConnId(connections[0].id);
+      }
+    } else {
+      setActiveConnId('');
+    }
+  }, [connections]);
 
   // Connection & Server info state
   const [isConnected, setIsConnected] = useState(false);
@@ -115,12 +137,28 @@ export const RedisWorkspace: React.FC<RedisWorkspaceProps> = ({ showToast }) => 
   // Active DB state (0-15)
   const [activeDb, setActiveDb] = useState<number>(0);
 
+  // Resizable sidebar state (persisted)
+  const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('octa_redis_sidebar_width');
+      const n = saved ? parseInt(saved) : 280;
+      return isNaN(n) ? 280 : Math.max(220, Math.min(550, n));
+    } catch {
+      return 280;
+    }
+  });
+  const [isResizing, setIsResizing] = useState(false);
+
   // Keys & scanning state
   const [keys, setKeys] = useState<RedisKeyInfo[]>([]);
   const [isLoadingKeys, setIsLoadingKeys] = useState(false);
   const [searchPattern, setSearchPattern] = useState<string>('*');
   const [viewMode, setViewMode] = useState<'tree' | 'flat'>('tree');
   const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({});
+
+  // Tabs state
+  const [tabs, setTabs] = useState<RedisTab[]>([]);
+  const [activeTabKey, setActiveTabKey] = useState<string | null>(null);
 
   // Context Menu state
   const [contextMenu, setContextMenu] = useState<{
@@ -137,18 +175,8 @@ export const RedisWorkspace: React.FC<RedisWorkspaceProps> = ({ showToast }) => 
   } | null>(null);
   const [isDeletingNamespace, setIsDeletingNamespace] = useState(false);
 
-  // Selected key & details
-  const [selectedKeyName, setSelectedKeyName] = useState<string | null>(null);
-  const [selectedKeyDetail, setSelectedKeyDetail] = useState<RedisKeyDetail | null>(null);
-  const [isLoadingDetail, setIsLoadingDetail] = useState(false);
+  // Saving state
   const [isSaving, setIsSaving] = useState(false);
-
-  // Local draft state for editing values
-  const [draftString, setDraftString] = useState<string>('');
-  const [draftHash, setDraftHash] = useState<Array<{ field: string; value: string }>>([]);
-  const [draftList, setDraftList] = useState<string[]>([]);
-  const [draftSet, setDraftSet] = useState<string[]>([]);
-  const [draftZSet, setDraftZSet] = useState<ZSetMember[]>([]);
   const [isCopied, setIsCopied] = useState(false);
 
   // Quick TTL editor state
@@ -174,9 +202,42 @@ export const RedisWorkspace: React.FC<RedisWorkspaceProps> = ({ showToast }) => 
   // Active connection object
   const activeConn = useMemo(() => {
     const found = connections.find((c) => c.id === activeConnId);
-    if (!found) return connections[0] || DEFAULT_REDIS_CONN;
+    if (!found) return null;
     return { ...found, db: activeDb };
   }, [connections, activeConnId, activeDb]);
+
+  // Active tab object
+  const activeTab = useMemo(() => {
+    return tabs.find((t) => t.key === activeTabKey) || null;
+  }, [tabs, activeTabKey]);
+
+  // Handle Drag Resizing of Sidebar
+  const startResizing = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+  }, []);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizing) return;
+      const newWidth = Math.max(220, Math.min(550, e.clientX - 52)); // 52px for activity rail
+      setSidebarWidth(newWidth);
+    };
+    const handleMouseUp = () => {
+      setIsResizing(false);
+      try {
+        localStorage.setItem('octa_redis_sidebar_width', String(sidebarWidth));
+      } catch {}
+    };
+    if (isResizing) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+      return () => {
+        window.removeEventListener('mousemove', handleMouseMove);
+        window.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [isResizing]);
 
   // Close context menu on outside click
   useEffect(() => {
@@ -191,39 +252,15 @@ export const RedisWorkspace: React.FC<RedisWorkspaceProps> = ({ showToast }) => 
     }
   }, [contextMenu]);
 
-  // Load saved connections from backend disk on mount
-  useEffect(() => {
-    (async () => {
-      try {
-        const data = await loadRedisConnections();
-        if (data && data.trim()) {
-          const parsed = JSON.parse(data);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setConnections(parsed);
-            setActiveConnId(parsed[0].id);
-            setActiveDb(parsed[0].db || 0);
-          }
-        }
-      } catch (err) {
-        console.warn('Failed to load Redis connections from disk:', err);
-      }
-    })();
-  }, []);
-
-  // Save connections helper
-  const persistConnections = useCallback((list: RedisConnectionConfig[]) => {
-    setConnections(list);
-    try {
-      const jsonStr = JSON.stringify(list);
-      saveRedisConnections(jsonStr);
-    } catch (e) {
-      console.warn('Failed to persist Redis connections:', e);
-    }
-  }, []);
-
   // Connect & Scan keys
   const handleConnect = useCallback(
     async (connToUse = activeConn) => {
+      if (!connToUse) {
+        setIsConnected(false);
+        setServerInfo(null);
+        setKeys([]);
+        return;
+      }
       setIsConnecting(true);
       try {
         const res = await connectRedis(connToUse);
@@ -231,7 +268,6 @@ export const RedisWorkspace: React.FC<RedisWorkspaceProps> = ({ showToast }) => 
           setIsConnected(true);
           setServerInfo(res.serverInfo);
           showToast(`Connected to Redis ${connToUse.host}:${connToUse.port} (DB ${connToUse.db})`, 'success');
-          // Scan keys
           loadKeys(connToUse, searchPattern);
         } else {
           setIsConnected(false);
@@ -251,6 +287,7 @@ export const RedisWorkspace: React.FC<RedisWorkspaceProps> = ({ showToast }) => 
 
   // Scan keys function
   const loadKeys = async (conn = activeConn, pattern = searchPattern) => {
+    if (!conn) return;
     setIsLoadingKeys(true);
     try {
       const res = await scanRedisKeys(conn, pattern || '*', 0, 1000);
@@ -262,41 +299,97 @@ export const RedisWorkspace: React.FC<RedisWorkspaceProps> = ({ showToast }) => 
     }
   };
 
-  // Auto-connect on active connection or DB change
+  // Connect when user changes activeConnId or activeDb IF connection exists
   useEffect(() => {
-    handleConnect();
+    if (activeConn) {
+      handleConnect(activeConn);
+    } else {
+      setIsConnected(false);
+      setKeys([]);
+      setTabs([]);
+      setActiveTabKey(null);
+    }
   }, [activeConnId, activeDb]);
 
-  // Load key details when a key is selected
-  const handleSelectKey = async (keyName: string) => {
-    setSelectedKeyName(keyName);
-    setIsLoadingDetail(true);
+  // Open key in Tab (Multi-Tab Support)
+  const handleOpenKeyInTab = async (keyName: string) => {
+    const existingIndex = tabs.findIndex((t) => t.key === keyName);
+    if (existingIndex >= 0) {
+      setActiveTabKey(keyName);
+      return;
+    }
+
+    if (!activeConn) return;
+
+    // Create loading tab
+    const newTab: RedisTab = {
+      id: keyName,
+      key: keyName,
+      type: 'string',
+      detail: null,
+      isLoading: true,
+      isDirty: false,
+      draftString: '',
+      draftHash: [],
+      draftList: [],
+      draftSet: [],
+      draftZSet: [],
+    };
+
+    setTabs((prev) => [...prev, newTab]);
+    setActiveTabKey(keyName);
     setIsEditingTTL(false);
+
     try {
       const detail = await getRedisKeyDetails(activeConn, keyName);
       if (detail) {
-        setSelectedKeyDetail(detail);
-        // Initialize draft values
-        setDraftString(detail.stringValue || '');
-        if (detail.hashValue) {
-          setDraftHash(
-            Object.entries(detail.hashValue).map(([field, value]) => ({ field, value }))
-          );
-        } else {
-          setDraftHash([]);
-        }
-        setDraftList(detail.listValue || []);
-        setDraftSet(detail.setValue || []);
-        setDraftZSet(detail.zsetValue || []);
+        setTabs((prev) =>
+          prev.map((t) => {
+            if (t.key !== keyName) return t;
+            return {
+              ...t,
+              type: detail.type,
+              detail: detail,
+              isLoading: false,
+              draftString: detail.stringValue || '',
+              draftHash: detail.hashValue
+                ? Object.entries(detail.hashValue).map(([field, value]) => ({ field, value }))
+                : [],
+              draftList: detail.listValue || [],
+              draftSet: detail.setValue || [],
+              draftZSet: detail.zsetValue || [],
+            };
+          })
+        );
       } else {
-        setSelectedKeyDetail(null);
         showToast(`Key "${keyName}" no longer exists or expired`, 'info');
+        handleCloseTab(keyName);
       }
     } catch (err: any) {
       showToast(`Failed to fetch key details: ${err?.message || err}`, 'error');
-    } finally {
-      setIsLoadingDetail(false);
+      setTabs((prev) =>
+        prev.map((t) => (t.key === keyName ? { ...t, isLoading: false } : t))
+      );
     }
+  };
+
+  // Close Tab
+  const handleCloseTab = (keyToClose: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+
+    setTabs((prev) => {
+      const filtered = prev.filter((t) => t.key !== keyToClose);
+      if (activeTabKey === keyToClose) {
+        if (filtered.length > 0) {
+          const closingIdx = prev.findIndex((t) => t.key === keyToClose);
+          const nextIdx = Math.max(0, closingIdx - 1);
+          setActiveTabKey(filtered[nextIdx]?.key || null);
+        } else {
+          setActiveTabKey(null);
+        }
+      }
+      return filtered;
+    });
   };
 
   // Build Hierarchical Namespace Tree
@@ -340,41 +433,41 @@ export const RedisWorkspace: React.FC<RedisWorkspaceProps> = ({ showToast }) => 
     }));
   };
 
-  // Save changes to current key
-  const handleSaveKey = async () => {
-    if (!selectedKeyDetail) return;
+  // Save changes to current active tab key
+  const handleSaveActiveTabKey = async () => {
+    if (!activeTab || !activeTab.detail || !activeConn) return;
     setIsSaving(true);
     try {
-      let payload: any = draftString;
-      if (selectedKeyDetail.type === 'hash') {
+      let payload: any = activeTab.draftString;
+      if (activeTab.type === 'hash') {
         const hashObj: Record<string, string> = {};
-        draftHash.forEach((item) => {
+        activeTab.draftHash.forEach((item) => {
           if (item.field.trim()) {
             hashObj[item.field] = item.value;
           }
         });
         payload = hashObj;
-      } else if (selectedKeyDetail.type === 'list') {
-        payload = draftList;
-      } else if (selectedKeyDetail.type === 'set') {
-        payload = draftSet;
-      } else if (selectedKeyDetail.type === 'zset') {
-        payload = draftZSet;
+      } else if (activeTab.type === 'list') {
+        payload = activeTab.draftList;
+      } else if (activeTab.type === 'set') {
+        payload = activeTab.draftSet;
+      } else if (activeTab.type === 'zset') {
+        payload = activeTab.draftZSet;
       }
 
       const ok = await updateRedisKey(
         activeConn,
-        selectedKeyDetail.key,
-        selectedKeyDetail.type,
+        activeTab.key,
+        activeTab.type,
         payload,
-        selectedKeyDetail.ttl
+        activeTab.detail.ttl
       );
 
       if (ok) {
-        showToast(`Key "${selectedKeyDetail.key}" saved successfully`, 'success');
-        // Refresh details
-        handleSelectKey(selectedKeyDetail.key);
-        // Refresh memory usage in tree
+        showToast(`Key "${activeTab.key}" saved successfully`, 'success');
+        setTabs((prev) =>
+          prev.map((t) => (t.key === activeTab.key ? { ...t, isDirty: false } : t))
+        );
         loadKeys();
       } else {
         showToast('Failed to save key changes', 'error');
@@ -387,18 +480,15 @@ export const RedisWorkspace: React.FC<RedisWorkspaceProps> = ({ showToast }) => 
   };
 
   // Delete single key
-  const handleDeleteKey = async (keyToDelete = selectedKeyName) => {
-    if (!keyToDelete) return;
+  const handleDeleteKey = async (keyToDelete: string) => {
+    if (!keyToDelete || !activeConn) return;
     if (!confirm(`Are you sure you want to delete key "${keyToDelete}"?`)) return;
 
     try {
       const ok = await deleteRedisKey(activeConn, keyToDelete);
       if (ok) {
         showToast(`Deleted key "${keyToDelete}"`, 'info');
-        if (selectedKeyName === keyToDelete) {
-          setSelectedKeyName(null);
-          setSelectedKeyDetail(null);
-        }
+        handleCloseTab(keyToDelete);
         loadKeys();
       } else {
         showToast('Failed to delete key', 'error');
@@ -410,17 +500,13 @@ export const RedisWorkspace: React.FC<RedisWorkspaceProps> = ({ showToast }) => 
 
   // Delete entire folder namespace
   const handleDeleteNamespace = async () => {
-    if (!namespaceDeleteModal || namespaceDeleteModal.keys.length === 0) return;
+    if (!namespaceDeleteModal || namespaceDeleteModal.keys.length === 0 || !activeConn) return;
     setIsDeletingNamespace(true);
     try {
       const deletedCount = await deleteRedisKeysBatch(activeConn, namespaceDeleteModal.keys);
       showToast(`Deleted namespace "${namespaceDeleteModal.namespace}" (${deletedCount} keys)`, 'info');
 
-      if (selectedKeyName && namespaceDeleteModal.keys.includes(selectedKeyName)) {
-        setSelectedKeyName(null);
-        setSelectedKeyDetail(null);
-      }
-
+      namespaceDeleteModal.keys.forEach((k) => handleCloseTab(k));
       setNamespaceDeleteModal(null);
       loadKeys();
     } catch (err: any) {
@@ -445,18 +531,22 @@ export const RedisWorkspace: React.FC<RedisWorkspaceProps> = ({ showToast }) => 
 
   // Set TTL
   const handleUpdateTTL = async (ttlSec: number) => {
-    if (!selectedKeyDetail) return;
+    if (!activeTab || !activeTab.detail || !activeConn) return;
     try {
-      const ok = await setRedisTTL(activeConn, selectedKeyDetail.key, ttlSec);
+      const ok = await setRedisTTL(activeConn, activeTab.key, ttlSec);
       if (ok) {
         showToast(
-          ttlSec === -1
-            ? `Key "${selectedKeyDetail.key}" is now persistent`
-            : `TTL set to ${ttlSec}s`,
+          ttlSec === -1 ? `Key "${activeTab.key}" is now persistent` : `TTL set to ${ttlSec}s`,
           'success'
         );
         setIsEditingTTL(false);
-        handleSelectKey(selectedKeyDetail.key);
+        setTabs((prev) =>
+          prev.map((t) =>
+            t.key === activeTab.key && t.detail
+              ? { ...t, detail: { ...t.detail, ttl: ttlSec } }
+              : t
+          )
+        );
       } else {
         showToast('Failed to update TTL', 'error');
       }
@@ -468,7 +558,7 @@ export const RedisWorkspace: React.FC<RedisWorkspaceProps> = ({ showToast }) => 
   // Create Key Submit
   const handleCreateKeySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newKeyForm.key.trim()) return;
+    if (!newKeyForm.key.trim() || !activeConn) return;
 
     try {
       let initialPayload: any = newKeyForm.stringValue;
@@ -494,7 +584,7 @@ export const RedisWorkspace: React.FC<RedisWorkspaceProps> = ({ showToast }) => 
         showToast(`Created key "${newKeyForm.key}" (${newKeyForm.type.toUpperCase()})`, 'success');
         setIsNewKeyModalOpen(false);
         loadKeys();
-        handleSelectKey(newKeyForm.key.trim());
+        handleOpenKeyInTab(newKeyForm.key.trim());
       } else {
         showToast('Failed to create key', 'error');
       }
@@ -505,13 +595,14 @@ export const RedisWorkspace: React.FC<RedisWorkspaceProps> = ({ showToast }) => 
 
   // Flush DB
   const handleFlushDB = async () => {
+    if (!activeConn) return;
     try {
       const ok = await flushRedisDB(activeConn);
       if (ok) {
         showToast(`Flushed all keys in DB ${activeDb}`, 'info');
         setIsFlushConfirmOpen(false);
-        setSelectedKeyName(null);
-        setSelectedKeyDetail(null);
+        setTabs([]);
+        setActiveTabKey(null);
         loadKeys();
       } else {
         showToast('Failed to flush database', 'error');
@@ -521,11 +612,52 @@ export const RedisWorkspace: React.FC<RedisWorkspaceProps> = ({ showToast }) => 
     }
   };
 
+  // Save new / edited connection
+  const handleSaveConnection = (savedConfig: RedisConnectionConfig) => {
+    const existingIndex = connections.findIndex((c) => c.id === savedConfig.id);
+    let updated: RedisConnectionConfig[];
+    if (existingIndex >= 0) {
+      updated = [...connections];
+      updated[existingIndex] = savedConfig;
+    } else {
+      updated = [...connections, savedConfig];
+    }
+    onUpdateConnections(updated);
+    setActiveConnId(savedConfig.id);
+    setActiveDb(savedConfig.db || 0);
+    showToast(`Saved Redis connection "${savedConfig.name}"`, 'success');
+  };
+
+  // Delete connection
+  const handleDeleteConnection = (connId: string) => {
+    const target = connections.find((c) => c.id === connId);
+    if (!confirm(`Remove Redis connection "${target?.name || connId}"?`)) return;
+
+    const updated = connections.filter((c) => c.id !== connId);
+    onUpdateConnections(updated);
+    if (activeConnId === connId) {
+      if (updated.length > 0) {
+        setActiveConnId(updated[0].id);
+        setActiveDb(updated[0].db || 0);
+      } else {
+        setActiveConnId('');
+        setIsConnected(false);
+      }
+    }
+    showToast('Removed Redis connection profile', 'info');
+  };
+
   // Format Helper for JSON in String View
   const handlePrettifyJSON = () => {
+    if (!activeTab) return;
     try {
-      const parsed = JSON.parse(draftString);
-      setDraftString(JSON.stringify(parsed, null, 2));
+      const parsed = JSON.parse(activeTab.draftString);
+      const formatted = JSON.stringify(parsed, null, 2);
+      setTabs((prev) =>
+        prev.map((t) =>
+          t.key === activeTab.key ? { ...t, draftString: formatted, isDirty: true } : t
+        )
+      );
       showToast('Formatted JSON', 'info');
     } catch {
       showToast('Value is not valid JSON', 'error');
@@ -533,9 +665,15 @@ export const RedisWorkspace: React.FC<RedisWorkspaceProps> = ({ showToast }) => 
   };
 
   const handleMinifyJSON = () => {
+    if (!activeTab) return;
     try {
-      const parsed = JSON.parse(draftString);
-      setDraftString(JSON.stringify(parsed));
+      const parsed = JSON.parse(activeTab.draftString);
+      const minified = JSON.stringify(parsed);
+      setTabs((prev) =>
+        prev.map((t) =>
+          t.key === activeTab.key ? { ...t, draftString: minified, isDirty: true } : t
+        )
+      );
       showToast('Minified JSON', 'info');
     } catch {
       showToast('Value is not valid JSON', 'error');
@@ -544,17 +682,17 @@ export const RedisWorkspace: React.FC<RedisWorkspaceProps> = ({ showToast }) => 
 
   // Type badge helper
   const renderTypeBadge = (type: string) => {
-    const t = type.toLowerCase();
+    const t = (type || '').toLowerCase();
     switch (t) {
       case 'string':
         return (
-          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-sky-950/70 border border-sky-500/40 text-sky-400 font-mono">
+          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-950/70 border border-blue-500/40 text-blue-400 font-mono">
             STRING
           </span>
         );
       case 'hash':
         return (
-          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-950/70 border border-emerald-500/40 text-emerald-400 font-mono">
+          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-950/70 border border-purple-500/40 text-purple-400 font-mono">
             HASH
           </span>
         );
@@ -572,14 +710,14 @@ export const RedisWorkspace: React.FC<RedisWorkspaceProps> = ({ showToast }) => 
         );
       case 'zset':
         return (
-          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-950/70 border border-purple-500/40 text-purple-400 font-mono">
+          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-cyan-950/70 border border-cyan-500/40 text-cyan-400 font-mono">
             ZSET
           </span>
         );
       default:
         return (
           <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 font-mono">
-            {type.toUpperCase()}
+            {(type || 'UNKNOWN').toUpperCase()}
           </span>
         );
     }
@@ -620,9 +758,9 @@ export const RedisWorkspace: React.FC<RedisWorkspaceProps> = ({ showToast }) => 
               )}
             </button>
             {isExpanded ? (
-              <FolderOpen className="w-3.5 h-3.5 text-brand-400/90 flex-shrink-0" />
+              <FolderOpen className="w-3.5 h-3.5 text-blue-400/90 flex-shrink-0" />
             ) : (
-              <Folder className="w-3.5 h-3.5 text-brand-400/70 flex-shrink-0" />
+              <Folder className="w-3.5 h-3.5 text-blue-400/70 flex-shrink-0" />
             )}
             <span className="text-xs font-mono font-medium truncate flex-1 text-zinc-200">
               {node.name}
@@ -655,11 +793,13 @@ export const RedisWorkspace: React.FC<RedisWorkspaceProps> = ({ showToast }) => 
     }
 
     // Leaf Key Node
-    const isSelected = selectedKeyName === node.fullPath;
+    const isTabActive = activeTabKey === node.fullPath;
+    const isTabOpen = tabs.some((t) => t.key === node.fullPath);
+
     return (
       <div
         key={node.fullPath}
-        onClick={() => handleSelectKey(node.fullPath)}
+        onClick={() => handleOpenKeyInTab(node.fullPath)}
         onContextMenu={(e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -667,13 +807,15 @@ export const RedisWorkspace: React.FC<RedisWorkspaceProps> = ({ showToast }) => 
         }}
         style={{ paddingLeft: depth * 14 + 22 }}
         className={`w-full pr-2 py-1.5 rounded-lg flex items-center justify-between text-left transition-all cursor-pointer group select-none ${
-          isSelected
-            ? 'bg-brand-600/15 text-white font-medium border-l-2 border-brand-400 shadow-sm'
+          isTabActive
+            ? 'bg-blue-600/20 text-white font-medium border-l-2 border-blue-400 shadow-sm'
+            : isTabOpen
+            ? 'bg-zinc-800/40 text-blue-300'
             : 'text-zinc-300 hover:text-zinc-100 hover:bg-[#1a1a1e]'
         }`}
       >
         <div className="flex items-center gap-1.5 truncate min-w-0 pr-1">
-          <FileCode className="w-3.5 h-3.5 text-brand-400 flex-shrink-0" />
+          <Key className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />
           <span className="text-xs font-mono truncate text-zinc-200">{node.name}</span>
         </div>
         <div className="flex items-center gap-1 flex-shrink-0">
@@ -696,17 +838,111 @@ export const RedisWorkspace: React.FC<RedisWorkspaceProps> = ({ showToast }) => 
     );
   };
 
+  // =========================================================================
+  // ZERO-STATE SCREEN (When zero Redis connections exist)
+  // Matches Database Workspace exactly: Sidebar with "+ Add Connection" & Center HomeLanding
+  // =========================================================================
+  if (connections.length === 0) {
+    return (
+      <div className="flex-1 flex h-full bg-[#121212] text-zinc-100 font-sans overflow-hidden select-none">
+        {/* Left Sidebar (Matching Database Workspace Sidebar Zero-State) */}
+        <div
+          style={{ width: sidebarWidth, minWidth: sidebarWidth, maxWidth: sidebarWidth }}
+          className="bg-surface-900 border-r border-border-subtle flex flex-col h-full select-none flex-shrink-0 font-sans"
+        >
+          {/* Header */}
+          <div className="p-2 border-b border-border-subtle bg-surface-850/50">
+            <div className="px-2 py-1.5 flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <ChevronRight className="w-3.5 h-3.5 text-zinc-400 rotate-90" />
+                <span className="text-xs font-bold uppercase tracking-wider text-gray-400">
+                  Explorer
+                </span>
+                <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-surface-800 text-gray-400 border border-border/50 font-mono">
+                  0
+                </span>
+              </div>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingConn(null);
+                    setIsConnModalOpen(true);
+                  }}
+                  title="Add New Connection"
+                  className="p-1 rounded-md bg-brand-600/20 text-brand-400 hover:bg-brand-600 hover:text-white border border-brand-500/30 transition-all cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Sidebar Empty State Body */}
+          <div className="p-4 text-center my-2 flex flex-col items-center justify-center flex-1">
+            <div className="w-10 h-10 rounded-xl bg-surface-800 border border-border flex items-center justify-center text-gray-400 mb-2">
+              <HardDrive className="w-5 h-5 text-gray-400" />
+            </div>
+            <div className="text-xs font-semibold text-gray-200 mb-1">No connections</div>
+            <p className="text-[11px] text-gray-400 leading-relaxed mb-3">
+              Add your Redis server to start exploring.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setEditingConn(null);
+                setIsConnModalOpen(true);
+              }}
+              className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 text-white text-xs font-medium shadow transition-all cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Add Connection</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Resizable Handle Divider in Zero State */}
+        <div
+          onMouseDown={startResizing}
+          className={`w-1 hover:w-1.5 cursor-col-resize select-none transition-colors ${
+            isResizing ? 'bg-blue-500 w-1.5' : 'bg-zinc-800/80 hover:bg-blue-500/50'
+          }`}
+        />
+
+        {/* Center Viewport (Central Graphic with "+ Create New Connection") */}
+        <HomeLanding
+          onOpenNewModal={() => {
+            setEditingConn(null);
+            setIsConnModalOpen(true);
+          }}
+        />
+
+        {/* Connection Modal */}
+        <NewRedisConnectionModal
+          isOpen={isConnModalOpen}
+          onClose={() => {
+            setIsConnModalOpen(false);
+            setEditingConn(null);
+          }}
+          onSaved={handleSaveConnection}
+          initialConfig={editingConn}
+        />
+      </div>
+    );
+  }
+
+  // =========================================================================
+  // MAIN WORKSPACE LAYOUT (Active Connection Tree + Multi-Tab Center Panel)
+  // =========================================================================
   return (
     <div className="flex-1 flex flex-col h-full bg-[#0e0e11] text-zinc-100 font-sans overflow-hidden select-none">
-      {/* =========================================================================
-          TOP TOOLBAR & CONNECTION BAR
-         ========================================================================= */}
+      {/* Top Global Toolbar */}
       <div className="h-12 border-b border-[#242429] bg-[#141418] px-4 flex items-center justify-between flex-shrink-0 z-20">
         {/* Left: Active Connection & DB Switcher */}
         <div className="flex items-center gap-3">
           {/* Connection Selector */}
           <div className="flex items-center gap-2">
-            <div className="p-1.5 rounded-lg bg-brand-600/20 border border-brand-500/30 text-brand-400">
+            <div className="p-1.5 rounded-lg bg-blue-600/20 border border-blue-500/30 text-blue-400">
               <Layers className="w-4 h-4" />
             </div>
             <select
@@ -728,7 +964,7 @@ export const RedisWorkspace: React.FC<RedisWorkspaceProps> = ({ showToast }) => 
             <select
               value={activeDb}
               onChange={(e) => setActiveDb(parseInt(e.target.value) || 0)}
-              className="bg-transparent text-xs font-mono font-bold text-brand-400 outline-none cursor-pointer"
+              className="bg-transparent text-xs font-mono font-bold text-blue-400 outline-none cursor-pointer"
             >
               {Array.from({ length: 16 }, (_, i) => (
                 <option key={i} value={i} className="bg-[#1b1b20] text-zinc-100">
@@ -749,87 +985,133 @@ export const RedisWorkspace: React.FC<RedisWorkspaceProps> = ({ showToast }) => 
               {isConnecting
                 ? 'Connecting...'
                 : isConnected
-                ? `Redis ${serverInfo?.redisVersion || ''}`
+                ? `Online (${keys.length} keys)`
                 : 'Disconnected'}
             </span>
           </div>
+        </div>
 
-          {/* Server Info Modal Trigger */}
+        {/* Right: Actions */}
+        <div className="flex items-center gap-2">
+          {/* Server Info Button */}
           {serverInfo && (
             <button
               type="button"
               onClick={() => setIsServerInfoOpen(true)}
-              title="View Server Telemetry & Memory"
-              className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors cursor-pointer"
+              className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium text-zinc-300 hover:text-zinc-100 bg-[#1b1b20] hover:bg-zinc-700/50 border border-zinc-800 transition-colors cursor-pointer"
+              title="Server Info"
             >
-              <Info className="w-4 h-4 text-zinc-400" />
+              <Server className="w-3.5 h-3.5 text-blue-400" />
+              <span>v{serverInfo.redisVersion || 'unknown'}</span>
             </button>
           )}
-        </div>
 
-        {/* Right: Actions (New Conn, Refresh, Flush) */}
-        <div className="flex items-center gap-2">
+          {/* New Key Button */}
           <button
             type="button"
-            onClick={() => handleConnect()}
-            disabled={isConnecting || isLoadingKeys}
-            title="Refresh Keys"
-            className="px-2.5 py-1.5 rounded-lg bg-[#1b1b20] hover:bg-zinc-700/80 border border-zinc-700/80 text-zinc-200 text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+            disabled={!isConnected}
+            onClick={() => {
+              setNewKeyForm({
+                key: '',
+                type: 'string',
+                stringValue: '',
+                ttl: -1,
+              });
+              setIsNewKeyModalOpen(true);
+            }}
+            className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold text-white bg-blue-600 hover:bg-blue-500 shadow-sm transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <RefreshCw
-              className={`w-3.5 h-3.5 text-zinc-400 ${isLoadingKeys ? 'animate-spin' : ''}`}
-            />
-            <span>Refresh</span>
+            <Plus className="w-3.5 h-3.5" />
+            <span>New Key</span>
           </button>
 
+          {/* Connection Settings */}
           <button
             type="button"
             onClick={() => {
-              setEditingConn(null);
+              setEditingConn(activeConn);
               setIsConnModalOpen(true);
             }}
-            title="Add New Redis Connection"
-            className="px-2.5 py-1.5 rounded-lg bg-brand-600/20 hover:bg-brand-600 hover:text-white border border-brand-500/30 text-brand-400 text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer"
+            className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors cursor-pointer"
+            title="Edit Connection Settings"
           >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Connection</span>
+            <Edit2 className="w-4 h-4" />
           </button>
 
+          {/* Flush DB */}
           <button
             type="button"
+            disabled={!isConnected || keys.length === 0}
             onClick={() => setIsFlushConfirmOpen(true)}
-            title="Flush All Keys in Current Database"
-            className="px-2.5 py-1.5 rounded-lg bg-rose-950/40 hover:bg-rose-900/60 border border-rose-500/30 text-rose-400 text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer"
+            className="p-1.5 rounded-lg text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+            title="Flush Current Database"
           >
-            <Trash2 className="w-3.5 h-3.5 text-rose-400" />
-            <span>Flush DB</span>
+            <Trash2 className="w-4 h-4" />
           </button>
         </div>
       </div>
 
-      {/* =========================================================================
-          MAIN WORKSPACE (SPLIT VIEW: LEFT KEY TREE, RIGHT INSPECTOR)
-         ========================================================================= */}
+      {/* Main Body: Left Sidebar + Divider + Center Tabs / Content */}
       <div className="flex-1 flex overflow-hidden">
-        {/* =========================================
-            LEFT PANE: KEY TREE EXPLORER (~320px)
-           ========================================= */}
-        <div className="w-80 border-r border-[#242429] bg-[#111114] flex flex-col h-full flex-shrink-0">
-          {/* Search & Pattern Filter */}
-          <div className="p-2.5 border-b border-[#242429] space-y-2">
+        {/* =========================================================================
+            STANDARDIZED RESIZABLE LEFT EXPLORER
+           ========================================================================= */}
+        <div
+          style={{ width: sidebarWidth }}
+          className="flex flex-col bg-[#111114] border-r border-[#242429] flex-shrink-0 overflow-hidden select-none"
+        >
+          {/* Explorer Header */}
+          <div className="p-3 border-b border-zinc-800/80 flex items-center justify-between bg-[#141418]/60">
+            <div className="flex items-center gap-2">
+              <Layers className="w-4 h-4 text-blue-400" />
+              <span className="text-xs font-bold uppercase tracking-wider text-zinc-300">
+                Explorer
+              </span>
+              <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-zinc-800 text-zinc-400">
+                {keys.length}
+              </span>
+            </div>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => handleConnect()}
+                disabled={isLoadingKeys}
+                className="p-1 rounded-md text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors cursor-pointer"
+                title="Refresh Keys"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isLoadingKeys ? 'animate-spin text-blue-400' : ''}`} />
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingConn(null);
+                  setIsConnModalOpen(true);
+                }}
+                className="p-1 rounded-md text-zinc-400 hover:text-blue-400 hover:bg-zinc-800 transition-colors cursor-pointer"
+                title="New Redis Connection"
+              >
+                <Plus className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Search Bar & View Mode Toggle */}
+          <div className="p-2.5 border-b border-zinc-800/80 space-y-2 bg-[#121215]">
             <div className="relative">
-              <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-500" />
+              <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 value={searchPattern}
                 onChange={(e) => setSearchPattern(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') loadKeys();
+                  if (e.key === 'Enter') {
+                    loadKeys(activeConn, searchPattern);
+                  }
                 }}
-                placeholder="Search pattern (e.g. users:*, *)"
-                className="w-full pl-8 pr-7 py-1.5 bg-[#18181c] border border-zinc-700/80 focus:border-brand-500 rounded-lg text-xs font-mono text-zinc-100 placeholder:text-zinc-600 outline-none transition-all"
+                placeholder="Search keys (e.g. users:*)"
+                className="w-full pl-8 pr-7 py-1.5 bg-[#18181c] border border-zinc-700/60 focus:border-blue-500 rounded-lg text-xs font-mono text-zinc-200 placeholder:text-zinc-600 outline-none transition-all"
               />
-              {searchPattern && (
+              {searchPattern !== '*' && (
                 <button
                   type="button"
                   onClick={() => {
@@ -843,513 +1125,442 @@ export const RedisWorkspace: React.FC<RedisWorkspaceProps> = ({ showToast }) => 
               )}
             </div>
 
-            {/* View Mode & Add Key Bar */}
-            <div className="flex items-center justify-between text-xs pt-0.5">
-              <div className="flex items-center gap-1 bg-[#18181c] border border-zinc-800 p-0.5 rounded-lg">
+            <div className="flex items-center justify-between pt-0.5">
+              <div className="flex items-center bg-[#18181c] border border-zinc-800 p-0.5 rounded-md">
                 <button
                   type="button"
                   onClick={() => setViewMode('tree')}
-                  title="Hierarchical Tree View"
-                  className={`px-2 py-0.5 rounded flex items-center gap-1 text-[11px] transition-colors cursor-pointer ${
-                    viewMode === 'tree' ? 'bg-zinc-700 text-white font-medium' : 'text-zinc-400 hover:text-zinc-200'
+                  className={`flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium transition-colors cursor-pointer ${
+                    viewMode === 'tree'
+                      ? 'bg-blue-600/30 text-blue-300 border border-blue-500/40'
+                      : 'text-zinc-400 hover:text-zinc-200'
                   }`}
                 >
-                  <FolderTree className="w-3 h-3 text-brand-400" />
+                  <FolderTree className="w-3 h-3" />
                   <span>Tree</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setViewMode('flat')}
-                  title="Flat List View"
-                  className={`px-2 py-0.5 rounded flex items-center gap-1 text-[11px] transition-colors cursor-pointer ${
-                    viewMode === 'flat' ? 'bg-zinc-700 text-white font-medium' : 'text-zinc-400 hover:text-zinc-200'
+                  className={`flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium transition-colors cursor-pointer ${
+                    viewMode === 'flat'
+                      ? 'bg-blue-600/30 text-blue-300 border border-blue-500/40'
+                      : 'text-zinc-400 hover:text-zinc-200'
                   }`}
                 >
-                  <List className="w-3 h-3 text-brand-400" />
+                  <List className="w-3 h-3" />
                   <span>Flat</span>
                 </button>
               </div>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setNewKeyForm({ key: '', type: 'string', stringValue: '', ttl: -1 });
-                  setIsNewKeyModalOpen(true);
-                }}
-                className="px-2.5 py-1 rounded-lg bg-brand-600 hover:bg-brand-500 text-white text-[11px] font-semibold transition-all flex items-center gap-1 cursor-pointer shadow-sm"
-              >
-                <Plus className="w-3 h-3" />
-                <span>+ Key</span>
-              </button>
+              <span className="text-[10px] text-zinc-500 font-mono">
+                {keys.length} key{keys.length === 1 ? '' : 's'}
+              </span>
             </div>
           </div>
 
-          {/* Keys Summary Banner */}
-          <div className="px-3 py-1.5 border-b border-[#242429] bg-[#141418]/60 flex items-center justify-between text-[11px] text-zinc-400 font-mono">
-            <span>Keys: {keys.length}</span>
-            <span>Total DB: {serverInfo?.totalKeys || keys.length}</span>
-          </div>
-
-          {/* Key List / Tree Area */}
+          {/* Keys Tree / Flat List */}
           <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
             {isLoadingKeys ? (
-              <div className="flex flex-col items-center justify-center h-48 text-zinc-500 gap-2">
-                <Loader2 className="w-5 h-5 animate-spin text-brand-400" />
+              <div className="flex flex-col items-center justify-center py-12 text-zinc-500 space-y-2">
+                <Loader2 className="w-5 h-5 animate-spin text-blue-400" />
                 <span className="text-xs">Scanning keys...</span>
               </div>
             ) : keys.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-48 text-center p-4">
-                <Layers className="w-8 h-8 text-zinc-600 mb-2" />
-                <span className="text-xs font-semibold text-zinc-400">No keys found</span>
-                <p className="text-[11px] text-zinc-500 mt-1">
-                  Database {activeDb} has no keys matching pattern "{searchPattern}".
+              <div className="text-center py-10 px-4 text-zinc-500 space-y-2">
+                <FolderOpen className="w-8 h-8 mx-auto text-zinc-600 opacity-50" />
+                <p className="text-xs font-medium text-zinc-400">No keys found</p>
+                <p className="text-[11px] text-zinc-600">
+                  {searchPattern !== '*' ? 'Try another filter pattern' : 'Database is currently empty'}
                 </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setNewKeyForm({ key: '', type: 'string', stringValue: '', ttl: -1 });
-                    setIsNewKeyModalOpen(true);
-                  }}
-                  className="mt-3 px-3 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 text-white text-xs font-medium cursor-pointer shadow-md"
-                >
-                  Create First Key
-                </button>
               </div>
             ) : viewMode === 'tree' ? (
               renderTreeNode(keyTree)
             ) : (
-              keys.map((k) => {
-                const isSelected = selectedKeyName === k.key;
-                return (
-                  <div
-                    key={k.key}
-                    onClick={() => handleSelectKey(k.key)}
-                    onContextMenu={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setContextMenu({
-                        x: e.clientX,
-                        y: e.clientY,
-                        node: { name: k.key, fullPath: k.key, isLeaf: true, keyInfo: k, children: {} },
-                      });
-                    }}
-                    className={`w-full px-2.5 py-1.5 rounded-lg flex items-center justify-between text-left transition-all cursor-pointer group ${
-                      isSelected
-                        ? 'bg-brand-600/15 text-white font-medium border-l-2 border-brand-400 shadow-sm'
-                        : 'text-zinc-300 hover:text-zinc-100 hover:bg-[#1a1a1e]'
-                    }`}
-                  >
-                    <div className="flex items-center gap-1.5 truncate min-w-0 pr-1">
-                      <FileCode className="w-3.5 h-3.5 text-brand-400 flex-shrink-0" />
-                      <span className="text-xs font-mono truncate text-zinc-200">{k.key}</span>
+              // Flat view
+              <div className="space-y-0.5">
+                {keys.map((k) => {
+                  const isTabActive = activeTabKey === k.key;
+                  const isTabOpen = tabs.some((t) => t.key === k.key);
+                  return (
+                    <div
+                      key={k.key}
+                      onClick={() => handleOpenKeyInTab(k.key)}
+                      className={`w-full px-2.5 py-1.5 rounded-lg flex items-center justify-between text-left transition-all cursor-pointer group select-none ${
+                        isTabActive
+                          ? 'bg-blue-600/20 text-white font-medium border-l-2 border-blue-400 shadow-sm'
+                          : isTabOpen
+                          ? 'bg-zinc-800/40 text-blue-300'
+                          : 'text-zinc-300 hover:text-zinc-100 hover:bg-[#1a1a1e]'
+                      }`}
+                    >
+                      <div className="flex items-center gap-1.5 truncate min-w-0 pr-1">
+                        <Key className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />
+                        <span className="text-xs font-mono truncate text-zinc-200">{k.key}</span>
+                      </div>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        {renderTypeBadge(k.type)}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteKey(k.key);
+                          }}
+                          className="opacity-0 group-hover:opacity-100 p-1 text-zinc-500 hover:text-rose-400 hover:bg-zinc-800 rounded transition-all cursor-pointer"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1 flex-shrink-0">
-                      {renderTypeBadge(k.type)}
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteKey(k.key);
-                        }}
-                        title={`Delete key "${k.key}"`}
-                        className="opacity-0 group-hover:opacity-100 p-1 text-zinc-500 hover:text-rose-400 hover:bg-zinc-800 rounded transition-all cursor-pointer ml-1"
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })
+                  );
+                })}
+              </div>
             )}
           </div>
         </div>
 
-        {/* =========================================
-            RIGHT PANE: KEY INSPECTOR & ADAPTIVE EDITOR
-           ========================================= */}
-        <div className="flex-1 flex flex-col h-full bg-[#121215] overflow-hidden">
-          {!selectedKeyName ? (
-            /* Splash / Empty State */
-            <div className="flex-1 flex flex-col items-center justify-center text-center p-8 select-none">
-              <div className="w-16 h-16 rounded-2xl bg-brand-600/20 border border-brand-500/30 flex items-center justify-center text-brand-400 mb-4 shadow-xl">
-                <Layers className="w-8 h-8 drop-shadow-[0_0_12px_rgba(56,189,248,0.4)]" />
-              </div>
-              <h3 className="text-lg font-bold text-zinc-100">Redis Cache Explorer</h3>
-              <p className="text-xs text-zinc-400 max-w-md mt-1.5 leading-relaxed">
-                Select a key from the tree to inspect its TTL, memory usage, and live data
-                structures (STRING, HASH, LIST, SET, ZSET).
-              </p>
-              <div className="flex items-center gap-3 mt-6">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setNewKeyForm({ key: '', type: 'string', stringValue: '', ttl: -1 });
-                    setIsNewKeyModalOpen(true);
-                  }}
-                  className="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold shadow-md shadow-brand-600/20 transition-all flex items-center gap-1.5 cursor-pointer"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Create New Key</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsServerInfoOpen(true)}
-                  className="px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer"
-                >
-                  <Info className="w-4 h-4 text-zinc-400" />
-                  <span>Server Telemetry</span>
-                </button>
-              </div>
+        {/* Resizable Handle Divider */}
+        <div
+          onMouseDown={startResizing}
+          className={`w-1 hover:w-1.5 cursor-col-resize select-none transition-colors ${
+            isResizing ? 'bg-blue-500 w-1.5' : 'bg-zinc-800/80 hover:bg-blue-500/50'
+          }`}
+        />
+
+        {/* =========================================================================
+            MAIN CENTER PANEL WITH MULTI-TAB ARCHITECTURE
+           ========================================================================= */}
+        <div className="flex-1 flex flex-col h-full bg-[#0d0d10] overflow-hidden">
+          {/* Top Multi-Tab Bar */}
+          {tabs.length > 0 && (
+            <div className="h-10 border-b border-[#242429] bg-[#121216] flex items-center px-2 gap-1 overflow-x-auto select-none flex-shrink-0">
+              {tabs.map((tab) => {
+                const isActive = tab.key === activeTabKey;
+                return (
+                  <div
+                    key={tab.key}
+                    onClick={() => setActiveTabKey(tab.key)}
+                    className={`group flex items-center gap-2 px-3 py-1.5 rounded-t-lg text-xs font-mono cursor-pointer transition-all border-b-2 max-w-[220px] flex-shrink-0 ${
+                      isActive
+                        ? 'bg-[#18181d] text-zinc-100 border-blue-500 font-semibold shadow-sm'
+                        : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40 border-transparent'
+                    }`}
+                  >
+                    {renderTypeBadge(tab.type)}
+                    <span className="truncate flex-1" title={tab.key}>
+                      {tab.key}
+                    </span>
+                    {tab.isDirty && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0" />
+                    )}
+                    <button
+                      type="button"
+                      onClick={(e) => handleCloseTab(tab.key, e)}
+                      className="p-0.5 rounded text-zinc-500 hover:text-zinc-200 hover:bg-zinc-700/50 opacity-60 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                );
+              })}
             </div>
-          ) : isLoadingDetail ? (
-            <div className="flex-1 flex flex-col items-center justify-center text-zinc-400 gap-2">
-              <Loader2 className="w-6 h-6 animate-spin text-brand-400" />
-              <span className="text-xs font-medium">Fetching key data...</span>
-            </div>
-          ) : !selectedKeyDetail ? (
-            <div className="flex-1 flex flex-col items-center justify-center text-zinc-400 p-6">
-              <AlertTriangle className="w-8 h-8 text-amber-400 mb-2" />
-              <span className="text-sm font-semibold text-zinc-200">Key Not Found</span>
-              <p className="text-xs text-zinc-500 mt-1">
-                The key "{selectedKeyName}" may have expired or been deleted.
+          )}
+
+          {/* Tab Content / Zero State */}
+          {!activeTab ? (
+            <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-zinc-500">
+              <div className="w-16 h-16 rounded-2xl bg-zinc-800/40 border border-zinc-700/40 flex items-center justify-center text-zinc-500 mb-4 shadow-inner">
+                <FolderTree className="w-8 h-8" />
+              </div>
+              <h3 className="text-sm font-semibold text-zinc-300 mb-1">No Key Selected</h3>
+              <p className="text-xs text-zinc-500 max-w-sm mb-4">
+                Select a key from the left explorer to view and edit its value, inspect TTL, or create a new key.
               </p>
+              <button
+                type="button"
+                disabled={!isConnected}
+                onClick={() => setIsNewKeyModalOpen(true)}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-xs font-semibold text-zinc-200 border border-zinc-700/80 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                <Plus className="w-3.5 h-3.5 text-blue-400" />
+                <span>Create Key</span>
+              </button>
+            </div>
+          ) : activeTab.isLoading ? (
+            <div className="flex-1 flex flex-col items-center justify-center py-20 text-zinc-500 space-y-2">
+              <Loader2 className="w-6 h-6 animate-spin text-blue-400" />
+              <span className="text-xs font-mono">Loading "{activeTab.key}"...</span>
             </div>
           ) : (
-            /* Active Key Inspector */
-            <div className="flex-1 flex flex-col h-full overflow-hidden">
-              {/* Key Header & Metadata Bar */}
-              <div className="p-4 border-b border-[#242429] bg-[#16161a] flex-shrink-0 space-y-3">
-                {/* Top Row: Full Key Name & Primary Actions */}
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-2 min-w-0 flex-1">
-                    {renderTypeBadge(selectedKeyDetail.type)}
-                    <span className="text-sm font-mono font-bold text-zinc-100 truncate select-all">
-                      {selectedKeyDetail.key}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        navigator.clipboard.writeText(selectedKeyDetail.key);
-                        setIsCopied(true);
-                        setTimeout(() => setIsCopied(false), 2000);
-                      }}
-                      title="Copy Key Name"
-                      className="p-1 rounded text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors cursor-pointer flex-shrink-0"
-                    >
-                      {isCopied ? (
-                        <Check className="w-3.5 h-3.5 text-emerald-400" />
-                      ) : (
-                        <Copy className="w-3.5 h-3.5" />
-                      )}
-                    </button>
+            <div className="flex-1 flex flex-col overflow-hidden">
+              {/* Key Meta Action Header */}
+              <div className="p-4 border-b border-[#242429] bg-[#141418] flex flex-wrap items-center justify-between gap-4 flex-shrink-0">
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <div className="p-2 rounded-xl bg-blue-600/10 border border-blue-500/20 text-blue-400 flex-shrink-0">
+                    <Key className="w-5 h-5" />
                   </div>
-
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => handleSelectKey(selectedKeyDetail.key)}
-                      title="Reload Key Data"
-                      className="p-1.5 rounded-lg bg-[#1e1e24] hover:bg-zinc-700 text-zinc-300 text-xs transition-colors cursor-pointer"
-                    >
-                      <RefreshCw className="w-3.5 h-3.5" />
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteKey(selectedKeyDetail.key)}
-                      title="Delete Key"
-                      className="p-1.5 rounded-lg bg-rose-950/40 hover:bg-rose-900/60 border border-rose-500/30 text-rose-400 text-xs transition-colors cursor-pointer"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-
-                    <button
-                      type="button"
-                      disabled={isSaving}
-                      onClick={handleSaveKey}
-                      className="px-3.5 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold shadow-md shadow-brand-600/20 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                    >
-                      {isSaving ? (
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      ) : (
-                        <Save className="w-3.5 h-3.5" />
-                      )}
-                      <span>Save</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Bottom Row: TTL & Memory Telemetry */}
-                <div className="flex items-center gap-4 text-xs font-mono">
-                  {/* TTL Pill */}
-                  <div className="flex items-center gap-1.5 bg-[#1b1b20] border border-zinc-800 rounded-lg px-2.5 py-1">
-                    <Clock className="w-3.5 h-3.5 text-zinc-400" />
-                    <span className="text-zinc-400">TTL:</span>
-                    <span
-                      className={`font-bold ${
-                        selectedKeyDetail.ttl === -1
-                          ? 'text-emerald-400'
-                          : selectedKeyDetail.ttl > 0
-                          ? 'text-amber-400'
-                          : 'text-rose-400'
-                      }`}
-                    >
-                      {selectedKeyDetail.ttl === -1
-                        ? 'Persistent (No Expiry)'
-                        : selectedKeyDetail.ttl > 0
-                        ? `${selectedKeyDetail.ttl}s`
-                        : 'Expired'}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setIsEditingTTL(!isEditingTTL)}
-                      className="ml-1 text-[10px] text-brand-400 hover:underline cursor-pointer"
-                    >
-                      {isEditingTTL ? 'Cancel' : 'Edit'}
-                    </button>
-                  </div>
-
-                  {/* Memory Usage */}
-                  <div className="flex items-center gap-1.5 bg-[#1b1b20] border border-zinc-800 rounded-lg px-2.5 py-1">
-                    <HardDrive className="w-3.5 h-3.5 text-zinc-400" />
-                    <span className="text-zinc-400">Memory:</span>
-                    <span className="text-zinc-200 font-semibold">
-                      {selectedKeyDetail.memoryUsage > 0
-                        ? `${selectedKeyDetail.memoryUsage} bytes`
-                        : '< 1 KB'}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Inline TTL Quick Editor */}
-                {isEditingTTL && (
-                  <div className="p-3 bg-[#1b1b20] border border-zinc-700/80 rounded-xl space-y-2 animate-in fade-in duration-100">
-                    <div className="text-[11px] font-semibold text-zinc-300">
-                      Quick Set Key Expiration (TTL):
-                    </div>
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <button
-                        type="button"
-                        onClick={() => handleUpdateTTL(-1)}
-                        className="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-emerald-300 text-xs font-mono font-medium cursor-pointer"
-                      >
-                        Persist (-1)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleUpdateTTL(60)}
-                        className="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-mono cursor-pointer"
-                      >
-                        1 min (60s)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleUpdateTTL(300)}
-                        className="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-mono cursor-pointer"
-                      >
-                        5 min (300s)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleUpdateTTL(3600)}
-                        className="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-mono cursor-pointer"
-                      >
-                        1 hour (3600s)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleUpdateTTL(86400)}
-                        className="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-mono cursor-pointer"
-                      >
-                        1 day (86400s)
-                      </button>
-                    </div>
-
-                    <div className="flex items-center gap-2 pt-1">
-                      <input
-                        type="number"
-                        value={customTTLInput}
-                        onChange={(e) => setCustomTTLInput(e.target.value)}
-                        placeholder="Custom seconds..."
-                        className="w-40 px-2 py-1 bg-[#121215] border border-zinc-700 rounded text-xs font-mono text-zinc-100 outline-none focus:border-brand-500"
-                      />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-mono font-bold text-zinc-100 truncate">
+                        {activeTab.key}
+                      </span>
                       <button
                         type="button"
                         onClick={() => {
-                          const val = parseInt(customTTLInput);
-                          if (!isNaN(val)) handleUpdateTTL(val);
+                          navigator.clipboard.writeText(activeTab.key);
+                          setIsCopied(true);
+                          setTimeout(() => setIsCopied(false), 1500);
                         }}
-                        className="px-3 py-1 bg-brand-600 hover:bg-brand-500 text-white rounded text-xs font-medium cursor-pointer"
+                        className="p-1 rounded text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors"
+                        title="Copy Key Name"
                       >
-                        Apply
+                        {isCopied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                       </button>
                     </div>
+                    <div className="flex items-center gap-2 mt-1">
+                      {renderTypeBadge(activeTab.type)}
+                      {activeTab.detail && (
+                        <span className="text-[11px] text-zinc-400 font-mono">
+                          Size: {formatBytes(activeTab.detail.memoryUsage)}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                )}
+                </div>
+
+                {/* Right: TTL Editor & Save Action */}
+                <div className="flex items-center gap-2">
+                  {/* TTL Button */}
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingTTL(!isEditingTTL)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1a1a1f] border border-zinc-700/80 hover:border-zinc-500 text-xs font-mono text-zinc-200 transition-colors cursor-pointer"
+                    >
+                      <Clock className="w-3.5 h-3.5 text-amber-400" />
+                      <span>
+                        TTL:{' '}
+                        {activeTab.detail?.ttl === -1 || activeTab.detail?.ttl === undefined
+                          ? 'Persistent (-1)'
+                          : activeTab.detail.ttl === -2
+                          ? 'Expired'
+                          : `${activeTab.detail.ttl}s`}
+                      </span>
+                    </button>
+
+                    {/* Quick TTL Dropdown */}
+                    {isEditingTTL && (
+                      <div className="absolute right-0 mt-1 w-48 bg-[#18181c] border border-zinc-700 rounded-xl shadow-2xl p-2 z-50 space-y-1.5 animate-in fade-in zoom-in-95">
+                        <div className="text-[10px] font-bold uppercase text-zinc-400 px-1">
+                          Set Expiration
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateTTL(-1)}
+                          className="w-full text-left px-2 py-1 rounded text-xs text-zinc-200 hover:bg-zinc-800"
+                        >
+                          Persistent (-1)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateTTL(60)}
+                          className="w-full text-left px-2 py-1 rounded text-xs text-zinc-200 hover:bg-zinc-800"
+                        >
+                          1 Minute (60s)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateTTL(3600)}
+                          className="w-full text-left px-2 py-1 rounded text-xs text-zinc-200 hover:bg-zinc-800"
+                        >
+                          1 Hour (3600s)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateTTL(86400)}
+                          className="w-full text-left px-2 py-1 rounded text-xs text-zinc-200 hover:bg-zinc-800"
+                        >
+                          1 Day (86400s)
+                        </button>
+                        <div className="flex gap-1 pt-1 border-t border-zinc-800">
+                          <input
+                            type="number"
+                            value={customTTLInput}
+                            onChange={(e) => setCustomTTLInput(e.target.value)}
+                            placeholder="Secs"
+                            className="w-full px-2 py-0.5 bg-[#121215] border border-zinc-700 rounded text-xs text-zinc-100 font-mono outline-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const val = parseInt(customTTLInput);
+                              if (!isNaN(val)) handleUpdateTTL(val);
+                            }}
+                            className="px-2 py-0.5 bg-blue-600 hover:bg-blue-500 rounded text-xs text-white"
+                          >
+                            Set
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Delete Key */}
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteKey(activeTab.key)}
+                    className="p-2 rounded-lg text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                    title="Delete Key"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+
+                  {/* Save Key Changes */}
+                  <button
+                    type="button"
+                    onClick={handleSaveActiveTabKey}
+                    disabled={isSaving}
+                    className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-md shadow-blue-600/20 transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    {isSaving ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Save className="w-3.5 h-3.5" />
+                    )}
+                    <span>Save Changes</span>
+                  </button>
+                </div>
               </div>
 
-              {/* =========================================================
-                  ADAPTIVE VALUE EDITORS (STRING, HASH, LIST, SET, ZSET)
-                 ========================================================= */}
-              <div className="flex-1 flex flex-col overflow-hidden p-4">
-                {/* 1. STRING TYPE EDITOR (Monaco Editor) */}
-                {selectedKeyDetail.type === 'string' && (
-                  <div className="flex-1 flex flex-col bg-[#16161a] border border-[#242429] rounded-xl overflow-hidden shadow-inner">
-                    <div className="px-3 py-2 border-b border-[#242429] bg-[#1b1b20] flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-zinc-300">String Value</span>
-                        <span className="text-[11px] text-zinc-500 font-mono">
-                          {draftString.length} characters
-                        </span>
-                      </div>
+              {/* Value Editor Body */}
+              <div className="flex-1 overflow-hidden p-4">
+                {activeTab.type === 'string' ? (
+                  <div className="flex flex-col h-full bg-[#141418] border border-zinc-800 rounded-xl overflow-hidden">
+                    <div className="p-2 border-b border-zinc-800 flex items-center justify-between bg-[#18181c]/50">
+                      <span className="text-xs font-semibold text-zinc-400">Value (String / JSON)</span>
                       <div className="flex items-center gap-1.5">
                         <button
                           type="button"
                           onClick={handlePrettifyJSON}
-                          className="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-[11px] font-medium flex items-center gap-1 cursor-pointer"
+                          className="px-2 py-0.5 rounded bg-zinc-800 hover:bg-zinc-700 text-[11px] text-zinc-200 border border-zinc-700"
                         >
-                          <AlignLeft className="w-3 h-3 text-sky-400" />
-                          <span>Format JSON</span>
+                          Prettify JSON
                         </button>
                         <button
                           type="button"
                           onClick={handleMinifyJSON}
-                          className="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-[11px] font-medium flex items-center gap-1 cursor-pointer"
+                          className="px-2 py-0.5 rounded bg-zinc-800 hover:bg-zinc-700 text-[11px] text-zinc-200 border border-zinc-700"
                         >
-                          <Minimize2 className="w-3 h-3 text-sky-400" />
-                          <span>Minify</span>
+                          Minify JSON
                         </button>
                       </div>
                     </div>
-                    <div className="flex-1 relative">
+                    <div className="flex-1 min-h-0">
                       <Editor
-                        theme="vs-dark"
+                        height="100%"
                         language="json"
-                        value={draftString}
-                        onChange={(val) => setDraftString(val || '')}
+                        theme="vs-dark"
+                        value={activeTab.draftString}
+                        onChange={(val) => {
+                          setTabs((prev) =>
+                            prev.map((t) =>
+                              t.key === activeTab.key
+                                ? { ...t, draftString: val || '', isDirty: true }
+                                : t
+                            )
+                          );
+                        }}
                         options={{
                           minimap: { enabled: false },
                           fontSize: 12,
-                          fontFamily: 'JetBrains Mono, Fira Code, monospace',
+                          lineNumbers: 'on',
                           wordWrap: 'on',
-                          scrollBeyondLastLine: false,
                           automaticLayout: true,
                         }}
                       />
                     </div>
                   </div>
-                )}
-
-                {/* 2. HASH TYPE EDITOR (Key-Value Grid) */}
-                {selectedKeyDetail.type === 'hash' && (
-                  <div className="flex-1 flex flex-col bg-[#16161a] border border-[#242429] rounded-xl overflow-hidden shadow-inner">
-                    <div className="px-4 py-2.5 border-b border-[#242429] bg-[#1b1b20] flex items-center justify-between text-xs">
-                      <span className="font-semibold text-zinc-200">
-                        Hash Fields ({draftHash.length})
+                ) : activeTab.type === 'hash' ? (
+                  <div className="flex flex-col h-full bg-[#141418] border border-zinc-800 rounded-xl overflow-hidden p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-zinc-300">
+                        Hash Fields ({activeTab.draftHash.length})
                       </span>
                       <button
                         type="button"
-                        onClick={() =>
-                          setDraftHash([...draftHash, { field: `field_${draftHash.length + 1}`, value: '' }])
-                        }
-                        className="px-2.5 py-1 rounded bg-brand-600/20 hover:bg-brand-600 hover:text-white border border-brand-500/30 text-brand-400 text-xs font-medium flex items-center gap-1 cursor-pointer"
+                        onClick={() => {
+                          setTabs((prev) =>
+                            prev.map((t) =>
+                              t.key === activeTab.key
+                                ? {
+                                    ...t,
+                                    draftHash: [
+                                      ...t.draftHash,
+                                      { field: `field_${t.draftHash.length + 1}`, value: '' },
+                                    ],
+                                    isDirty: true,
+                                  }
+                                : t
+                            )
+                          );
+                        }}
+                        className="flex items-center gap-1 px-2.5 py-1 rounded bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 text-xs font-semibold"
                       >
-                        <Plus className="w-3 h-3" />
+                        <Plus className="w-3.5 h-3.5" />
                         <span>Add Field</span>
                       </button>
                     </div>
-
-                    <div className="flex-1 overflow-y-auto divide-y divide-[#242429]">
-                      <div className="grid grid-cols-12 gap-2 px-4 py-2 text-[11px] font-semibold text-zinc-400 uppercase tracking-wider bg-[#141418]">
-                        <div className="col-span-4">Field Name</div>
-                        <div className="col-span-7">Value</div>
-                        <div className="col-span-1 text-right">Action</div>
-                      </div>
-
-                      {draftHash.map((item, idx) => (
-                        <div key={idx} className="grid grid-cols-12 gap-2 px-4 py-2 items-center hover:bg-[#1b1b20]">
-                          <div className="col-span-4">
-                            <input
-                              type="text"
-                              value={item.field}
-                              onChange={(e) => {
-                                const next = [...draftHash];
-                                next[idx].field = e.target.value;
-                                setDraftHash(next);
-                              }}
-                              className="w-full px-2 py-1 bg-[#121215] border border-zinc-700/80 rounded text-xs font-mono text-emerald-400 outline-none focus:border-brand-500"
-                            />
-                          </div>
-                          <div className="col-span-7">
-                            <input
-                              type="text"
-                              value={item.value}
-                              onChange={(e) => {
-                                const next = [...draftHash];
-                                next[idx].value = e.target.value;
-                                setDraftHash(next);
-                              }}
-                              className="w-full px-2 py-1 bg-[#121215] border border-zinc-700/80 rounded text-xs font-mono text-zinc-100 outline-none focus:border-brand-500"
-                            />
-                          </div>
-                          <div className="col-span-1 text-right">
-                            <button
-                              type="button"
-                              onClick={() => setDraftHash(draftHash.filter((_, i) => i !== idx))}
-                              className="p-1 text-zinc-500 hover:text-rose-400 rounded transition-colors cursor-pointer"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* 3. LIST TYPE EDITOR (Ordered Items) */}
-                {selectedKeyDetail.type === 'list' && (
-                  <div className="flex-1 flex flex-col bg-[#16161a] border border-[#242429] rounded-xl overflow-hidden shadow-inner">
-                    <div className="px-4 py-2.5 border-b border-[#242429] bg-[#1b1b20] flex items-center justify-between text-xs">
-                      <span className="font-semibold text-zinc-200">
-                        List Elements ({draftList.length})
-                      </span>
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => setDraftList(['new_item', ...draftList])}
-                          className="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-amber-300 text-xs font-medium cursor-pointer"
-                        >
-                          + LPush
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setDraftList([...draftList, 'new_item'])}
-                          className="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-amber-300 text-xs font-medium cursor-pointer"
-                        >
-                          + RPush
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="flex-1 overflow-y-auto divide-y divide-[#242429]">
-                      {draftList.map((item, idx) => (
-                        <div key={idx} className="flex items-center gap-3 px-4 py-2 hover:bg-[#1b1b20]">
-                          <span className="text-xs font-mono text-zinc-500 w-8">[{idx}]</span>
+                    <div className="flex-1 overflow-y-auto space-y-2">
+                      {activeTab.draftHash.map((item, idx) => (
+                        <div key={idx} className="flex items-center gap-2">
                           <input
                             type="text"
-                            value={item}
+                            value={item.field}
                             onChange={(e) => {
-                              const next = [...draftList];
-                              next[idx] = e.target.value;
-                              setDraftList(next);
+                              const newField = e.target.value;
+                              setTabs((prev) =>
+                                prev.map((t) => {
+                                  if (t.key !== activeTab.key) return t;
+                                  const nextHash = [...t.draftHash];
+                                  nextHash[idx] = { ...nextHash[idx], field: newField };
+                                  return { ...t, draftHash: nextHash, isDirty: true };
+                                })
+                              );
                             }}
-                            className="flex-1 px-2.5 py-1 bg-[#121215] border border-zinc-700/80 rounded text-xs font-mono text-zinc-100 outline-none focus:border-brand-500"
+                            placeholder="Field Name"
+                            className="w-1/3 px-2.5 py-1.5 bg-[#1a1a1f] border border-zinc-700/80 rounded-lg text-xs font-mono text-zinc-100"
+                          />
+                          <input
+                            type="text"
+                            value={item.value}
+                            onChange={(e) => {
+                              const newVal = e.target.value;
+                              setTabs((prev) =>
+                                prev.map((t) => {
+                                  if (t.key !== activeTab.key) return t;
+                                  const nextHash = [...t.draftHash];
+                                  nextHash[idx] = { ...nextHash[idx], value: newVal };
+                                  return { ...t, draftHash: nextHash, isDirty: true };
+                                })
+                              );
+                            }}
+                            placeholder="Value"
+                            className="flex-1 px-2.5 py-1.5 bg-[#1a1a1f] border border-zinc-700/80 rounded-lg text-xs font-mono text-zinc-100"
                           />
                           <button
                             type="button"
-                            onClick={() => setDraftList(draftList.filter((_, i) => i !== idx))}
-                            className="p-1 text-zinc-500 hover:text-rose-400 rounded transition-colors cursor-pointer"
+                            onClick={() => {
+                              setTabs((prev) =>
+                                prev.map((t) => {
+                                  if (t.key !== activeTab.key) return t;
+                                  return {
+                                    ...t,
+                                    draftHash: t.draftHash.filter((_, i) => i !== idx),
+                                    isDirty: true,
+                                  };
+                                })
+                              );
+                            }}
+                            className="p-1.5 rounded text-zinc-500 hover:text-rose-400 hover:bg-zinc-800"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -1357,42 +1568,64 @@ export const RedisWorkspace: React.FC<RedisWorkspaceProps> = ({ showToast }) => 
                       ))}
                     </div>
                   </div>
-                )}
-
-                {/* 4. SET TYPE EDITOR (Members) */}
-                {selectedKeyDetail.type === 'set' && (
-                  <div className="flex-1 flex flex-col bg-[#16161a] border border-[#242429] rounded-xl overflow-hidden shadow-inner">
-                    <div className="px-4 py-2.5 border-b border-[#242429] bg-[#1b1b20] flex items-center justify-between text-xs">
-                      <span className="font-semibold text-zinc-200">
-                        Set Members ({draftSet.length})
+                ) : activeTab.type === 'list' ? (
+                  <div className="flex flex-col h-full bg-[#141418] border border-zinc-800 rounded-xl overflow-hidden p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-zinc-300">
+                        List Elements ({activeTab.draftList.length})
                       </span>
                       <button
                         type="button"
-                        onClick={() => setDraftSet([...draftSet, `member_${draftSet.length + 1}`])}
-                        className="px-2.5 py-1 rounded bg-brand-600/20 hover:bg-brand-600 hover:text-white border border-brand-500/30 text-brand-400 text-xs font-medium flex items-center gap-1 cursor-pointer"
+                        onClick={() => {
+                          setTabs((prev) =>
+                            prev.map((t) =>
+                              t.key === activeTab.key
+                                ? { ...t, draftList: [...t.draftList, ''], isDirty: true }
+                                : t
+                            )
+                          );
+                        }}
+                        className="flex items-center gap-1 px-2.5 py-1 rounded bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 text-xs font-semibold"
                       >
-                        <Plus className="w-3 h-3" />
-                        <span>Add Member</span>
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Push Item</span>
                       </button>
                     </div>
-
-                    <div className="flex-1 overflow-y-auto divide-y divide-[#242429]">
-                      {draftSet.map((item, idx) => (
-                        <div key={idx} className="flex items-center gap-3 px-4 py-2 hover:bg-[#1b1b20]">
+                    <div className="flex-1 overflow-y-auto space-y-2">
+                      {activeTab.draftList.map((item, idx) => (
+                        <div key={idx} className="flex items-center gap-2">
+                          <span className="text-xs font-mono text-zinc-500 w-8">{idx}</span>
                           <input
                             type="text"
                             value={item}
                             onChange={(e) => {
-                              const next = [...draftSet];
-                              next[idx] = e.target.value;
-                              setDraftSet(next);
+                              const val = e.target.value;
+                              setTabs((prev) =>
+                                prev.map((t) => {
+                                  if (t.key !== activeTab.key) return t;
+                                  const nextList = [...t.draftList];
+                                  nextList[idx] = val;
+                                  return { ...t, draftList: nextList, isDirty: true };
+                                })
+                              );
                             }}
-                            className="flex-1 px-2.5 py-1 bg-[#121215] border border-zinc-700/80 rounded text-xs font-mono text-orange-300 outline-none focus:border-brand-500"
+                            className="flex-1 px-2.5 py-1.5 bg-[#1a1a1f] border border-zinc-700/80 rounded-lg text-xs font-mono text-zinc-100"
                           />
                           <button
                             type="button"
-                            onClick={() => setDraftSet(draftSet.filter((_, i) => i !== idx))}
-                            className="p-1 text-zinc-500 hover:text-rose-400 rounded transition-colors cursor-pointer"
+                            onClick={() => {
+                              setTabs((prev) =>
+                                prev.map((t) => {
+                                  if (t.key !== activeTab.key) return t;
+                                  return {
+                                    ...t,
+                                    draftList: t.draftList.filter((_, i) => i !== idx),
+                                    isDirty: true,
+                                  };
+                                })
+                              );
+                            }}
+                            className="p-1.5 rounded text-zinc-500 hover:text-rose-400 hover:bg-zinc-800"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -1400,72 +1633,153 @@ export const RedisWorkspace: React.FC<RedisWorkspaceProps> = ({ showToast }) => 
                       ))}
                     </div>
                   </div>
-                )}
-
-                {/* 5. ZSET TYPE EDITOR (Score & Member) */}
-                {selectedKeyDetail.type === 'zset' && (
-                  <div className="flex-1 flex flex-col bg-[#16161a] border border-[#242429] rounded-xl overflow-hidden shadow-inner">
-                    <div className="px-4 py-2.5 border-b border-[#242429] bg-[#1b1b20] flex items-center justify-between text-xs">
-                      <span className="font-semibold text-zinc-200">
-                        Sorted Set Members ({draftZSet.length})
+                ) : activeTab.type === 'set' ? (
+                  <div className="flex flex-col h-full bg-[#141418] border border-zinc-800 rounded-xl overflow-hidden p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-zinc-300">
+                        Set Members ({activeTab.draftSet.length})
                       </span>
                       <button
                         type="button"
-                        onClick={() =>
-                          setDraftZSet([
-                            ...draftZSet,
-                            { member: `member_${draftZSet.length + 1}`, score: draftZSet.length + 1 },
-                          ])
-                        }
-                        className="px-2.5 py-1 rounded bg-brand-600/20 hover:bg-brand-600 hover:text-white border border-brand-500/30 text-brand-400 text-xs font-medium flex items-center gap-1 cursor-pointer"
+                        onClick={() => {
+                          setTabs((prev) =>
+                            prev.map((t) =>
+                              t.key === activeTab.key
+                                ? { ...t, draftSet: [...t.draftSet, ''], isDirty: true }
+                                : t
+                            )
+                          );
+                        }}
+                        className="flex items-center gap-1 px-2.5 py-1 rounded bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 text-xs font-semibold"
                       >
-                        <Plus className="w-3 h-3" />
+                        <Plus className="w-3.5 h-3.5" />
                         <span>Add Member</span>
                       </button>
                     </div>
-
-                    <div className="flex-1 overflow-y-auto divide-y divide-[#242429]">
-                      <div className="grid grid-cols-12 gap-2 px-4 py-2 text-[11px] font-semibold text-zinc-400 uppercase tracking-wider bg-[#141418]">
-                        <div className="col-span-3">Score</div>
-                        <div className="col-span-8">Member</div>
-                        <div className="col-span-1 text-right">Action</div>
-                      </div>
-
-                      {draftZSet.map((item, idx) => (
-                        <div key={idx} className="grid grid-cols-12 gap-2 px-4 py-2 items-center hover:bg-[#1b1b20]">
-                          <div className="col-span-3">
-                            <input
-                              type="number"
-                              value={item.score}
-                              onChange={(e) => {
-                                const next = [...draftZSet];
-                                next[idx].score = parseFloat(e.target.value) || 0;
-                                setDraftZSet(next);
-                              }}
-                              className="w-full px-2 py-1 bg-[#121215] border border-zinc-700/80 rounded text-xs font-mono text-purple-400 outline-none focus:border-brand-500"
-                            />
-                          </div>
-                          <div className="col-span-8">
-                            <input
-                              type="text"
-                              value={item.member}
-                              onChange={(e) => {
-                                const next = [...draftZSet];
-                                next[idx].member = e.target.value;
-                                setDraftZSet(next);
-                              }}
-                              className="w-full px-2 py-1 bg-[#121215] border border-zinc-700/80 rounded text-xs font-mono text-zinc-100 outline-none focus:border-brand-500"
-                            />
-                          </div>
-                          <div className="col-span-1 text-right">
-                            <button
-                              type="button"
-                              onClick={() => setDraftZSet(draftZSet.filter((_, i) => i !== idx))}
-                              className="p-1 text-zinc-500 hover:text-rose-400 rounded transition-colors cursor-pointer"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
+                    <div className="flex-1 overflow-y-auto space-y-2">
+                      {activeTab.draftSet.map((item, idx) => (
+                        <div key={idx} className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={item}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setTabs((prev) =>
+                                prev.map((t) => {
+                                  if (t.key !== activeTab.key) return t;
+                                  const nextSet = [...t.draftSet];
+                                  nextSet[idx] = val;
+                                  return { ...t, draftSet: nextSet, isDirty: true };
+                                })
+                              );
+                            }}
+                            className="flex-1 px-2.5 py-1.5 bg-[#1a1a1f] border border-zinc-700/80 rounded-lg text-xs font-mono text-zinc-100"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setTabs((prev) =>
+                                prev.map((t) => {
+                                  if (t.key !== activeTab.key) return t;
+                                  return {
+                                    ...t,
+                                    draftSet: t.draftSet.filter((_, i) => i !== idx),
+                                    isDirty: true,
+                                  };
+                                })
+                              );
+                            }}
+                            className="p-1.5 rounded text-zinc-500 hover:text-rose-400 hover:bg-zinc-800"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  // ZSET View
+                  <div className="flex flex-col h-full bg-[#141418] border border-zinc-800 rounded-xl overflow-hidden p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-zinc-300">
+                        Sorted Set Members ({activeTab.draftZSet.length})
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTabs((prev) =>
+                            prev.map((t) =>
+                              t.key === activeTab.key
+                                ? {
+                                    ...t,
+                                    draftZSet: [...t.draftZSet, { member: '', score: 1 }],
+                                    isDirty: true,
+                                  }
+                                : t
+                            )
+                          );
+                        }}
+                        className="flex items-center gap-1 px-2.5 py-1 rounded bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 text-xs font-semibold"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Add Member</span>
+                      </button>
+                    </div>
+                    <div className="flex-1 overflow-y-auto space-y-2">
+                      {activeTab.draftZSet.map((item, idx) => (
+                        <div key={idx} className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            value={item.score}
+                            onChange={(e) => {
+                              const score = parseFloat(e.target.value) || 0;
+                              setTabs((prev) =>
+                                prev.map((t) => {
+                                  if (t.key !== activeTab.key) return t;
+                                  const nextZ = [...t.draftZSet];
+                                  nextZ[idx] = { ...nextZ[idx], score };
+                                  return { ...t, draftZSet: nextZ, isDirty: true };
+                                })
+                              );
+                            }}
+                            placeholder="Score"
+                            className="w-24 px-2.5 py-1.5 bg-[#1a1a1f] border border-zinc-700/80 rounded-lg text-xs font-mono text-zinc-100"
+                          />
+                          <input
+                            type="text"
+                            value={item.member}
+                            onChange={(e) => {
+                              const member = e.target.value;
+                              setTabs((prev) =>
+                                prev.map((t) => {
+                                  if (t.key !== activeTab.key) return t;
+                                  const nextZ = [...t.draftZSet];
+                                  nextZ[idx] = { ...nextZ[idx], member };
+                                  return { ...t, draftZSet: nextZ, isDirty: true };
+                                })
+                              );
+                            }}
+                            placeholder="Member"
+                            className="flex-1 px-2.5 py-1.5 bg-[#1a1a1f] border border-zinc-700/80 rounded-lg text-xs font-mono text-zinc-100"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setTabs((prev) =>
+                                prev.map((t) => {
+                                  if (t.key !== activeTab.key) return t;
+                                  return {
+                                    ...t,
+                                    draftZSet: t.draftZSet.filter((_, i) => i !== idx),
+                                    isDirty: true,
+                                  };
+                                })
+                              );
+                            }}
+                            className="p-1.5 rounded text-zinc-500 hover:text-rose-400 hover:bg-zinc-800"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
                         </div>
                       ))}
                     </div>
@@ -1478,210 +1792,66 @@ export const RedisWorkspace: React.FC<RedisWorkspaceProps> = ({ showToast }) => 
       </div>
 
       {/* =========================================================================
-          RIGHT-CLICK CONTEXT MENU
+          MODALS & DIALOGS
          ========================================================================= */}
-      {contextMenu && (
-        <div
-          ref={contextMenuRef}
-          style={{ top: contextMenu.y, left: contextMenu.x }}
-          className="fixed z-50 w-52 bg-[#18181b] border border-zinc-700/80 rounded-xl shadow-2xl py-1 text-xs text-zinc-200 animate-in fade-in zoom-in-95 duration-100"
-        >
-          {contextMenu.node.isLeaf ? (
-            <>
-              <button
-                type="button"
-                onClick={() => {
-                  navigator.clipboard.writeText(contextMenu.node.fullPath);
-                  showToast('Copied key name', 'info');
-                  setContextMenu(null);
-                }}
-                className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-zinc-800 hover:text-white transition-colors cursor-pointer"
-              >
-                <Copy className="w-3.5 h-3.5 text-zinc-400" />
-                <span>Copy Key Name</span>
-              </button>
-              <div className="h-px bg-zinc-800 my-1" />
-              <button
-                type="button"
-                onClick={() => {
-                  const keyToDelete = contextMenu.node.fullPath;
-                  setContextMenu(null);
-                  handleDeleteKey(keyToDelete);
-                }}
-                className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-rose-950/40 text-rose-400 hover:text-rose-300 transition-colors cursor-pointer"
-              >
-                <Trash2 className="w-3.5 h-3.5 text-rose-400" />
-                <span>Delete Key</span>
-              </button>
-            </>
-          ) : (
-            <>
-              <button
-                type="button"
-                onClick={() => {
-                  navigator.clipboard.writeText(contextMenu.node.fullPath);
-                  showToast('Copied namespace prefix', 'info');
-                  setContextMenu(null);
-                }}
-                className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-zinc-800 hover:text-white transition-colors cursor-pointer"
-              >
-                <Copy className="w-3.5 h-3.5 text-zinc-400" />
-                <span>Copy Prefix</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  toggleFolder(contextMenu.node.fullPath);
-                  setContextMenu(null);
-                }}
-                className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-zinc-800 hover:text-white transition-colors cursor-pointer"
-              >
-                <FolderOpen className="w-3.5 h-3.5 text-brand-400" />
-                <span>Toggle Folder</span>
-              </button>
-              <div className="h-px bg-zinc-800 my-1" />
-              <button
-                type="button"
-                onClick={() => {
-                  const node = contextMenu.node;
-                  setContextMenu(null);
-                  handleTriggerNodeDelete(node);
-                }}
-                className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-rose-950/40 text-rose-400 hover:text-rose-300 transition-colors cursor-pointer"
-              >
-                <Trash2 className="w-3.5 h-3.5 text-rose-400" />
-                <span>
-                  Delete Namespace ({getAllKeysInNode(contextMenu.node).length})
-                </span>
-              </button>
-            </>
-          )}
-        </div>
-      )}
+      {/* New / Edit Connection Modal */}
+      <NewRedisConnectionModal
+        isOpen={isConnModalOpen}
+        onClose={() => {
+          setIsConnModalOpen(false);
+          setEditingConn(null);
+        }}
+        onSaved={handleSaveConnection}
+        initialConfig={editingConn}
+      />
 
-      {/* =========================================================================
-          NAMESPACE BATCH DELETION MODAL
-         ========================================================================= */}
-      {namespaceDeleteModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm animate-in fade-in duration-150 p-4 font-sans">
-          <div className="bg-[#141416] border border-rose-500/40 rounded-2xl w-full max-w-md shadow-2xl p-6 text-center space-y-4">
-            <div className="w-12 h-12 rounded-full bg-rose-950/60 border border-rose-500/40 text-rose-400 flex items-center justify-center mx-auto">
-              <Trash2 className="w-6 h-6" />
-            </div>
-            <div>
-              <h3 className="text-base font-bold text-zinc-100">
-                Delete Namespace "{namespaceDeleteModal.namespace}"?
-              </h3>
-              <p className="text-xs text-zinc-400 mt-1.5 leading-relaxed">
-                This will permanently delete{' '}
-                <strong className="text-rose-400 font-semibold">
-                  {namespaceDeleteModal.keys.length} keys
-                </strong>{' '}
-                under this namespace in DB {activeDb}.
-              </p>
-            </div>
-
-            {/* Keys Preview Box */}
-            <div className="p-2.5 bg-[#101013] border border-zinc-800 rounded-xl max-h-36 overflow-y-auto text-left font-mono text-[11px] text-zinc-400 space-y-1">
-              {namespaceDeleteModal.keys.slice(0, 10).map((k) => (
-                <div key={k} className="truncate text-zinc-300">
-                  • {k}
-                </div>
-              ))}
-              {namespaceDeleteModal.keys.length > 10 && (
-                <div className="text-zinc-500 italic">
-                  ...and {namespaceDeleteModal.keys.length - 10} more keys
-                </div>
-              )}
-            </div>
-
-            <div className="flex items-center justify-center gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setNamespaceDeleteModal(null)}
-                className="px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-medium cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={isDeletingNamespace}
-                onClick={handleDeleteNamespace}
-                className="px-5 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold cursor-pointer shadow-md shadow-rose-600/20 disabled:opacity-50 flex items-center gap-1.5"
-              >
-                {isDeletingNamespace && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                <span>Yes, Delete {namespaceDeleteModal.keys.length} Keys</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* =========================================================================
-          NEW KEY CREATION MODAL
-         ========================================================================= */}
+      {/* New Key Modal */}
       {isNewKeyModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm animate-in fade-in duration-150 p-4 font-sans">
-          <div className="bg-[#141416] border border-zinc-800 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="bg-[#141416] border border-zinc-800 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
             <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800 bg-[#18181b]/60">
-              <h3 className="text-sm font-semibold text-zinc-100">Create New Redis Key</h3>
+              <h3 className="text-base font-semibold text-zinc-100">Create New Redis Key</h3>
               <button
                 type="button"
                 onClick={() => setIsNewKeyModalOpen(false)}
-                className="p-1 text-zinc-500 hover:text-zinc-300 rounded"
+                className="text-zinc-400 hover:text-zinc-200"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
-
-            <form onSubmit={handleCreateKeySubmit} className="p-6 space-y-4 text-xs">
+            <form onSubmit={handleCreateKeySubmit} className="p-6 space-y-4">
               <div>
-                <label className="block font-semibold text-zinc-300 mb-1.5">
-                  Key Name (e.g. users:session:102)
-                </label>
+                <label className="block text-xs font-semibold text-zinc-300 mb-1.5">Key Name</label>
                 <input
                   type="text"
                   required
                   value={newKeyForm.key}
                   onChange={(e) => setNewKeyForm({ ...newKeyForm, key: e.target.value })}
-                  placeholder="namespace:key"
-                  className="w-full px-3 py-2 bg-[#1a1a1d] border border-zinc-700 focus:border-brand-500 rounded-lg font-mono text-zinc-100 outline-none"
+                  placeholder="e.g. users:session:102"
+                  className="w-full px-3 py-2 bg-[#1a1a1d] border border-zinc-700/80 rounded-lg text-xs font-mono text-zinc-100 outline-none focus:border-blue-500"
                 />
               </div>
 
               <div>
-                <label className="block font-semibold text-zinc-300 mb-1.5">Data Type</label>
+                <label className="block text-xs font-semibold text-zinc-300 mb-1.5">Data Type</label>
                 <select
                   value={newKeyForm.type}
                   onChange={(e) =>
                     setNewKeyForm({ ...newKeyForm, type: e.target.value as RedisKeyType })
                   }
-                  className="w-full px-3 py-2 bg-[#1a1a1d] border border-zinc-700 focus:border-brand-500 rounded-lg text-zinc-100 outline-none cursor-pointer"
+                  className="w-full px-3 py-2 bg-[#1a1a1d] border border-zinc-700/80 rounded-lg text-xs font-semibold text-zinc-100 outline-none"
                 >
-                  <option value="string">STRING (Text / JSON)</option>
-                  <option value="hash">HASH (Key-Value Map)</option>
-                  <option value="list">LIST (Ordered Array)</option>
-                  <option value="set">SET (Unique Members)</option>
-                  <option value="zset">ZSET (Sorted Set with Scores)</option>
+                  <option value="string">STRING</option>
+                  <option value="hash">HASH</option>
+                  <option value="list">LIST</option>
+                  <option value="set">SET</option>
+                  <option value="zset">ZSET</option>
                 </select>
               </div>
 
-              {newKeyForm.type === 'string' && (
-                <div>
-                  <label className="block font-semibold text-zinc-300 mb-1.5">Initial Value</label>
-                  <textarea
-                    rows={3}
-                    value={newKeyForm.stringValue}
-                    onChange={(e) => setNewKeyForm({ ...newKeyForm, stringValue: e.target.value })}
-                    placeholder="Enter string value or JSON..."
-                    className="w-full px-3 py-2 bg-[#1a1a1d] border border-zinc-700 focus:border-brand-500 rounded-lg font-mono text-zinc-100 outline-none resize-none"
-                  />
-                </div>
-              )}
-
               <div>
-                <label className="block font-semibold text-zinc-300 mb-1.5">
-                  Expiration / TTL in seconds (-1 for Persistent)
+                <label className="block text-xs font-semibold text-zinc-300 mb-1.5">
+                  TTL in Seconds (-1 for Persistent)
                 </label>
                 <input
                   type="number"
@@ -1689,21 +1859,21 @@ export const RedisWorkspace: React.FC<RedisWorkspaceProps> = ({ showToast }) => 
                   onChange={(e) =>
                     setNewKeyForm({ ...newKeyForm, ttl: parseInt(e.target.value) || -1 })
                   }
-                  className="w-full px-3 py-2 bg-[#1a1a1d] border border-zinc-700 focus:border-brand-500 rounded-lg font-mono text-zinc-100 outline-none"
+                  className="w-full px-3 py-2 bg-[#1a1a1d] border border-zinc-700/80 rounded-lg text-xs font-mono text-zinc-100 outline-none"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-zinc-800">
+              <div className="flex items-center justify-end gap-2 pt-2">
                 <button
                   type="button"
                   onClick={() => setIsNewKeyModalOpen(false)}
-                  className="px-4 py-2 rounded-lg text-zinc-400 hover:text-zinc-200 text-xs font-medium cursor-pointer"
+                  className="px-4 py-2 rounded-lg text-xs font-medium text-zinc-400 hover:text-zinc-200"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-lg bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold shadow-md shadow-brand-600/20 cursor-pointer"
+                  className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-md"
                 >
                   Create Key
                 </button>
@@ -1713,133 +1883,117 @@ export const RedisWorkspace: React.FC<RedisWorkspaceProps> = ({ showToast }) => 
         </div>
       )}
 
-      {/* =========================================================================
-          SERVER TELEMETRY INFO MODAL
-         ========================================================================= */}
-      {isServerInfoOpen && serverInfo && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm animate-in fade-in duration-150 p-4 font-sans">
-          <div className="bg-[#141416] border border-zinc-800 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800 bg-[#18181b]/60 flex-shrink-0">
-              <div className="flex items-center gap-2.5">
-                <Server className="w-5 h-5 text-brand-400" />
-                <h3 className="text-sm font-semibold text-zinc-100">
-                  Redis Server Telemetry & Info
-                </h3>
-              </div>
+      {/* Namespace Delete Confirmation Modal */}
+      {namespaceDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="bg-[#141416] border border-zinc-800 rounded-2xl w-full max-w-md shadow-2xl p-6 space-y-4">
+            <div className="flex items-center gap-3 text-rose-400">
+              <AlertTriangle className="w-6 h-6 flex-shrink-0" />
+              <h3 className="text-base font-bold text-zinc-100">Delete Namespace?</h3>
+            </div>
+            <p className="text-xs text-zinc-300 leading-relaxed">
+              Are you sure you want to delete all <span className="font-bold text-rose-400 font-mono">{namespaceDeleteModal.keys.length} keys</span> inside namespace <span className="font-bold text-zinc-100 font-mono">"{namespaceDeleteModal.namespace}"</span>?
+            </p>
+            <div className="flex justify-end gap-2 pt-2">
               <button
                 type="button"
-                onClick={() => setIsServerInfoOpen(false)}
-                className="p-1 text-zinc-500 hover:text-zinc-300 rounded cursor-pointer"
+                onClick={() => setNamespaceDeleteModal(null)}
+                className="px-4 py-2 rounded-lg text-xs font-medium text-zinc-400 hover:text-zinc-200"
               >
-                <X className="w-4 h-4" />
+                Cancel
               </button>
-            </div>
-
-            <div className="p-6 overflow-y-auto space-y-4 text-xs font-sans">
-              {/* Telemetry Cards */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="p-3 rounded-xl bg-[#1b1b20] border border-zinc-800">
-                  <div className="text-[10px] uppercase font-bold text-zinc-400">Version</div>
-                  <div className="text-sm font-mono font-bold text-brand-400 mt-0.5">
-                    v{serverInfo.redisVersion || 'N/A'}
-                  </div>
-                </div>
-                <div className="p-3 rounded-xl bg-[#1b1b20] border border-zinc-800">
-                  <div className="text-[10px] uppercase font-bold text-zinc-400">Used Memory</div>
-                  <div className="text-sm font-mono font-bold text-emerald-400 mt-0.5">
-                    {serverInfo.usedMemoryHuman || '0B'}
-                  </div>
-                </div>
-                <div className="p-3 rounded-xl bg-[#1b1b20] border border-zinc-800">
-                  <div className="text-[10px] uppercase font-bold text-zinc-400">
-                    Connected Clients
-                  </div>
-                  <div className="text-sm font-mono font-bold text-sky-400 mt-0.5">
-                    {serverInfo.connectedClients || '0'}
-                  </div>
-                </div>
-                <div className="p-3 rounded-xl bg-[#1b1b20] border border-zinc-800">
-                  <div className="text-[10px] uppercase font-bold text-zinc-400">Uptime</div>
-                  <div className="text-sm font-mono font-bold text-amber-400 mt-0.5">
-                    {serverInfo.uptimeInDays} days
-                  </div>
-                </div>
-              </div>
-
-              {/* Raw INFO Key-Values */}
-              <div>
-                <span className="text-[11px] font-semibold text-zinc-300 mb-2 block">
-                  Detailed Parameters:
-                </span>
-                <div className="p-3 bg-[#111114] border border-zinc-800 rounded-xl max-h-56 overflow-y-auto font-mono text-[11px] divide-y divide-zinc-800/60">
-                  {Object.entries(serverInfo.rawInfo).map(([k, v]) => (
-                    <div key={k} className="flex items-center justify-between py-1 px-1">
-                      <span className="text-zinc-400">{k}</span>
-                      <span className="text-zinc-200 font-semibold">{v}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <button
+                type="button"
+                disabled={isDeletingNamespace}
+                onClick={handleDeleteNamespace}
+                className="px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold shadow-md disabled:opacity-50"
+              >
+                {isDeletingNamespace ? 'Deleting...' : 'Delete All Keys'}
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* =========================================================================
-          FLUSH CONFIRMATION DIALOG
-         ========================================================================= */}
+      {/* Flush DB Confirmation */}
       {isFlushConfirmOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm animate-in fade-in duration-150 p-4 font-sans">
-          <div className="bg-[#141416] border border-rose-500/40 rounded-2xl w-full max-w-sm shadow-2xl p-6 text-center space-y-4">
-            <div className="w-12 h-12 rounded-full bg-rose-950/60 border border-rose-500/40 text-rose-400 flex items-center justify-center mx-auto">
-              <AlertTriangle className="w-6 h-6" />
-            </div>
-            <div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="bg-[#141416] border border-zinc-800 rounded-2xl w-full max-w-md shadow-2xl p-6 space-y-4">
+            <div className="flex items-center gap-3 text-rose-400">
+              <AlertTriangle className="w-6 h-6 flex-shrink-0" />
               <h3 className="text-base font-bold text-zinc-100">Flush Database {activeDb}?</h3>
-              <p className="text-xs text-zinc-400 mt-1">
-                This will permanently delete all {keys.length} keys in DB {activeDb}. This action
-                cannot be undone.
-              </p>
             </div>
-            <div className="flex items-center justify-center gap-2 pt-2">
+            <p className="text-xs text-zinc-300 leading-relaxed">
+              This will permanently remove all keys in <span className="font-bold text-rose-400 font-mono">db{activeDb}</span>. This action cannot be undone.
+            </p>
+            <div className="flex justify-end gap-2 pt-2">
               <button
                 type="button"
                 onClick={() => setIsFlushConfirmOpen(false)}
-                className="px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-medium cursor-pointer"
+                className="px-4 py-2 rounded-lg text-xs font-medium text-zinc-400 hover:text-zinc-200"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={handleFlushDB}
-                className="px-5 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold cursor-pointer shadow-md shadow-rose-600/20"
+                className="px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold shadow-md"
               >
-                Yes, Flush All Keys
+                Flush DB {activeDb}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* New Connection Modal */}
-      <NewRedisConnectionModal
-        isOpen={isConnModalOpen}
-        initialConfig={editingConn}
-        onClose={() => setIsConnModalOpen(false)}
-        onSaved={(newConn) => {
-          const exists = connections.findIndex((c) => c.id === newConn.id);
-          let nextList = [...connections];
-          if (exists !== -1) {
-            nextList[exists] = newConn;
-          } else {
-            nextList.push(newConn);
-          }
-          persistConnections(nextList);
-          setActiveConnId(newConn.id);
-          setActiveDb(newConn.db || 0);
-          showToast(`Saved connection "${newConn.name}"`, 'success');
-        }}
-      />
+      {/* Server Info Modal */}
+      {isServerInfoOpen && serverInfo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="bg-[#141416] border border-zinc-800 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800 bg-[#18181b]/60">
+              <div className="flex items-center gap-2.5">
+                <Server className="w-5 h-5 text-blue-400" />
+                <h3 className="text-base font-semibold text-zinc-100">Redis Server Statistics</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsServerInfoOpen(false)}
+                className="text-zinc-400 hover:text-zinc-200"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4 overflow-y-auto">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-3 bg-[#1a1a1f] border border-zinc-800 rounded-xl">
+                  <div className="text-[11px] text-zinc-400">Redis Version</div>
+                  <div className="text-sm font-bold text-zinc-100 mt-0.5">
+                    v{serverInfo.redisVersion || 'unknown'}
+                  </div>
+                </div>
+                <div className="p-3 bg-[#1a1a1f] border border-zinc-800 rounded-xl">
+                  <div className="text-[11px] text-zinc-400">Connected Clients</div>
+                  <div className="text-sm font-bold text-zinc-100 mt-0.5">
+                    {serverInfo.connectedClients}
+                  </div>
+                </div>
+                <div className="p-3 bg-[#1a1a1f] border border-zinc-800 rounded-xl">
+                  <div className="text-[11px] text-zinc-400">Memory Usage</div>
+                  <div className="text-sm font-bold text-blue-400 mt-0.5">
+                    {serverInfo.usedMemoryHuman || '0 B'}
+                  </div>
+                </div>
+                <div className="p-3 bg-[#1a1a1f] border border-zinc-800 rounded-xl">
+                  <div className="text-[11px] text-zinc-400">Total Keys</div>
+                  <div className="text-sm font-bold text-emerald-400 mt-0.5">
+                    {serverInfo.totalKeys}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
