@@ -1,5 +1,5 @@
 import React from 'react';
-import appIcon from '../assets/appicon.png';
+import appIcon from '../../assets/appicon.png';
 import {
   Plus,
   FolderOpen,
@@ -15,7 +15,7 @@ import {
   ShieldCheck,
   Zap
 } from 'lucide-react';
-import { RecentProject } from '../types/project';
+import { RecentProject } from '../../types/project';
 
 interface WelcomeScreenProps {
   onCreateProject: () => void;

@@ -1,27 +1,5 @@
 export namespace main {
 	
-	export class ColumnMeta {
-	    name: string;
-	    dataType: string;
-	    isNullable: boolean;
-	    isPrimaryKey: boolean;
-	    isForeignKey: boolean;
-	    defaultValue: string;
-	
-	    static createFrom(source: any = {}) {
-	        return new ColumnMeta(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.name = source["name"];
-	        this.dataType = source["dataType"];
-	        this.isNullable = source["isNullable"];
-	        this.isPrimaryKey = source["isPrimaryKey"];
-	        this.isForeignKey = source["isForeignKey"];
-	        this.defaultValue = source["defaultValue"];
-	    }
-	}
 	export class ConnectionConfig {
 	    id: string;
 	    name: string;
@@ -94,9 +72,36 @@ export namespace main {
 	        this.targetColumn = source["targetColumn"];
 	    }
 	}
+	export class TableColumn {
+	    name: string;
+	    type: string;
+	    dataType?: string;
+	    isNullable: boolean;
+	    isPrimaryKey: boolean;
+	    isForeignKey: boolean;
+	    defaultValue?: string;
+	    enumValues?: string[];
+	
+	    static createFrom(source: any = {}) {
+	        return new TableColumn(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.type = source["type"];
+	        this.dataType = source["dataType"];
+	        this.isNullable = source["isNullable"];
+	        this.isPrimaryKey = source["isPrimaryKey"];
+	        this.isForeignKey = source["isForeignKey"];
+	        this.defaultValue = source["defaultValue"];
+	        this.enumValues = source["enumValues"];
+	    }
+	}
 	export class TableSchema {
 	    name: string;
-	    columns: ColumnMeta[];
+	    columns: TableColumn[];
+	    primaryKeys: string[];
 	    rowCount: number;
 	
 	    static createFrom(source: any = {}) {
@@ -106,7 +111,8 @@ export namespace main {
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.name = source["name"];
-	        this.columns = this.convertValues(source["columns"], ColumnMeta);
+	        this.columns = this.convertValues(source["columns"], TableColumn);
+	        this.primaryKeys = source["primaryKeys"];
 	        this.rowCount = source["rowCount"];
 	    }
 	
@@ -453,11 +459,14 @@ export namespace main {
 	}
 	export class QueryResult {
 	    queryIndex: number;
-	    statement: string;
+	    rowsAffected: number;
 	    columns: string[];
 	    rows: any[];
-	    rowsAffected: number;
+	    rowCount: number;
 	    durationMs: number;
+	    statement: string;
+	    success: boolean;
+	    errorMessage?: string;
 	    error?: string;
 	    isSelect: boolean;
 	
@@ -468,21 +477,24 @@ export namespace main {
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.queryIndex = source["queryIndex"];
-	        this.statement = source["statement"];
+	        this.rowsAffected = source["rowsAffected"];
 	        this.columns = source["columns"];
 	        this.rows = source["rows"];
-	        this.rowsAffected = source["rowsAffected"];
+	        this.rowCount = source["rowCount"];
 	        this.durationMs = source["durationMs"];
+	        this.statement = source["statement"];
+	        this.success = source["success"];
+	        this.errorMessage = source["errorMessage"];
 	        this.error = source["error"];
 	        this.isSelect = source["isSelect"];
 	    }
 	}
 	export class RedisServerInfo {
 	    redisVersion: string;
-	    connectedClients: string;
+	    connectedClients: number;
 	    usedMemoryHuman: string;
 	    totalKeys: number;
-	    uptimeInDays: string;
+	    uptimeInDays: number;
 	    rawInfo: Record<string, string>;
 	
 	    static createFrom(source: any = {}) {
@@ -615,7 +627,6 @@ export namespace main {
 	export class RedisScanResult {
 	    keys: RedisKeyInfo[];
 	    nextCursor: number;
-	    totalKeys: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new RedisScanResult(source);
@@ -625,7 +636,6 @@ export namespace main {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.keys = this.convertValues(source["keys"], RedisKeyInfo);
 	        this.nextCursor = source["nextCursor"];
-	        this.totalKeys = source["totalKeys"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -648,7 +658,8 @@ export namespace main {
 	}
 	
 	export class RowUpdate {
-	    rowId: any;
+	    primaryKeyColumn: string;
+	    primaryKeyValue: any;
 	    column: string;
 	    newValue: any;
 	
@@ -658,15 +669,18 @@ export namespace main {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.rowId = source["rowId"];
+	        this.primaryKeyColumn = source["primaryKeyColumn"];
+	        this.primaryKeyValue = source["primaryKeyValue"];
 	        this.column = source["column"];
 	        this.newValue = source["newValue"];
 	    }
 	}
 	export class SelectedFileMeta {
 	    name: string;
-	    filePath: string;
+	    path: string;
 	    size: number;
+	    base64Data: string;
+	    contentType: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new SelectedFileMeta(source);
@@ -675,32 +689,13 @@ export namespace main {
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.name = source["name"];
-	        this.filePath = source["filePath"];
+	        this.path = source["path"];
 	        this.size = source["size"];
+	        this.base64Data = source["base64Data"];
+	        this.contentType = source["contentType"];
 	    }
 	}
-	export class TableColumn {
-	    name: string;
-	    type: string;
-	    isNullable: boolean;
-	    isPrimaryKey: boolean;
-	    defaultValue?: string;
-	    enumValues?: string[];
 	
-	    static createFrom(source: any = {}) {
-	        return new TableColumn(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.name = source["name"];
-	        this.type = source["type"];
-	        this.isNullable = source["isNullable"];
-	        this.isPrimaryKey = source["isPrimaryKey"];
-	        this.defaultValue = source["defaultValue"];
-	        this.enumValues = source["enumValues"];
-	    }
-	}
 	export class TableDataResult {
 	    columns: string[];
 	    rows: any[];

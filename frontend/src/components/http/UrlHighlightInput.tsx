@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import { Environment, EnvironmentVariable } from '../types/environments';
-import { getAvailableVariablesMap, resolveDynamicMacro } from '../utils/templateResolver';
+import { Environment, EnvironmentVariable } from '../../types/environments';
+import { getAvailableVariablesMap, resolveDynamicMacro } from '../../utils/templateResolver';
 import { Globe, Key, Sparkles, AlertCircle, ArrowUpRight, X } from 'lucide-react';
 
 interface UrlHighlightInputProps {

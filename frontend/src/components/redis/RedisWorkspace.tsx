@@ -48,7 +48,7 @@ import {
   RedisKeyDetail,
   RedisKeyType,
   ZSetMember,
-} from '../types/redis';
+} from '../../types/redis';
 import {
   loadRedisConnections,
   saveRedisConnections,
@@ -61,7 +61,7 @@ import {
   deleteRedisKeysBatch,
   setRedisTTL,
   flushRedisDB,
-} from '../services/api';
+} from '../../services/api';
 import { NewRedisConnectionModal } from './NewRedisConnectionModal';
 
 interface RedisWorkspaceProps {

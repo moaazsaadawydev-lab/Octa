@@ -14,7 +14,7 @@ import {
   AlertCircle,
   Code
 } from 'lucide-react';
-import { QueryHistoryEntry } from '../types/connection';
+import { QueryHistoryEntry } from '../../types/connection';
 
 interface QueryHistoryPanelProps {
   isOpen: boolean;

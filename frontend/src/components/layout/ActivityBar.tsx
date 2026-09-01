@@ -1,6 +1,6 @@
 import React from 'react';
 import { Database, Globe, Layers, Settings } from 'lucide-react';
-import appIcon from '../assets/appicon.png';
+import appIcon from '../../assets/appicon.png';
 
 export type ActiveModule = 'welcome' | 'databases' | 'redis' | 'http' | 'settings';
 

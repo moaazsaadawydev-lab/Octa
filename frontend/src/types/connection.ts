@@ -21,8 +21,10 @@ export type ConnectionStatus = 'idle' | 'testing' | 'connecting' | 'connected' |
 export interface TableColumn {
   name: string;
   type: string;
+  dataType?: string;
   isNullable: boolean;
   isPrimaryKey: boolean;
+  isForeignKey?: boolean;
   defaultValue?: string;
   enumValues?: string[];
 }
@@ -60,14 +62,17 @@ export interface QueryLog {
 }
 
 export interface QueryResult {
-  queryIndex: number;
+  queryIndex?: number;
   statement: string;
   columns: string[];
   rows: Record<string, any>[];
-  rowsAffected: number;
+  rowCount?: number;
+  rowsAffected?: number;
   durationMs: number;
+  success?: boolean;
+  errorMessage?: string;
   error?: string;
-  isSelect: boolean;
+  isSelect?: boolean;
 }
 
 export interface QueryTab {

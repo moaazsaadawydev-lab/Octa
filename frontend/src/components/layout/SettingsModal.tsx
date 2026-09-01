@@ -12,8 +12,8 @@ import {
   HardDrive,
   FileCode
 } from 'lucide-react';
-import { AppSettings, StartupBehavior } from '../types/settings';
-import appIcon from '../assets/appicon.png';
+import { AppSettings, StartupBehavior } from '../../types/settings';
+import appIcon from '../../assets/appicon.png';
 
 interface SettingsModalProps {
   isOpen: boolean;

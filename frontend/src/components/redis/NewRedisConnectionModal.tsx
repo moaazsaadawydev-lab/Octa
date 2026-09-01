@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Layers, CheckCircle2, AlertCircle, Loader2, Eye, EyeOff, Shield } from 'lucide-react';
-import { RedisConnectionConfig } from '../types/redis';
-import { connectRedis } from '../services/api';
+import { RedisConnectionConfig } from '../../types/redis';
+import { connectRedis } from '../../services/api';
 
 interface NewRedisConnectionModalProps {
   isOpen: boolean;

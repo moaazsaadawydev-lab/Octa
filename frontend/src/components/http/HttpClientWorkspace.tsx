@@ -39,11 +39,11 @@ import {
   ShieldCheck,
   Cookie as CookieIcon
 } from 'lucide-react';
-import interfaceSvg from '../assets/interface.svg';
-import { saveHttpClientData, loadHttpClientData, executeHttpRequest, selectFilesDialog, saveEnvironmentsData, loadEnvironmentsData, HttpRequestPayload, FormFieldPayload, HttpResponsePayload } from '../services/api';
-import { Environment, EnvironmentVariable, EnvironmentVariableType } from '../types/environments';
+import interfaceSvg from '../../assets/interface.svg';
+import { saveHttpClientData, loadHttpClientData, executeHttpRequest, selectFilesDialog, saveEnvironmentsData, loadEnvironmentsData, HttpRequestPayload, FormFieldPayload, HttpResponsePayload } from '../../services/api';
+import { Environment, EnvironmentVariable, EnvironmentVariableType } from '../../types/environments';
 import { UrlHighlightInput } from './UrlHighlightInput';
-import { resolveTemplate, getAvailableVariablesMap } from '../utils/templateResolver';
+import { resolveTemplate, getAvailableVariablesMap } from '../../utils/templateResolver';
 
 // Configure Monaco to use locally bundled version
 loader.config({ monaco });

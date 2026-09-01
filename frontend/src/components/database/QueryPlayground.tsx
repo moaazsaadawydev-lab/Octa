@@ -39,13 +39,13 @@ import {
   SqlQueryItem,
   SqlQueryFolder,
   SqlTreeItem
-} from '../types/connection';
-import { executeRawQuery, explainQuery, getTables, getTableSchema } from '../services/api';
+} from '../../types/connection';
+import { executeRawQuery, explainQuery, getTables, getTableSchema } from '../../services/api';
 import { QueryEditor } from './QueryEditor';
 import { QueryHistoryPanel } from './QueryHistoryPanel';
 import { ExplainPlanViewer } from './ExplainPlanViewer';
-import { HomeLanding } from './HomeLanding';
-import interfaceSvg from '../assets/interface.svg';
+import { HomeLanding } from '../layout/HomeLanding';
+import interfaceSvg from '../../assets/interface.svg';
 
 interface QueryPlaygroundProps {
   activeSession: ActiveSession | null;
@@ -720,7 +720,7 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
 
       const totalDuration = Date.now() - startTs;
       const totalRows = results.reduce(
-        (sum, r) => sum + (r.isSelect ? r.rows.length : r.rowsAffected),
+        (sum, r) => sum + (r.isSelect ? (r.rows?.length || 0) : (r.rowsAffected || 0)),
         0
       );
 

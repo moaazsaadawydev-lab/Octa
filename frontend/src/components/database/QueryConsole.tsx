@@ -9,9 +9,9 @@ import {
   CheckCircle2,
   AlertCircle
 } from 'lucide-react';
-import { QueryLog } from '../types/connection';
-import { getQueryLogs, clearQueryLogs } from '../services/api';
-import * as runtime from '../../wailsjs/runtime/runtime';
+import { QueryLog } from '../../types/connection';
+import { getQueryLogs, clearQueryLogs } from '../../services/api';
+import * as runtime from '../../../wailsjs/runtime/runtime';
 
 interface QueryConsoleProps {
   isExpanded: boolean;

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import appIcon from '../assets/appicon.png';
+import appIcon from '../../assets/appicon.png';
 import {
   Database,
   Layers,
@@ -16,9 +16,9 @@ import {
   Loader2,
   MoreHorizontal
 } from 'lucide-react';
-import { ActiveSession } from '../types/connection';
+import { ActiveSession } from '../../types/connection';
 import { ActiveModule } from './ActivityBar';
-import { ProjectWorkspace } from '../types/project';
+import { ProjectWorkspace } from '../../types/project';
 
 interface TitleBarProps {
   activeModule: ActiveModule;

@@ -32,10 +32,10 @@ import {
   Sparkles,
   Loader2,
 } from 'lucide-react';
-import { ActiveSession, DatabaseSchema } from '../types/connection';
-import { getDatabaseSchemaDetails } from '../services/api';
+import { ActiveSession, DatabaseSchema } from '../../types/connection';
+import { getDatabaseSchemaDetails } from '../../services/api';
 import { TableNode, TableNodeData } from './erd/TableNode';
-import { HomeLanding } from './HomeLanding';
+import { HomeLanding } from '../layout/HomeLanding';
 
 interface ErdVisualizerProps {
   activeSession: ActiveSession | null;

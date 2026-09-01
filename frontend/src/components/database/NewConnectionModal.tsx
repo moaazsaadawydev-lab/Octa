@@ -13,8 +13,8 @@ import {
   Save,
   Check
 } from 'lucide-react';
-import { ConnectionConfig } from '../types/connection';
-import { testConnection, saveConnection } from '../services/api';
+import { ConnectionConfig } from '../../types/connection';
+import { testConnection, saveConnection } from '../../services/api';
 
 interface NewConnectionModalProps {
   isOpen: boolean;

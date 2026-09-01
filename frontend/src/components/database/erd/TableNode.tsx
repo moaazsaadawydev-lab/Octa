@@ -1,7 +1,7 @@
 ﻿import React, { memo } from 'react';
 import { Handle, Position, NodeProps } from '@xyflow/react';
 import { Table, Key, Link2 } from 'lucide-react';
-import { TableSchema } from '../../types/connection';
+import { TableSchema } from '../../../types/connection';
 
 export interface TableNodeData {
   table: TableSchema;

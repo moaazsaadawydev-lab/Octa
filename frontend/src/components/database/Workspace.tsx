@@ -17,7 +17,7 @@ import {
   FileCode,
   X
 } from 'lucide-react';
-import { ActiveSession, TableColumn, TableDataResult, RowUpdate } from '../types/connection';
+import { ActiveSession, TableColumn, TableDataResult, RowUpdate } from '../../types/connection';
 import {
   getTables,
   getTableSchema,
@@ -32,12 +32,12 @@ import {
   exportDatabaseSQL,
   saveSQLDumpDialog,
   downloadSQLFile,
-} from '../services/api';
+} from '../../services/api';
 import { DataGrid } from './DataGrid';
 import { QueryConsole } from './QueryConsole';
-import { HomeLanding } from './HomeLanding';
+import { HomeLanding } from '../layout/HomeLanding';
 import { ImportSqlModal } from './ImportSqlModal';
-import interfaceSvg from '../assets/interface.svg';
+import interfaceSvg from '../../assets/interface.svg';
 
 interface WorkspaceProps {
   activeSession: ActiveSession | null;

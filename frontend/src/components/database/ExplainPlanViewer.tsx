@@ -17,7 +17,7 @@ import {
   Cpu,
   CornerDownRight
 } from 'lucide-react';
-import { ExplainPlanResult, ExplainPlanNode } from '../types/connection';
+import { ExplainPlanResult, ExplainPlanNode } from '../../types/connection';
 
 interface ExplainPlanViewerProps {
   planResult: ExplainPlanResult;

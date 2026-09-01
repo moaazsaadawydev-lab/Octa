@@ -31,8 +31,8 @@ import {
   SqlQueryItem,
   SqlQueryFolder,
   SqlTreeItem
-} from '../types/connection';
-import { saveSqlQueriesData, loadSqlQueriesData } from '../services/api';
+} from '../../types/connection';
+import { saveSqlQueriesData, loadSqlQueriesData } from '../../services/api';
 
 interface SidebarProps {
   connections: ConnectionConfig[];

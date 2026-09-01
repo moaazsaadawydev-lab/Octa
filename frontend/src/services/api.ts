@@ -185,10 +185,13 @@ export async function getTableSchema(
     if (!schema || !Array.isArray(schema)) return [];
     return schema.map((c) => ({
       name: c.name,
-      type: c.type,
+      type: c.type || (c as any).dataType || '',
+      dataType: (c as any).dataType || c.type || '',
       isNullable: Boolean(c.isNullable),
       isPrimaryKey: Boolean(c.isPrimaryKey),
+      isForeignKey: Boolean((c as any).isForeignKey),
       defaultValue: c.defaultValue,
+      enumValues: c.enumValues,
     }));
   } catch (err: any) {
     console.error('Failed to get table schema:', err);
@@ -378,15 +381,18 @@ export async function executeRawQuery(
     const model = toModelConfig(config);
     const results = await ExecuteRawQuery(model, dbName, rawSql);
     if (!results || !Array.isArray(results)) return [];
-    return results.map((r) => ({
-      queryIndex: r.queryIndex,
+    return results.map((r, idx) => ({
+      queryIndex: (r as any).queryIndex ?? idx,
       statement: r.statement,
       columns: r.columns || [],
       rows: r.rows || [],
-      rowsAffected: r.rowsAffected || 0,
+      rowCount: (r as any).rowCount ?? (r as any).rowsAffected ?? (r.rows ? r.rows.length : 0),
+      rowsAffected: (r as any).rowsAffected ?? (r as any).rowCount ?? 0,
       durationMs: r.durationMs || 0,
-      error: r.error,
-      isSelect: Boolean(r.isSelect),
+      success: (r as any).success ?? !(r as any).error,
+      errorMessage: (r as any).errorMessage || (r as any).error,
+      error: (r as any).error || (r as any).errorMessage,
+      isSelect: (r as any).isSelect !== undefined ? Boolean((r as any).isSelect) : (r.columns && r.columns.length > 0),
     }));
   } catch (err: any) {
     console.error('Failed to execute raw query:', err);
@@ -410,7 +416,7 @@ export async function getDatabaseSchemaDetails(
         rowCount: t.rowCount || 0,
         columns: (t.columns || []).map((c) => ({
           name: c.name,
-          dataType: c.dataType,
+          dataType: c.dataType || c.type || '',
           isNullable: Boolean(c.isNullable),
           isPrimaryKey: Boolean(c.isPrimaryKey),
           isForeignKey: Boolean(c.isForeignKey),

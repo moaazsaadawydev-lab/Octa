@@ -1,6 +1,6 @@
 import React from 'react';
 import { Plus } from 'lucide-react';
-import interfaceSvg from '../assets/interface.svg';
+import interfaceSvg from '../../assets/interface.svg';
 
 interface HomeLandingProps {
   onOpenNewModal?: () => void;

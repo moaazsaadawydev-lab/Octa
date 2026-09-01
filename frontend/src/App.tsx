@@ -1,16 +1,16 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { TitleBar } from './components/TitleBar';
-import { ActivityBar, ActiveModule } from './components/ActivityBar';
-import { WelcomeScreen } from './components/WelcomeScreen';
-import { Sidebar } from './components/Sidebar';
-import { Workspace } from './components/Workspace';
-import { QueryPlayground } from './components/QueryPlayground';
-import { ErdVisualizer } from './components/ErdVisualizer';
-import { RedisWorkspace } from './components/RedisWorkspace';
-import { HttpClientWorkspace } from './components/HttpClientWorkspace';
-import { SettingsView } from './components/SettingsView';
-import { NewConnectionModal } from './components/NewConnectionModal';
-import { ImportSqlModal } from './components/ImportSqlModal';
+import { TitleBar } from './components/layout/TitleBar';
+import { ActivityBar, ActiveModule } from './components/layout/ActivityBar';
+import { WelcomeScreen } from './components/layout/WelcomeScreen';
+import { Sidebar } from './components/layout/Sidebar';
+import { Workspace } from './components/database/Workspace';
+import { QueryPlayground } from './components/database/QueryPlayground';
+import { ErdVisualizer } from './components/database/ErdVisualizer';
+import { RedisWorkspace } from './components/redis/RedisWorkspace';
+import { HttpClientWorkspace } from './components/http/HttpClientWorkspace';
+import { SettingsView } from './components/layout/SettingsView';
+import { NewConnectionModal } from './components/database/NewConnectionModal';
+import { ImportSqlModal } from './components/database/ImportSqlModal';
 import {
   ConnectionConfig,
   ActiveSession,
@@ -26,7 +26,7 @@ import {
   AppSettings,
   DEFAULT_APP_SETTINGS
 } from './types/settings';
-import { SettingsModal } from './components/SettingsModal';
+import { SettingsModal } from './components/layout/SettingsModal';
 import {
   getDatabases,
   deleteConnection,

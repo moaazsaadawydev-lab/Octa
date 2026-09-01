@@ -11,8 +11,8 @@ import {
   RefreshCw,
   FileCheck
 } from 'lucide-react';
-import { ActiveSession, ImportResult } from '../types/connection';
-import { importSQLScript } from '../services/api';
+import { ActiveSession, ImportResult } from '../../types/connection';
+import { importSQLScript } from '../../services/api';
 
 interface ImportSqlModalProps {
   isOpen: boolean;

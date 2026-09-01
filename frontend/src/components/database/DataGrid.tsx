@@ -21,7 +21,7 @@ import {
   ArrowUpDown,
   Search,
 } from 'lucide-react';
-import { TableColumn, TableDataResult, RowUpdate } from '../types/connection';
+import { TableColumn, TableDataResult, RowUpdate } from '../../types/connection';
 
 interface DataGridProps {
   tableName: string;
