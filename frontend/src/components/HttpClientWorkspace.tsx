@@ -42,6 +42,7 @@ import {
 import interfaceSvg from '../assets/interface.svg';
 import { saveHttpClientData, loadHttpClientData, executeHttpRequest, selectFilesDialog, saveEnvironmentsData, loadEnvironmentsData, HttpRequestPayload, FormFieldPayload, HttpResponsePayload } from '../services/api';
 import { Environment, EnvironmentVariable, EnvironmentVariableType } from '../types/environments';
+import { UrlHighlightInput } from './UrlHighlightInput';
 import { resolveTemplate, getAvailableVariablesMap } from '../utils/templateResolver';
 
 // Configure Monaco to use locally bundled version
@@ -904,6 +905,54 @@ export const HttpClientWorkspace: React.FC<{
     setEnvironments(
       environments.map((e) => (e.id === selectedEnvIdInModal ? { ...e, ...updated } : e))
     );
+  };
+
+  const handleOpenManageEnvironments = (scopeId?: string) => {
+    if (scopeId) {
+      setSelectedEnvIdInModal(scopeId);
+    }
+    setIsEnvModalOpen(true);
+  };
+
+  const handleUpdateVariableFromInput = (key: string, newValue: string, source?: 'environment' | 'global') => {
+    if (source === 'global') {
+      const existing = globalVariables.find((v) => v.key.trim().toLowerCase() === key.trim().toLowerCase());
+      if (existing) {
+        setGlobalVariables(
+          globalVariables.map((v) =>
+            v.key.trim().toLowerCase() === key.trim().toLowerCase() ? { ...v, value: newValue } : v
+          )
+        );
+      } else {
+        setGlobalVariables([
+          ...globalVariables,
+          { id: 'gv-' + Date.now(), key, value: newValue, enabled: true, type: 'default' },
+        ]);
+      }
+    } else {
+      if (!activeEnvironment) {
+        handleUpdateVariableFromInput(key, newValue, 'global');
+        return;
+      }
+      const currentVars = [...activeEnvironment.variables];
+      const existingIdx = currentVars.findIndex(
+        (v) => v.key.trim().toLowerCase() === key.trim().toLowerCase()
+      );
+      if (existingIdx !== -1) {
+        currentVars[existingIdx] = { ...currentVars[existingIdx], value: newValue };
+      } else {
+        currentVars.push({
+          id: 'var-' + Date.now(),
+          key,
+          value: newValue,
+          enabled: true,
+          type: 'default',
+        });
+      }
+      setEnvironments(
+        environments.map((e) => (e.id === activeEnvironment.id ? { ...e, variables: currentVars } : e))
+      );
+    }
   };
 
   // 1. Collections & Requests Tree State
@@ -2592,13 +2641,20 @@ export const HttpClientWorkspace: React.FC<{
                     onChange={(newMethod) => updateActiveRequest({ ...activeRequest, method: newMethod })}
                   />
 
-                  {/* URL Input */}
-                  <input
-                    type="text"
+                  {/* URL Input with Variable Syntax Highlighting & Visual Badging */}
+                  <UrlHighlightInput
                     value={activeRequest.url}
-                    onChange={(e) => updateActiveRequest({ ...activeRequest, url: e.target.value })}
+                    onChange={(val) => updateActiveRequest({ ...activeRequest, url: val })}
                     placeholder="https://api.example.com/v1/resource"
-                    className="flex-1 px-3 py-1.5 text-xs font-mono bg-[#1a1a1d] border border-[#2b2b30] rounded-lg text-zinc-100 placeholder-zinc-500 focus:border-brand-500 outline-none"
+                    activeEnv={activeEnvironment}
+                    globalVariables={globalVariables}
+                    onUpdateVariable={handleUpdateVariableFromInput}
+                    onOpenManageEnvironments={handleOpenManageEnvironments}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !isSending) {
+                        handleSendRequest();
+                      }
+                    }}
                   />
 
                   {/* Send Button */}
