@@ -10,8 +10,16 @@ export function ClearQueryLogs() {
   return window['go']['main']['App']['ClearQueryLogs']();
 }
 
+export function CloseProjectConnections() {
+  return window['go']['main']['App']['CloseProjectConnections']();
+}
+
 export function ConnectRedis(arg1) {
   return window['go']['main']['App']['ConnectRedis'](arg1);
+}
+
+export function CreateProjectFileDialog(arg1) {
+  return window['go']['main']['App']['CreateProjectFileDialog'](arg1);
 }
 
 export function CreateRedisKey(arg1, arg2, arg3, arg4, arg5) {
@@ -118,6 +126,14 @@ export function LoadSqlQueriesData() {
   return window['go']['main']['App']['LoadSqlQueriesData']();
 }
 
+export function OpenProjectFileDialog() {
+  return window['go']['main']['App']['OpenProjectFileDialog']();
+}
+
+export function ReadProjectFile(arg1) {
+  return window['go']['main']['App']['ReadProjectFile'](arg1);
+}
+
 export function RenameColumn(arg1, arg2, arg3, arg4, arg5) {
   return window['go']['main']['App']['RenameColumn'](arg1, arg2, arg3, arg4, arg5);
 }
@@ -132,6 +148,10 @@ export function SaveEnvironmentsData(arg1) {
 
 export function SaveHttpClientData(arg1) {
   return window['go']['main']['App']['SaveHttpClientData'](arg1);
+}
+
+export function SaveProjectFile(arg1, arg2) {
+  return window['go']['main']['App']['SaveProjectFile'](arg1, arg2);
 }
 
 export function SaveRedisConnections(arg1) {
@@ -172,4 +192,8 @@ export function UpdateRedisKey(arg1, arg2, arg3, arg4, arg5) {
 
 export function UpdateTableRows(arg1, arg2, arg3, arg4, arg5) {
   return window['go']['main']['App']['UpdateTableRows'](arg1, arg2, arg3, arg4, arg5);
+}
+
+export function WipeLegacyStorage() {
+  return window['go']['main']['App']['WipeLegacyStorage']();
 }

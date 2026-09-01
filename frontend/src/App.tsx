@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { TitleBar } from './components/TitleBar';
 import { ActivityBar, ActiveModule } from './components/ActivityBar';
+import { WelcomeScreen } from './components/WelcomeScreen';
 import { Sidebar } from './components/Sidebar';
 import { Workspace } from './components/Workspace';
 import { QueryPlayground } from './components/QueryPlayground';
@@ -18,55 +19,29 @@ import {
   SqlQueryFolder
 } from './types/connection';
 import {
-  getSavedConnections,
+  ProjectWorkspace,
+  RecentProject
+} from './types/project';
+import {
+  AppSettings,
+  DEFAULT_APP_SETTINGS
+} from './types/settings';
+import { SettingsModal } from './components/SettingsModal';
+import {
   getDatabases,
   deleteConnection,
+  saveConnection,
   exportDatabaseSQL,
   saveSQLDumpDialog,
   downloadSQLFile,
-  saveSqlQueriesData,
-  loadSqlQueriesData,
+  createProjectFileDialog,
+  openProjectFileDialog,
+  readProjectFile,
+  saveProjectFile,
+  closeProjectConnections,
+  wipeLegacyStorage
 } from './services/api';
 import { AlertCircle, CheckCircle2, X, Table, Terminal, Layers } from 'lucide-react';
-
-const DEFAULT_INITIAL_QUERIES: (SqlQueryFolder | SqlQueryItem)[] = [
-  {
-    id: 'folder-general',
-    type: 'folder',
-    name: 'General Queries',
-    isOpen: true,
-    items: [
-      {
-        id: 'q-table-info',
-        type: 'query',
-        name: 'Get Table Info.sql',
-        content: `-- Check all tables and row counts in public schema
-SELECT 
-  schemaname,
-  relname AS table_name,
-  n_live_tup AS estimated_rows
-FROM pg_stat_user_tables
-ORDER BY n_live_tup DESC;`,
-      },
-      {
-        id: 'q-activity',
-        type: 'query',
-        name: 'Active Connections.sql',
-        content: `-- List current running queries and connections
-SELECT 
-  pid,
-  usename,
-  client_addr,
-  state,
-  query_start,
-  query
-FROM pg_stat_activity
-WHERE state != 'idle'
-ORDER BY query_start DESC;`,
-      },
-    ],
-  },
-];
 
 const DEFAULT_PLAYGROUND_QUERY = `-- Octa SQL Playground
 -- Press Ctrl + Enter to run selected text or full query
@@ -78,105 +53,72 @@ SELECT
 `;
 
 export function App() {
-  const [activeModule, setActiveModule] = useState<ActiveModule>('databases');
+  // --- Project Workspace Lifecycle State ---
+  const [activeProject, setActiveProject] = useState<ProjectWorkspace | null>(null);
+  const [projectFilePath, setProjectFilePath] = useState<string | null>(null);
+  const [isSavingProject, setIsSavingProject] = useState(false);
+  const [isOpeningProject, setIsOpeningProject] = useState(false);
+
+  // Global App Settings / Preferences
+  const [settings, setSettings] = useState<AppSettings>(() => {
+    try {
+      const saved = localStorage.getItem('octa_global_settings');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return { ...DEFAULT_APP_SETTINGS, ...parsed };
+      }
+    } catch (e) {
+      console.warn('Failed to parse app settings from localStorage:', e);
+    }
+    return DEFAULT_APP_SETTINGS;
+  });
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+
+  // Recent Projects List
+  const [recentProjects, setRecentProjects] = useState<RecentProject[]>(() => {
+    try {
+      const saved = localStorage.getItem('octa_recent_projects');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (e) {
+      console.warn('Failed to parse recent projects:', e);
+    }
+    return [];
+  });
+
+  // Active Navigation Module
+  const [activeModule, setActiveModule] = useState<ActiveModule>('welcome');
   const [dbSubView, setDbSubView] = useState<'tables' | 'playground' | 'erd'>('tables');
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Database Connections & Sessions
   const [connections, setConnections] = useState<ConnectionConfig[]>([]);
   const [activeSession, setActiveSession] = useState<ActiveSession | null>(null);
   const [sidebarImportSession, setSidebarImportSession] = useState<ActiveSession | null>(null);
 
-  // Queries Tree State (Shared between Sidebar and QueryPlayground)
-  const [queriesTree, setQueriesTree] = useState<(SqlQueryFolder | SqlQueryItem)[]>(() => {
-    try {
-      const saved = localStorage.getItem('octa_sql_queries_tree');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
-        }
-      }
-    } catch (e) {
-      console.warn('Failed to parse SQL queries from localStorage', e);
-    }
-    return DEFAULT_INITIAL_QUERIES;
-  });
-
-  // Load queries from Go backend disk on mount
-  useEffect(() => {
-    let isMounted = true;
-    (async () => {
-      try {
-        const diskData = await loadSqlQueriesData();
-        if (diskData && diskData.trim() && isMounted) {
-          const parsed = JSON.parse(diskData);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setQueriesTree(parsed);
-          }
-        }
-      } catch (err) {
-        console.warn('Failed to load SQL queries from disk:', err);
-      }
-    })();
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  // Save queries tree callback
-  const handleSaveQueriesTree = useCallback((nextTree: (SqlQueryFolder | SqlQueryItem)[]) => {
-    setQueriesTree(nextTree);
-    try {
-      const jsonStr = JSON.stringify(nextTree);
-      localStorage.setItem('octa_sql_queries_tree', jsonStr);
-      saveSqlQueriesData(jsonStr).catch((err) => {
-        console.warn('Failed to save SQL queries to backend disk:', err);
-      });
-    } catch (e) {
-      console.warn('Failed to persist SQL queries tree:', e);
-    }
-  }, []);
+  // SQL Queries Tree State
+  const [queriesTree, setQueriesTree] = useState<(SqlQueryFolder | SqlQueryItem)[]>([]);
 
   // Query Playground Tabs State
-  const [queryTabs, setQueryTabs] = useState<QueryTab[]>(() => {
-    try {
-      const saved = localStorage.getItem('octa_query_tabs');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed.map((t: any) => ({
-            ...t,
-            isDirty: false,
-            results: null,
-            isExecuting: false,
-          }));
-        }
-      }
-    } catch (e) {
-      console.warn('Failed to parse query tabs from localStorage', e);
-    }
-    return [
-      {
-        id: 'tab-1',
-        title: 'Query 1.sql',
-        query: DEFAULT_PLAYGROUND_QUERY,
-        isDirty: false,
-        results: null,
-        activeResultIndex: 0,
-        isExecuting: false,
-      },
-    ];
-  });
+  const [queryTabs, setQueryTabs] = useState<QueryTab[]>([
+    {
+      id: 'tab-1',
+      title: 'Query 1.sql',
+      query: DEFAULT_PLAYGROUND_QUERY,
+      isDirty: false,
+      results: null,
+      activeResultIndex: 0,
+      isExecuting: false,
+    },
+  ]);
 
-  const [activeQueryTabId, setActiveQueryTabId] = useState<string | null>(() => {
-    const savedActiveId = localStorage.getItem('octa_active_query_tab_id');
-    return savedActiveId || (queryTabs[0]?.id || null);
-  });
+  const [activeQueryTabId, setActiveQueryTabId] = useState<string | null>('tab-1');
 
   // Cached databases per connection ID: { [connId]: ["postgres", "mydb", ...] }
   const [databasesMap, setDatabasesMap] = useState<Record<string, string[]>>({});
-  // Loading states for database fetching per connection ID
   const [loadingMap, setLoadingMap] = useState<Record<string, boolean>>({});
-  // Expanded server tree state
   const [expandedServers, setExpandedServers] = useState<Record<string, boolean>>({});
 
   // Notification Toast State
@@ -193,28 +135,292 @@ export function App() {
     }, 4000);
   };
 
-  // Load saved connections from disk
-  const loadConnections = useCallback(async () => {
+
+  // Update App Settings Helper
+  const handleUpdateSettings = useCallback((newSettings: AppSettings) => {
+    setSettings(newSettings);
     try {
-      const list = await getSavedConnections();
-      setConnections(list);
-    } catch (err) {
-      console.error('Failed to load connections:', err);
-      showToast('Failed to load saved connections', 'error');
+      localStorage.setItem('octa_global_settings', JSON.stringify(newSettings));
+    } catch (e) {
+      console.warn('Failed to persist settings to localStorage:', e);
+    }
+  }, []);
+  // Perform Initial Startup Behavior & Legacy Wipe
+  useEffect(() => {
+    const hasResetLegacy = localStorage.getItem('octa_legacy_wiped_v2');
+    if (!hasResetLegacy) {
+      wipeLegacyStorage();
+      localStorage.removeItem('octa_connections');
+      localStorage.removeItem('octa_sql_queries_tree');
+      localStorage.removeItem('octa_query_tabs');
+      localStorage.removeItem('octa_http_collections');
+      localStorage.removeItem('octa_http_environments');
+      localStorage.setItem('octa_legacy_wiped_v2', 'true');
+    }
+
+    // Auto-reopen last project if enabled in preferences
+    if (settings.onStartup === 'last_project' && settings.lastOpenedProjectFilePath) {
+      (async () => {
+        setIsOpeningProject(true);
+        try {
+          const res = await readProjectFile(settings.lastOpenedProjectFilePath!);
+          if (res.project && res.filePath) {
+            loadProjectIntoWorkspace(res.project, res.filePath);
+            showToast(`Restored "${res.project.name}"`, 'info');
+          } else {
+            showToast('Previous project not found, opened Welcome Screen', 'info');
+          }
+        } catch (e) {
+          showToast('Previous project not found, opened Welcome Screen', 'info');
+        } finally {
+          setIsOpeningProject(false);
+        }
+      })();
     }
   }, []);
 
+  // Update Recents Helper
+  const recordRecentProject = useCallback((name: string, filePath: string) => {
+    setRecentProjects((prev) => {
+      const filtered = prev.filter((p) => p.filePath !== filePath);
+      const next: RecentProject[] = [
+        {
+          id: 'proj-' + Date.now(),
+          name,
+          filePath,
+          lastOpenedAt: new Date().toISOString(),
+        },
+        ...filtered,
+      ].slice(0, 15);
+
+      try {
+        localStorage.setItem('octa_recent_projects', JSON.stringify(next));
+      } catch (e) {
+        console.warn('Failed to save recent projects to localStorage', e);
+      }
+      return next;
+    });
+  }, []);
+
+  // Load a parsed Project Workspace into App State
+  const loadProjectIntoWorkspace = useCallback(
+    (proj: ProjectWorkspace, filePath: string) => {
+      setActiveProject(proj);
+      setProjectFilePath(filePath);
+      setConnections(proj.databases || []);
+      setQueriesTree(proj.sqlQueries || []);
+      setActiveSession(null);
+      setActiveModule('databases');
+      recordRecentProject(proj.name, filePath);
+
+      // Persist last opened project in preferences
+      setSettings((prev) => {
+        const next: AppSettings = {
+          ...prev,
+          lastOpenedProjectFilePath: filePath,
+        };
+        try {
+          localStorage.setItem('octa_global_settings', JSON.stringify(next));
+        } catch (e) {
+          console.warn('Failed to update settings in localStorage:', e);
+        }
+        return next;
+      });
+    },
+    [recordRecentProject]
+  );
+
+  // 1. Create New Project Action
+  const handleCreateProject = async () => {
+    setIsOpeningProject(true);
+    try {
+      const res = await createProjectFileDialog('my-workspace');
+      if (res.cancelled) return;
+      if (res.error) {
+        showToast(res.error, 'error');
+        return;
+      }
+      if (res.project && res.filePath) {
+        loadProjectIntoWorkspace(res.project, res.filePath);
+        showToast(`Created project "${res.project.name}"`, 'success');
+      }
+    } catch (err: any) {
+      showToast(`Failed to create project: ${err?.message || err}`, 'error');
+    } finally {
+      setIsOpeningProject(false);
+    }
+  };
+
+  // 2. Open Existing Project Action
+  const handleOpenProject = async () => {
+    setIsOpeningProject(true);
+    try {
+      const res = await openProjectFileDialog();
+      if (res.cancelled) return;
+      if (res.error) {
+        showToast(res.error, 'error');
+        return;
+      }
+      if (res.project && res.filePath) {
+        loadProjectIntoWorkspace(res.project, res.filePath);
+        showToast(`Opened project "${res.project.name}"`, 'success');
+      }
+    } catch (err: any) {
+      showToast(`Failed to open project: ${err?.message || err}`, 'error');
+    } finally {
+      setIsOpeningProject(false);
+    }
+  };
+
+  // 3. Select from Recent Projects
+  const handleSelectRecent = async (filePath: string) => {
+    setIsOpeningProject(true);
+    try {
+      const res = await readProjectFile(filePath);
+      if (res.error) {
+        showToast(`Could not open project: ${res.error}`, 'error');
+        return;
+      }
+      if (res.project && res.filePath) {
+        loadProjectIntoWorkspace(res.project, res.filePath);
+        showToast(`Opened project "${res.project.name}"`, 'success');
+      }
+    } catch (err: any) {
+      showToast(`Error reading file: ${err?.message || err}`, 'error');
+    } finally {
+      setIsOpeningProject(false);
+    }
+  };
+
+  // 4. Remove from Recents
+  const handleRemoveRecent = (filePath: string) => {
+    setRecentProjects((prev) => {
+      const next = prev.filter((p) => p.filePath !== filePath);
+      try {
+        localStorage.setItem('octa_recent_projects', JSON.stringify(next));
+      } catch (e) {
+        console.warn('Failed to update recent projects in localStorage', e);
+      }
+      return next;
+    });
+    showToast('Removed from recents', 'info');
+  };
+
+  // 5. Clear All Recents
+  const handleClearRecents = () => {
+    setRecentProjects([]);
+    try {
+      localStorage.removeItem('octa_recent_projects');
+    } catch (e) {
+      console.warn('Failed to clear recents in localStorage', e);
+    }
+    showToast('Cleared recent projects history', 'info');
+  };
+
+  // 6. Close Project
+  const handleCloseProject = async () => {
+    try {
+      await closeProjectConnections();
+    } catch (e) {
+      console.warn('Error closing connections:', e);
+    }
+    setActiveProject(null);
+    setProjectFilePath(null);
+    setActiveSession(null);
+    setConnections([]);
+    setQueriesTree([]);
+    setActiveModule('welcome');
+    showToast('Project closed', 'info');
+  };
+
+  // 7. Manual Save Project
+  const handleSaveProject = async () => {
+    if (!activeProject || !projectFilePath) return;
+    setIsSavingProject(true);
+    try {
+      const updatedProj: ProjectWorkspace = {
+        ...activeProject,
+        updatedAt: new Date().toISOString(),
+        databases: connections,
+        sqlQueries: queriesTree,
+      };
+      const ok = await saveProjectFile(projectFilePath, updatedProj);
+      if (ok) {
+        setActiveProject(updatedProj);
+        showToast(`Saved "${activeProject.name}"`, 'success');
+      } else {
+        showToast('Failed to save project file', 'error');
+      }
+    } catch (err: any) {
+      showToast(`Save error: ${err?.message || err}`, 'error');
+    } finally {
+      setIsSavingProject(false);
+    }
+  };
+
+  // 8. Save Project As / Export
+  const handleSaveProjectAs = async () => {
+    if (!activeProject) return;
+    try {
+      const res = await createProjectFileDialog(activeProject.name + '-copy');
+      if (res.cancelled || !res.filePath) return;
+      const updatedProj: ProjectWorkspace = {
+        ...activeProject,
+        id: 'octa-' + Date.now(),
+        name: res.filePath.replace(/^.*[\\\/]/, '').replace(/\.octa$/, ''),
+        updatedAt: new Date().toISOString(),
+        databases: connections,
+        sqlQueries: queriesTree,
+      };
+      await saveProjectFile(res.filePath, updatedProj);
+      loadProjectIntoWorkspace(updatedProj, res.filePath);
+      showToast(`Project saved as "${updatedProj.name}"`, 'success');
+    } catch (err: any) {
+      showToast(`Save As error: ${err?.message || err}`, 'error');
+    }
+  };
+
+  // Debounced Auto-Save Pipeline (500ms debounce when project state changes)
   useEffect(() => {
-    loadConnections();
-  }, [loadConnections]);
+    if (!activeProject || !projectFilePath) return;
+
+    const timer = setTimeout(async () => {
+      setIsSavingProject(true);
+      try {
+        const updatedProj: ProjectWorkspace = {
+          ...activeProject,
+          updatedAt: new Date().toISOString(),
+          databases: connections,
+          sqlQueries: queriesTree,
+        };
+        await saveProjectFile(projectFilePath, updatedProj);
+      } catch (err) {
+        console.warn('Auto-save error:', err);
+      } finally {
+        setIsSavingProject(false);
+      }
+    }, 600);
+
+    return () => clearTimeout(timer);
+  }, [activeProject, projectFilePath, connections, queriesTree]);
+
+  // Save queries tree callback
+  const handleSaveQueriesTree = useCallback((nextTree: (SqlQueryFolder | SqlQueryItem)[]) => {
+    setQueriesTree(nextTree);
+  }, []);
+
+  // Helper to consistently identify a server connection
+  const getServerKey = (server: ConnectionConfig): string => {
+    return server.id || server.name || `${server.host}:${server.port}`;
+  };
 
   // Fetch databases for a specific server connection
   const fetchDatabasesForServer = async (server: ConnectionConfig) => {
-    const connId = server.id || server.name;
+    const connId = getServerKey(server);
     setLoadingMap((prev) => ({ ...prev, [connId]: true }));
     try {
       const dbs = await getDatabases(server);
-      setDatabasesMap((prev) => ({ ...prev, [connId]: dbs }));
+      setDatabasesMap((prev) => ({ ...prev, [connId]: dbs || [] }));
     } catch (err: any) {
       console.error(`Failed to load databases for ${server.name}:`, err);
       showToast(`Could not list databases for ${server.name}: ${err?.message || err}`, 'error');
@@ -226,7 +432,7 @@ export function App() {
 
   // Expand / collapse server in the sidebar
   const handleToggleExpand = async (server: ConnectionConfig) => {
-    const connId = server.id || server.name;
+    const connId = getServerKey(server);
     const isCurrentlyExpanded = Boolean(expandedServers[connId]);
 
     setExpandedServers((prev) => ({
@@ -234,14 +440,14 @@ export function App() {
       [connId]: !isCurrentlyExpanded,
     }));
 
-    if (!isCurrentlyExpanded && !databasesMap[connId]) {
+    if (!isCurrentlyExpanded) {
       await fetchDatabasesForServer(server);
     }
   };
 
   // Switch database connection
   const handleConnectToDatabase = (server: ConnectionConfig, databaseName: string) => {
-    const connId = server.id || server.name;
+    const connId = getServerKey(server);
     const sessionConfig: ConnectionConfig = {
       ...server,
       database: databaseName,
@@ -256,8 +462,7 @@ export function App() {
     // Make sure server node is expanded
     setExpandedServers((prev) => ({ ...prev, [connId]: true }));
 
-    // If databases not loaded yet, fetch in background
-    if (!databasesMap[connId]) {
+    if (!databasesMap[connId] || databasesMap[connId].length === 0) {
       fetchDatabasesForServer(server);
     }
 
@@ -266,36 +471,73 @@ export function App() {
 
   // Direct connection from modal test/connect
   const handleConnectDirect = (config: ConnectionConfig) => {
+    const configWithId: ConnectionConfig = {
+      ...config,
+      id: config.id || 'conn-' + Date.now(),
+    };
+    const connId = getServerKey(configWithId);
+
     setActiveSession({
-      connection: config,
-      activeDatabase: config.database || 'postgres',
+      connection: configWithId,
+      activeDatabase: configWithId.database || 'postgres',
       connectedAt: new Date(),
     });
-    showToast(`Connected to ${config.database || 'postgres'}`, 'success');
+
+    setConnections((prev) => {
+      const idx = prev.findIndex(
+        (c) => (c.id && c.id === configWithId.id) || (c.host === configWithId.host && c.port === configWithId.port)
+      );
+      if (idx !== -1) {
+        const next = [...prev];
+        next[idx] = configWithId;
+        return next;
+      }
+      return [...prev, configWithId];
+    });
+
+    setExpandedServers((prev) => ({ ...prev, [connId]: true }));
+    fetchDatabasesForServer(configWithId);
+
+    showToast(`Connected to ${configWithId.database || 'postgres'}`, 'success');
   };
 
-  // Delete saved connection
+  // Delete saved connection from active project
   const handleDeleteConnection = async (id: string, name: string) => {
     try {
-      await deleteConnection(id);
+      setConnections((prev) => prev.filter((c) => c.id !== id && c.name !== name));
       showToast(`Deleted connection "${name}"`, 'info');
 
-      // If active session was this connection, disconnect
-      if (activeSession?.connection.id === id) {
+      if (activeSession?.connection.id === id || activeSession?.connection.name === name) {
         setActiveSession(null);
       }
-
-      await loadConnections();
     } catch (err: any) {
-      console.error('Failed to delete connection:', err);
       showToast(`Failed to delete connection: ${err?.message || err}`, 'error');
     }
   };
 
-  const handleSaved = async () => {
+  // Add / Save connection to active project
+  const handleSavedConnection = async (newConfig: ConnectionConfig) => {
     setIsModalOpen(false);
-    showToast('Connection configuration saved', 'success');
-    await loadConnections();
+    const configWithId: ConnectionConfig = {
+      ...newConfig,
+      id: newConfig.id || 'conn-' + Date.now(),
+    };
+    const connId = getServerKey(configWithId);
+
+    setConnections((prev) => {
+      const idx = prev.findIndex((c) => c.id === configWithId.id);
+      if (idx !== -1) {
+        const next = [...prev];
+        next[idx] = configWithId;
+        return next;
+      }
+      return [...prev, configWithId];
+    });
+
+    setExpandedServers((prev) => ({ ...prev, [connId]: true }));
+    fetchDatabasesForServer(configWithId);
+
+    showToast(`Saved connection "${configWithId.name}"`, 'success');
   };
 
   // Handle Export Database Trigger from Sidebar
@@ -376,41 +618,70 @@ export function App() {
     setActiveQueryTabId(query.id);
   };
 
-  // Global Keyboard Shortcuts for Module Switching
+  // Global Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey) {
-        if (e.key === '1') {
+        if (e.key === 's') {
+          e.preventDefault();
+          handleSaveProject();
+        } else if (e.key === '1' && activeProject) {
           e.preventDefault();
           setActiveModule('databases');
-        } else if (e.key === '2') {
+        } else if (e.key === '2' && activeProject) {
           e.preventDefault();
           setActiveModule('redis');
-        } else if (e.key === '3') {
+        } else if (e.key === '3' && activeProject) {
           e.preventDefault();
           setActiveModule('http');
         } else if (e.key === ',') {
           e.preventDefault();
-          setActiveModule('settings');
+          setIsSettingsModalOpen(true);
         }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [activeProject, projectFilePath, connections, queriesTree]);
 
   return (
     <div className="flex flex-col h-screen w-screen bg-surface-950 text-gray-100 font-sans overflow-hidden select-none">
-      {/* Top Frameless TitleBar with Brand & Drag Handle */}
-      <TitleBar activeModule={activeModule} activeSession={activeSession} />
+      {/* Top Frameless TitleBar with Brand, Project Info & Actions */}
+      <TitleBar
+        activeModule={activeModule}
+        activeSession={activeSession}
+        activeProject={activeProject}
+        projectFilePath={projectFilePath}
+        isSavingProject={isSavingProject}
+        onSaveProject={handleSaveProject}
+        onSaveProjectAs={handleSaveProjectAs}
+        onCloseProject={handleCloseProject}
+        onOpenProject={handleOpenProject}
+        onOpenSettings={() => setIsSettingsModalOpen(true)}
+      />
 
       {/* Main Workspace Body */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Activity Bar (VS Code style slim left rail) */}
-        <ActivityBar activeModule={activeModule} setActiveModule={setActiveModule} />
+        {/* Activity Bar (Slim left rail) */}
+        <ActivityBar
+          activeModule={activeModule}
+          setActiveModule={setActiveModule}
+          hasProject={Boolean(activeProject)}
+          onOpenSettings={() => setIsSettingsModalOpen(true)}
+        />
 
         {/* Dynamic Module Content */}
-        {activeModule === 'redis' ? (
+        {activeModule === 'welcome' || !activeProject ? (
+          <WelcomeScreen
+            onCreateProject={handleCreateProject}
+            onOpenProject={handleOpenProject}
+            onSelectRecent={handleSelectRecent}
+            onRemoveRecent={handleRemoveRecent}
+            onClearRecents={handleClearRecents}
+            recentProjects={recentProjects}
+            isOpening={isOpeningProject}
+          />
+        ) : activeModule === 'redis' ? (
           <RedisWorkspace showToast={showToast} />
         ) : activeModule === 'http' ? (
           <HttpClientWorkspace showToast={showToast} />
@@ -427,7 +698,7 @@ export function App() {
               expandedServers={expandedServers}
               onToggleExpand={handleToggleExpand}
               onOpenNewModal={() => setIsModalOpen(true)}
-              onRefreshConnections={loadConnections}
+              onRefreshConnections={() => {}}
               onConnectToDatabase={handleConnectToDatabase}
               onDeleteConnection={handleDeleteConnection}
               onExportDatabase={handleExportDatabase}
@@ -516,7 +787,7 @@ export function App() {
       <NewConnectionModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        onSaved={handleSaved}
+        onSaved={handleSavedConnection}
         onConnectDirect={handleConnectDirect}
       />
 
@@ -531,13 +802,21 @@ export function App() {
               activeSession?.connection.id === sidebarImportSession.connection.id &&
               activeSession?.activeDatabase === sidebarImportSession.activeDatabase
             ) {
-              // If current active session is same DB, refresh it
               showToast('SQL imported successfully', 'success');
             }
           }}
           showToast={showToast}
         />
       )}
+
+      {/* Settings / Preferences Modal */}
+      <SettingsModal
+        isOpen={isSettingsModalOpen}
+        onClose={() => setIsSettingsModalOpen(false)}
+        settings={settings}
+        onUpdateSettings={handleUpdateSettings}
+        showToast={showToast}
+      />
 
       {/* Toast Notification */}
       {toast.show && (

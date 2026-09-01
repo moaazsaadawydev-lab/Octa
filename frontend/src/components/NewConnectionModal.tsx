@@ -33,6 +33,7 @@ export const NewConnectionModal: React.FC<NewConnectionModalProps> = ({
   const [showPassword, setShowPassword] = useState(false);
 
   const [formData, setFormData] = useState<ConnectionConfig>({
+    id: 'conn-' + Date.now(),
     name: 'Local Postgres',
     type: 'postgres',
     host: 'localhost',

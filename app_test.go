@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -780,5 +781,47 @@ func TestRedisConnectionsPersistence(t *testing.T) {
 
 	if loaded != testJSON {
 		t.Errorf("Loaded Redis connections mismatch. Expected: %s, Got: %s", testJSON, loaded)
+	}
+}
+
+func TestProjectFileLifecycle(t *testing.T) {
+	app := &App{}
+	tmpDir := t.TempDir()
+	testPath := filepath.Join(tmpDir, "test-workspace.octa")
+
+	testJSON := `{
+		"schemaVersion": 1,
+		"id": "octa-test-123",
+		"name": "test-workspace",
+		"createdAt": "2026-09-01T00:00:00Z",
+		"updatedAt": "2026-09-01T00:00:00Z",
+		"databases": [],
+		"sqlQueries": [],
+		"redis": [],
+		"httpClient": {
+			"collections": [],
+			"environments": [],
+			"globalVariables": [],
+			"activeEnvironmentId": ""
+		}
+	}`
+
+	ok, err := app.SaveProjectFile(testPath, testJSON)
+	if err != nil || !ok {
+		t.Fatalf("SaveProjectFile failed: %v", err)
+	}
+
+	res, err := app.ReadProjectFile(testPath)
+	if err != nil {
+		t.Fatalf("ReadProjectFile failed with error: %v", err)
+	}
+	if res.Error != "" {
+		t.Fatalf("ReadProjectFile returned error in result: %s", res.Error)
+	}
+	if res.Project == nil {
+		t.Fatalf("ReadProjectFile returned nil project")
+	}
+	if res.Project.Name != "test-workspace" {
+		t.Errorf("Expected project name 'test-workspace', got '%s'", res.Project.Name)
 	}
 }

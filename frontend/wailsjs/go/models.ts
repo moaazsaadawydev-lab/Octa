@@ -301,6 +301,134 @@ export namespace main {
 	        this.errorMessage = source["errorMessage"];
 	    }
 	}
+	export class ProjectHttpClient {
+	    collections: any[];
+	    environments: any[];
+	    globalVariables: any[];
+	    activeEnvironmentId: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ProjectHttpClient(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.collections = source["collections"];
+	        this.environments = source["environments"];
+	        this.globalVariables = source["globalVariables"];
+	        this.activeEnvironmentId = source["activeEnvironmentId"];
+	    }
+	}
+	export class RedisConnectionConfig {
+	    id: string;
+	    name: string;
+	    host: string;
+	    port: number;
+	    username?: string;
+	    password?: string;
+	    db: number;
+	    ssl: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new RedisConnectionConfig(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.host = source["host"];
+	        this.port = source["port"];
+	        this.username = source["username"];
+	        this.password = source["password"];
+	        this.db = source["db"];
+	        this.ssl = source["ssl"];
+	    }
+	}
+	export class ProjectWorkspace {
+	    schemaVersion: number;
+	    id: string;
+	    name: string;
+	    createdAt: string;
+	    updatedAt: string;
+	    databases: ConnectionConfig[];
+	    sqlQueries: any[];
+	    redis: RedisConnectionConfig[];
+	    httpClient: ProjectHttpClient;
+	
+	    static createFrom(source: any = {}) {
+	        return new ProjectWorkspace(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.schemaVersion = source["schemaVersion"];
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.createdAt = source["createdAt"];
+	        this.updatedAt = source["updatedAt"];
+	        this.databases = this.convertValues(source["databases"], ConnectionConfig);
+	        this.sqlQueries = source["sqlQueries"];
+	        this.redis = this.convertValues(source["redis"], RedisConnectionConfig);
+	        this.httpClient = this.convertValues(source["httpClient"], ProjectHttpClient);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class ProjectFileResult {
+	    filePath: string;
+	    project?: ProjectWorkspace;
+	    error?: string;
+	    cancelled: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new ProjectFileResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.filePath = source["filePath"];
+	        this.project = this.convertValues(source["project"], ProjectWorkspace);
+	        this.error = source["error"];
+	        this.cancelled = source["cancelled"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	
+	
 	export class QueryLog {
 	    id: string;
 	    timestamp: string;
@@ -405,32 +533,7 @@ export namespace main {
 		    return a;
 		}
 	}
-	export class RedisConnectionConfig {
-	    id: string;
-	    name: string;
-	    host: string;
-	    port: number;
-	    username?: string;
-	    password?: string;
-	    db: number;
-	    ssl: boolean;
 	
-	    static createFrom(source: any = {}) {
-	        return new RedisConnectionConfig(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.id = source["id"];
-	        this.name = source["name"];
-	        this.host = source["host"];
-	        this.port = source["port"];
-	        this.username = source["username"];
-	        this.password = source["password"];
-	        this.db = source["db"];
-	        this.ssl = source["ssl"];
-	    }
-	}
 	export class ZSetMember {
 	    member: string;
 	    score: number;
