@@ -259,3 +259,16 @@ func (a *App) StartLogStream(containerID string) error {
 func (a *App) StopLogStream(containerID string) error {
 	return a.dockerService.StopLogStream(containerID)
 }
+func (a *App) StartContainerExec(sessionID string, containerID string, cols int, rows int) error {
+	return a.dockerService.StartContainerExec(sessionID, containerID, cols, rows)
+}
+func (a *App) WriteContainerExec(sessionID string, data string) error {
+	return a.dockerService.WriteContainerExec(sessionID, data)
+}
+func (a *App) ResizeContainerExec(sessionID string, cols int, rows int) error {
+	return a.dockerService.ResizeContainerExec(sessionID, cols, rows)
+}
+func (a *App) CloseContainerExec(sessionID string) error {
+	return a.dockerService.CloseContainerExec(sessionID)
+}
+

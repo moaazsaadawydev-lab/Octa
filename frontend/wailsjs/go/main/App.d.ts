@@ -10,6 +10,8 @@ export function CheckDockerAvailability():Promise<boolean|string>;
 
 export function ClearQueryLogs():Promise<boolean>;
 
+export function CloseContainerExec(arg1:string):Promise<void>;
+
 export function CloseProjectConnections():Promise<boolean>;
 
 export function CloseTerminalSession(arg1:string):Promise<void>;
@@ -82,6 +84,8 @@ export function RemoveContainer(arg1:string,arg2:boolean):Promise<boolean>;
 
 export function RenameColumn(arg1:main.ConnectionConfig,arg2:string,arg3:string,arg4:string,arg5:string):Promise<boolean>;
 
+export function ResizeContainerExec(arg1:string,arg2:number,arg3:number):Promise<void>;
+
 export function ResizeTerminalSession(arg1:string,arg2:number,arg3:number):Promise<void>;
 
 export function RestartContainer(arg1:string):Promise<boolean>;
@@ -108,6 +112,8 @@ export function SetRedisTTL(arg1:main.RedisConnectionConfig,arg2:string,arg3:num
 
 export function StartContainer(arg1:string):Promise<boolean>;
 
+export function StartContainerExec(arg1:string,arg2:string,arg3:number,arg4:number):Promise<void>;
+
 export function StartLogStream(arg1:string):Promise<void>;
 
 export function StartTerminalSession(arg1:string,arg2:string,arg3:number,arg4:number):Promise<void>;
@@ -125,5 +131,7 @@ export function UpdateRedisKey(arg1:main.RedisConnectionConfig,arg2:string,arg3:
 export function UpdateTableRows(arg1:main.ConnectionConfig,arg2:string,arg3:string,arg4:string,arg5:Array<main.RowUpdate>):Promise<boolean>;
 
 export function WipeLegacyStorage():Promise<boolean>;
+
+export function WriteContainerExec(arg1:string,arg2:string):Promise<void>;
 
 export function WriteTerminalSession(arg1:string,arg2:string):Promise<void>;

@@ -18,6 +18,10 @@ export function ClearQueryLogs() {
   return window['go']['main']['App']['ClearQueryLogs']();
 }
 
+export function CloseContainerExec(arg1) {
+  return window['go']['main']['App']['CloseContainerExec'](arg1);
+}
+
 export function CloseProjectConnections() {
   return window['go']['main']['App']['CloseProjectConnections']();
 }
@@ -162,6 +166,10 @@ export function RenameColumn(arg1, arg2, arg3, arg4, arg5) {
   return window['go']['main']['App']['RenameColumn'](arg1, arg2, arg3, arg4, arg5);
 }
 
+export function ResizeContainerExec(arg1, arg2, arg3) {
+  return window['go']['main']['App']['ResizeContainerExec'](arg1, arg2, arg3);
+}
+
 export function ResizeTerminalSession(arg1, arg2, arg3) {
   return window['go']['main']['App']['ResizeTerminalSession'](arg1, arg2, arg3);
 }
@@ -214,6 +222,10 @@ export function StartContainer(arg1) {
   return window['go']['main']['App']['StartContainer'](arg1);
 }
 
+export function StartContainerExec(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['StartContainerExec'](arg1, arg2, arg3, arg4);
+}
+
 export function StartLogStream(arg1) {
   return window['go']['main']['App']['StartLogStream'](arg1);
 }
@@ -248,6 +260,10 @@ export function UpdateTableRows(arg1, arg2, arg3, arg4, arg5) {
 
 export function WipeLegacyStorage() {
   return window['go']['main']['App']['WipeLegacyStorage']();
+}
+
+export function WriteContainerExec(arg1, arg2) {
+  return window['go']['main']['App']['WriteContainerExec'](arg1, arg2);
 }
 
 export function WriteTerminalSession(arg1, arg2) {

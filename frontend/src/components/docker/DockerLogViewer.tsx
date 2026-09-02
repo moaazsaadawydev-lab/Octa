@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   ScrollText,
   Search,
@@ -16,6 +16,7 @@ import {
   AlertTriangle,
   ChevronUp,
   ChevronDown,
+  Terminal as TerminalIcon,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { Terminal } from '@xterm/xterm';
@@ -33,6 +34,7 @@ import {
   startDockerLogStream,
   stopDockerLogStream,
 } from '../../services/api';
+import { DockerExecTerminal } from './DockerExecTerminal';
 import * as runtime from '../../../wailsjs/runtime/runtime';
 
 interface DockerLogViewerProps {
@@ -46,6 +48,7 @@ export const DockerLogViewer: React.FC<DockerLogViewerProps> = ({
   onRefreshList,
   showToast,
 }) => {
+  const [activeTab, setActiveTab] = useState<'logs' | 'terminal'>('logs');
   const [autoScroll, setAutoScroll] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [copiedId, setCopiedId] = useState(false);
@@ -65,6 +68,13 @@ export const DockerLogViewer: React.FC<DockerLogViewerProps> = ({
       termRef.current.scrollToBottom();
     }
   }, [autoScroll]);
+
+  // If container stops, revert from terminal to logs
+  useEffect(() => {
+    if (container?.state !== 'running' && activeTab === 'terminal') {
+      setActiveTab('logs');
+    }
+  }, [container?.state, activeTab]);
 
   // Copy Container ID
   const handleCopyId = async () => {
@@ -167,16 +177,15 @@ export const DockerLogViewer: React.FC<DockerLogViewerProps> = ({
     }
   };
 
-  // Initialize Read-Only XTerm Instance & Stream Subscription
+  // Initialize Read-Only XTerm Instance & Stream Subscription for Logs
   useEffect(() => {
-    if (!container?.id || !containerRef.current) {
+    if (activeTab !== 'logs' || !container?.id || !containerRef.current) {
       return;
     }
 
     const containerId = container.id;
     const domNode = containerRef.current;
 
-    // 1. Create configured Read-Only XTerm terminal
     const term = new Terminal({
       disableStdin: true,
       cursorBlink: false,
@@ -215,7 +224,6 @@ export const DockerLogViewer: React.FC<DockerLogViewerProps> = ({
 
     term.open(domNode);
 
-    // Load WebGL Addon with graceful fallback
     try {
       const webglAddon = new WebglAddon();
       webglAddon.onContextLoss(() => {
@@ -223,15 +231,14 @@ export const DockerLogViewer: React.FC<DockerLogViewerProps> = ({
       });
       term.loadAddon(webglAddon);
     } catch {
-      // Fallback silently to default renderer
+      // Fallback
     }
 
-    // Initial fit
     requestAnimationFrame(() => {
       try {
         fitAddon.fit();
       } catch {
-        // Ignore initial measurement race
+        // Ignore
       }
     });
 
@@ -239,7 +246,6 @@ export const DockerLogViewer: React.FC<DockerLogViewerProps> = ({
     fitAddonRef.current = fitAddon;
     searchAddonRef.current = searchAddon;
 
-    // Detect user manual scroll up vs bottom
     const scrollDisposable = term.onScroll(() => {
       const buffer = term.buffer.active;
       const isBottom = buffer.viewportY >= buffer.baseY;
@@ -250,7 +256,6 @@ export const DockerLogViewer: React.FC<DockerLogViewerProps> = ({
       }
     });
 
-    // Resize Observer to handle layout changes
     const resizeObserver = new ResizeObserver(() => {
       requestAnimationFrame(() => {
         try {
@@ -262,7 +267,6 @@ export const DockerLogViewer: React.FC<DockerLogViewerProps> = ({
     });
     resizeObserver.observe(domNode);
 
-    // Subscribe to live log chunks via Wails Events
     const eventName = 'docker:logs:' + containerId;
     let unsubscribe: (() => void) | undefined;
 
@@ -292,7 +296,7 @@ export const DockerLogViewer: React.FC<DockerLogViewerProps> = ({
       fitAddonRef.current = null;
       searchAddonRef.current = null;
     };
-  }, [container?.id]);
+  }, [container?.id, activeTab]);
 
   if (!container) {
     return (
@@ -373,8 +377,44 @@ export const DockerLogViewer: React.FC<DockerLogViewerProps> = ({
             </div>
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex items-center gap-2">
+          {/* Action Buttons & Tab Switcher */}
+          <div className="flex items-center gap-3">
+            {/* View Switcher Segmented Pill Toggle: Logs vs Exec Terminal */}
+            <div className="flex items-center p-0.5 rounded-lg bg-slate-100 dark:bg-[#141418] border border-slate-200 dark:border-zinc-800">
+              <button
+                type="button"
+                onClick={() => setActiveTab('logs')}
+                className={clsx(
+                  'flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-all cursor-pointer',
+                  activeTab === 'logs'
+                    ? 'bg-white dark:bg-zinc-800 text-brand-600 dark:text-brand-400 shadow-sm'
+                    : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
+                )}
+              >
+                <ScrollText className="w-3.5 h-3.5" />
+                <span>Logs</span>
+              </button>
+
+              <button
+                type="button"
+                disabled={!isRunning}
+                onClick={() => setActiveTab('terminal')}
+                title={isRunning ? "Interactive Terminal (Exec)" : "Container must be running to open terminal"}
+                className={clsx(
+                  'flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-all',
+                  !isRunning
+                    ? 'opacity-40 cursor-not-allowed text-slate-400 dark:text-zinc-600'
+                    : activeTab === 'terminal'
+                      ? 'bg-white dark:bg-zinc-800 text-brand-600 dark:text-brand-400 shadow-sm cursor-pointer'
+                      : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 cursor-pointer'
+                )}
+              >
+                <TerminalIcon className="w-3.5 h-3.5" />
+                <span>Exec Shell</span>
+              </button>
+            </div>
+
+            {/* Lifecycle Buttons */}
             {isRunning ? (
               <button
                 type="button"
@@ -447,85 +487,97 @@ export const DockerLogViewer: React.FC<DockerLogViewerProps> = ({
         </div>
       </div>
 
-      {/* 2. Logs Sub-Toolbar */}
-      <div className="px-4 py-2 bg-slate-100/70 dark:bg-[#08090d] border-b border-slate-200 dark:border-zinc-800 flex items-center justify-between gap-3 flex-shrink-0 select-none">
-        {/* Search in Logs */}
-        <div className="flex items-center gap-1.5 flex-1 max-w-sm">
-          <div className="relative w-full">
-            <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-zinc-500 pointer-events-none" />
-            <input
-              type="text"
-              placeholder="Search logs..."
-              value={searchTerm}
-              onChange={(e) => handleSearchChange(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  if (e.shiftKey) {
-                    handleFindPrevious();
-                  } else {
-                    handleFindNext();
-                  }
-                }
-              }}
-              className="w-full pl-8 pr-16 py-1 rounded-lg bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-500 outline-none focus:border-brand-500 font-mono transition-colors"
-            />
-            {searchTerm && (
-              <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
-                <button
-                  type="button"
-                  onClick={handleFindPrevious}
-                  title="Find Previous (Shift+Enter)"
-                  className="p-0.5 rounded text-slate-400 hover:text-slate-800 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-slate-100 dark:hover:bg-zinc-800 cursor-pointer"
-                >
-                  <ChevronUp className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={handleFindNext}
-                  title="Find Next (Enter)"
-                  className="p-0.5 rounded text-slate-400 hover:text-slate-800 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-slate-100 dark:hover:bg-zinc-800 cursor-pointer"
-                >
-                  <ChevronDown className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Right Tools: AutoScroll, Clear */}
-        <div className="flex items-center gap-2 text-xs">
-          <button
-            type="button"
-            onClick={() => setAutoScroll(!autoScroll)}
-            className={clsx(
-              'flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors cursor-pointer',
-              autoScroll
-                ? 'bg-brand-50 dark:bg-brand-950/40 text-brand-600 dark:text-brand-400 border-brand-300 dark:border-brand-800/80'
-                : 'text-slate-600 dark:text-zinc-400 hover:bg-slate-200 dark:hover:bg-zinc-800 border-slate-200 dark:border-zinc-800'
-            )}
-          >
-            <ArrowDown className="w-3 h-3" />
-            <span>Auto-scroll</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleClear}
-            title="Clear Log Stream Buffer"
-            className="px-2.5 py-1 rounded-lg text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100 hover:bg-slate-200 dark:hover:bg-zinc-800 border border-slate-200 dark:border-zinc-800 transition-colors cursor-pointer"
-          >
-            Clear
-          </button>
-        </div>
-      </div>
-
-      {/* 3. Live Logs Stream Terminal Viewport (Read-Only XTerm Instance) */}
-      <div className="flex-1 w-full h-full min-h-0 min-w-0 bg-[#090a0f] p-3 overflow-hidden relative">
-        <div
-          ref={containerRef}
-          className="w-full h-full min-h-0 min-w-0 overflow-hidden"
+      {/* Main Viewport: Either Logs Canvas or Exec Terminal */}
+      {activeTab === 'terminal' ? (
+        <DockerExecTerminal
+          container={container}
+          onStartContainer={handleStart}
+          isStarting={actionLoading === 'start'}
+          showToast={showToast}
         />
-      </div>
+      ) : (
+        <>
+          {/* Logs Sub-Toolbar */}
+          <div className="px-4 py-2 bg-slate-100/70 dark:bg-[#08090d] border-b border-slate-200 dark:border-zinc-800 flex items-center justify-between gap-3 flex-shrink-0 select-none">
+            {/* Search in Logs */}
+            <div className="flex items-center gap-1.5 flex-1 max-w-sm">
+              <div className="relative w-full">
+                <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-zinc-500 pointer-events-none" />
+                <input
+                  type="text"
+                  placeholder="Search logs..."
+                  value={searchTerm}
+                  onChange={(e) => handleSearchChange(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      if (e.shiftKey) {
+                        handleFindPrevious();
+                      } else {
+                        handleFindNext();
+                      }
+                    }
+                  }}
+                  className="w-full pl-8 pr-16 py-1 rounded-lg bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-500 outline-none focus:border-brand-500 font-mono transition-colors"
+                />
+                {searchTerm && (
+                  <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+                    <button
+                      type="button"
+                      onClick={handleFindPrevious}
+                      title="Find Previous (Shift+Enter)"
+                      className="p-0.5 rounded text-slate-400 hover:text-slate-800 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-slate-100 dark:hover:bg-zinc-800 cursor-pointer"
+                    >
+                      <ChevronUp className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleFindNext}
+                      title="Find Next (Enter)"
+                      className="p-0.5 rounded text-slate-400 hover:text-slate-800 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-slate-100 dark:hover:bg-zinc-800 cursor-pointer"
+                    >
+                      <ChevronDown className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Right Tools: AutoScroll, Clear */}
+            <div className="flex items-center gap-2 text-xs">
+              <button
+                type="button"
+                onClick={() => setAutoScroll(!autoScroll)}
+                className={clsx(
+                  'flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors cursor-pointer',
+                  autoScroll
+                    ? 'bg-brand-50 dark:bg-brand-950/40 text-brand-600 dark:text-brand-400 border-brand-300 dark:border-brand-800/80'
+                    : 'text-slate-600 dark:text-zinc-400 hover:bg-slate-200 dark:hover:bg-zinc-800 border-slate-200 dark:border-zinc-800'
+                )}
+              >
+                <ArrowDown className="w-3 h-3" />
+                <span>Auto-scroll</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleClear}
+                title="Clear Log Stream Buffer"
+                className="px-2.5 py-1 rounded-lg text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100 hover:bg-slate-200 dark:hover:bg-zinc-800 border border-slate-200 dark:border-zinc-800 transition-colors cursor-pointer"
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+
+          {/* Live Logs Stream Terminal Viewport (Read-Only XTerm Instance) */}
+          <div className="flex-1 w-full h-full min-h-0 min-w-0 bg-[#090a0f] p-3 overflow-hidden relative">
+            <div
+              ref={containerRef}
+              className="w-full h-full min-h-0 min-w-0 overflow-hidden"
+            />
+          </div>
+        </>
+      )}
 
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
