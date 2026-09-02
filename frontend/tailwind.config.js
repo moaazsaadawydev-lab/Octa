@@ -8,7 +8,16 @@ export default {
   theme: {
     extend: {
       colors: {
-        background: '#121212',
+        background: 'var(--bg-app)',
+        theme: {
+          app: 'var(--bg-app)',
+          surface: 'var(--bg-surface)',
+          subtle: 'var(--bg-subtle)',
+          panel: 'var(--bg-panel)',
+          border: 'var(--border-color)',
+          main: 'var(--text-main)',
+          muted: 'var(--text-muted)',
+        },
         surface: {
           950: '#0f0f0f',
           900: '#181818',

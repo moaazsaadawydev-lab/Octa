@@ -895,9 +895,9 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
   }
 
   return (
-    <div className="flex-1 flex flex-col h-full w-full min-h-0 bg-surface-950 text-gray-100 overflow-hidden select-none font-sans relative">
+    <div className="flex-1 flex flex-col h-full w-full min-h-0 bg-slate-50 dark:bg-[#090a0f] text-slate-900 dark:text-zinc-100 overflow-hidden select-none font-sans relative transition-colors">
       {/* 1. Top Multi-Tab Bar for SQL Query Files */}
-      <div className="bg-[#141416] border-b border-border-subtle flex items-center justify-between pl-2 pr-64 flex-shrink-0 select-none min-h-[38px] z-30">
+      <div className="bg-white dark:bg-[#0d0e14] border-b border-slate-200 dark:border-zinc-800 flex items-center justify-between pl-2 pr-64 flex-shrink-0 select-none min-h-[38px] z-30">
         {/* Scrollable Query Tabs List */}
         <div className="flex items-center gap-1 overflow-x-auto no-scrollbar flex-1 py-1.5">
           {tabs.map((tab) => {
@@ -915,8 +915,8 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
                 className={
                   'group/tab relative flex items-center gap-2 px-3 py-1 rounded-lg text-xs transition-all cursor-pointer border max-w-[240px] ' +
                   (isActive
-                    ? 'bg-[#1e1e22] text-white border-zinc-700/80 shadow-sm font-medium'
-                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-[#18181c] border-transparent')
+                    ? 'bg-white dark:bg-zinc-900 text-slate-900 dark:text-white border-slate-300 dark:border-zinc-700/80 shadow-sm font-medium'
+                    : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-100 dark:hover:bg-[#18181c] border-transparent')
                 }
               >
                 <FileCode
@@ -988,7 +988,7 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
       {activeTab ? (
         <div className="flex-1 flex flex-col min-h-0 w-full h-full overflow-hidden relative">
           {/* Top SQL Execution Toolbar */}
-          <div className="px-4 py-2 border-b border-border-subtle bg-[#161618] flex items-center justify-between gap-3 flex-shrink-0 z-20">
+          <div className="px-4 py-2 border-b border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-[#0d0e14] flex items-center justify-between gap-3 flex-shrink-0 z-20">
             {/* Left Controls: Run Selection / Run All / Explain Plan / Format / Save */}
             <div className="flex items-center gap-2">
               {/* Run Query Button */}
@@ -1013,7 +1013,7 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
                   onClick={() => setShowExplainMenu(!showExplainMenu)}
                   disabled={activeTab.isExecuting || !activeTab.query?.trim()}
                   title="Explain execution plan"
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-800 hover:bg-surface-750 text-amber-300 border border-amber-500/30 text-xs font-medium transition-all disabled:opacity-50 cursor-pointer"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-amber-700 dark:text-amber-300 border border-slate-300 dark:border-amber-500/30 text-xs font-medium transition-all disabled:opacity-50 cursor-pointer shadow-sm"
                 >
                   <Activity className="w-3.5 h-3.5 text-amber-400" />
                   <span>Explain Plan</span>
@@ -1039,13 +1039,13 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
                     <button
                       type="button"
                       onClick={() => handleExplainQuery(true)}
-                      className="w-full px-3 py-1.5 flex items-center justify-between text-left hover:bg-zinc-800 hover:text-white transition-colors cursor-pointer"
+                      className="w-full px-3 py-1.5 flex items-center justify-between text-left hover:bg-slate-100 dark:hover:bg-zinc-800 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
                     >
                       <div className="flex items-center gap-2">
-                        <Zap className="w-3.5 h-3.5 text-amber-400" />
+                        <Zap className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
                         <span>Explain & Analyze</span>
                       </div>
-                      <span className="text-[10px] text-zinc-500 font-mono">Ctrl+Shift+↵</span>
+                      <span className="text-[10px] text-slate-400 dark:text-zinc-500 font-mono">Ctrl+Shift+↵</span>
                     </button>
                   </div>
                 )}
@@ -1057,9 +1057,9 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
                 onClick={handleFormatSql}
                 disabled={activeTab.isExecuting || !activeTab.query?.trim()}
                 title="Format SQL (Ctrl+Shift+F)"
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-800 hover:bg-surface-750 text-zinc-300 border border-border/60 text-xs font-medium transition-colors disabled:opacity-50 cursor-pointer"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-300 border border-slate-300 dark:border-zinc-700 text-xs font-medium transition-colors disabled:opacity-50 cursor-pointer shadow-sm"
               >
-                <Wand2 className="w-3.5 h-3.5 text-zinc-400" />
+                <Wand2 className="w-3.5 h-3.5 text-slate-500 dark:text-zinc-400" />
                 <span>Format SQL</span>
               </button>
 
@@ -1073,10 +1073,10 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
                   'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold shadow-sm transition-all cursor-pointer ' +
                   (activeTab.isDirty
                     ? 'bg-sky-600 hover:bg-sky-500 text-white shadow-sky-600/20 active:scale-[0.98]'
-                    : 'bg-surface-800 hover:bg-surface-750 text-zinc-300 border border-border/60')
+                    : 'bg-white hover:bg-slate-50 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-300 border border-slate-300 dark:border-zinc-700 shadow-sm')
                 }
               >
-                <Save className={'w-3.5 h-3.5 ' + (activeTab.isDirty ? 'text-white' : 'text-zinc-400')} />
+                <Save className={'w-3.5 h-3.5 ' + (activeTab.isDirty ? 'text-white' : 'text-slate-500 dark:text-zinc-400')} />
                 <span>Save Query</span>
               </button>
             </div>
@@ -1090,10 +1090,10 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
                   'flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors cursor-pointer ' +
                   (isHistoryOpen
                     ? 'bg-brand-600 text-white border-brand-500 shadow-sm'
-                    : 'bg-surface-800 hover:bg-surface-750 text-zinc-300 border-border/60')
+                    : 'bg-white hover:bg-slate-50 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-300 border border-slate-300 dark:border-zinc-700 shadow-sm')
                 }
               >
-                <History className="w-3.5 h-3.5 text-zinc-300" />
+                <History className="w-3.5 h-3.5 text-slate-500 dark:text-zinc-300" />
                 <span>History ({history.length})</span>
               </button>
             </div>
@@ -1103,7 +1103,7 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
           <div className="flex-1 flex min-h-0 overflow-hidden relative w-full h-full">
             <div className="flex-1 flex flex-col min-h-0 overflow-hidden relative w-full h-full">
               {/* Monaco Editor Container */}
-              <div className="flex-1 flex flex-col min-h-0 w-full h-full overflow-hidden bg-[#1e1e1e] relative">
+              <div className="flex-1 flex flex-col min-h-0 w-full h-full overflow-hidden bg-slate-50 dark:bg-[#1e1e1e] relative">
                 <QueryEditor
                   value={activeTab.query}
                   onChange={handleQueryChange}
@@ -1120,41 +1120,41 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
               {(activeTab.results || activeTab.explainPlan) && (
                 <div
                   style={{ height: resultsHeight, minHeight: 140, maxHeight: 600 }}
-                  className="bg-[#141416] border-t border-border-subtle flex flex-col flex-shrink-0 select-none relative"
+                  className="bg-slate-50 dark:bg-[#141416] border-t border-slate-200 dark:border-zinc-800 flex flex-col flex-shrink-0 select-none relative"
                 >
                   {/* Row Resizer Handle */}
                   <div
                     onMouseDown={handleResizeStart}
                     className="absolute -top-1 left-0 right-0 h-2 cursor-row-resize z-30 hover:bg-brand-500/20 transition-colors flex items-center justify-center group/hres"
                   >
-                    <div className="w-12 h-1 bg-zinc-600 rounded-full group-hover/hres:bg-brand-400 transition-colors" />
+                    <div className="w-12 h-1 bg-slate-300 dark:bg-zinc-600 rounded-full group-hover/hres:bg-brand-400 transition-colors" />
                   </div>
 
                   {/* Results Panel Header */}
-                  <div className="px-4 py-2 border-b border-border-subtle bg-[#17171a] flex items-center justify-between flex-shrink-0">
+                  <div className="px-4 py-2 border-b border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-[#17171a] flex items-center justify-between flex-shrink-0">
                     {/* View Switcher / Results info */}
                     <div className="flex items-center gap-3">
                       {activeTab.explainPlan ? (
                         <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-amber-400 uppercase tracking-wider">
+                          <span className="text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">
                             Explain Plan
                           </span>
-                          <span className="text-xs font-mono text-zinc-400">
+                          <span className="text-xs font-mono text-slate-500 dark:text-zinc-400">
                             Total Cost: {activeTab.explainPlan.totalCost.toFixed(2)}
                           </span>
                           {activeTab.explainPlan.executionTime > 0 && (
-                            <span className="text-xs font-mono text-emerald-400">
+                            <span className="text-xs font-mono text-emerald-600 dark:text-emerald-400">
                               • Exec: {activeTab.explainPlan.executionTime.toFixed(2)}ms
                             </span>
                           )}
                         </div>
                       ) : (
                         <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-zinc-300 uppercase tracking-wider">
+                          <span className="text-xs font-bold text-slate-700 dark:text-zinc-300 uppercase tracking-wider">
                             Query Results
                           </span>
                           {currentResult && (
-                            <span className="text-xs font-mono text-zinc-400">
+                            <span className="text-xs font-mono text-slate-500 dark:text-zinc-400">
                               {currentResult.isSelect
                                 ? currentResult.rows.length + ' rows'
                                 : currentResult.rowsAffected + ' rows affected'}{' '}
@@ -1173,18 +1173,18 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
                             type="button"
                             onClick={handleExportCSV}
                             title="Export to CSV"
-                            className="flex items-center gap-1 px-2.5 py-1 rounded bg-[#202024] hover:bg-[#28282e] border border-zinc-700/60 text-xs text-zinc-300 hover:text-white transition-colors cursor-pointer"
+                            className="flex items-center gap-1 px-2.5 py-1 rounded bg-slate-100 hover:bg-slate-200 dark:bg-[#202024] dark:hover:bg-[#28282e] border border-slate-200 dark:border-zinc-700/60 text-xs text-slate-700 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
                           >
-                            <FileSpreadsheet className="w-3 h-3 text-emerald-400" />
+                            <FileSpreadsheet className="w-3 h-3 text-emerald-500 dark:text-emerald-400" />
                             <span>CSV</span>
                           </button>
                           <button
                             type="button"
                             onClick={handleExportJSON}
                             title="Export to JSON"
-                            className="flex items-center gap-1 px-2.5 py-1 rounded bg-[#202024] hover:bg-[#28282e] border border-zinc-700/60 text-xs text-zinc-300 hover:text-white transition-colors cursor-pointer"
+                            className="flex items-center gap-1 px-2.5 py-1 rounded bg-slate-100 hover:bg-slate-200 dark:bg-[#202024] dark:hover:bg-[#28282e] border border-slate-200 dark:border-zinc-700/60 text-xs text-slate-700 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
                           >
-                            <FileJson className="w-3 h-3 text-amber-400" />
+                            <FileJson className="w-3 h-3 text-amber-500 dark:text-amber-400" />
                             <span>JSON</span>
                           </button>
                         </>
@@ -1193,7 +1193,7 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
                         type="button"
                         onClick={handleClearResults}
                         title="Clear Results"
-                        className="p-1 rounded text-zinc-500 hover:text-rose-400 hover:bg-zinc-800 transition-colors cursor-pointer"
+                        className="p-1 rounded text-slate-400 dark:text-zinc-500 hover:text-rose-500 dark:hover:text-rose-400 hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -1201,28 +1201,28 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
                   </div>
 
                   {/* Results Panel Body */}
-                  <div className="flex-1 overflow-auto bg-[#111113]">
+                  <div className="flex-1 overflow-auto bg-white dark:bg-[#111113]">
                     {activeTab.explainPlan ? (
                       <ExplainPlanViewer planResult={activeTab.explainPlan} showToast={showToast} />
                     ) : currentResult ? (
                       currentResult.error ? (
-                        <div className="p-4 text-xs text-rose-400 font-mono bg-rose-950/20 border-l-2 border-rose-500">
+                        <div className="p-4 text-xs text-rose-600 dark:text-rose-400 font-mono bg-rose-50 dark:bg-rose-950/20 border-l-2 border-rose-500">
                           {currentResult.error}
                         </div>
                       ) : currentResult.columns.length === 0 ? (
-                        <div className="p-4 text-xs text-emerald-400 font-mono">
+                        <div className="p-4 text-xs text-emerald-600 dark:text-emerald-400 font-mono">
                           Statement completed successfully. ({currentResult.rowsAffected} rows affected)
                         </div>
                       ) : (
                         <div className="overflow-x-auto">
                           <table className="w-full text-left text-xs font-mono border-collapse">
                             <thead>
-                              <tr className="bg-[#18181c] border-b border-border-subtle sticky top-0 z-10">
-                                <th className="p-2 text-zinc-500 font-normal w-10 text-center">#</th>
+                              <tr className="bg-slate-100 dark:bg-[#18181c] border-b border-slate-200 dark:border-zinc-800 sticky top-0 z-10">
+                                <th className="p-2 text-slate-500 dark:text-zinc-500 font-normal w-10 text-center">#</th>
                                 {currentResult.columns.map((col) => (
                                   <th
                                     key={col}
-                                    className="p-2 text-zinc-300 font-semibold border-r border-border-subtle/40 whitespace-nowrap"
+                                    className="p-2 text-slate-700 dark:text-zinc-300 font-semibold border-r border-slate-200 dark:border-zinc-800/40 whitespace-nowrap"
                                   >
                                     {col}
                                   </th>
@@ -1235,9 +1235,9 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
                                 return (
                                   <tr
                                     key={rIdx}
-                                    className="border-b border-border-subtle/30 hover:bg-zinc-800/40"
+                                    className="border-b border-slate-200/80 dark:border-zinc-800/30 hover:bg-slate-50 dark:hover:bg-zinc-800/40"
                                   >
-                                    <td className="p-2 text-zinc-600 text-center select-none font-mono">
+                                    <td className="p-2 text-slate-400 dark:text-zinc-600 text-center select-none font-mono">
                                       {rowNum}
                                     </td>
                                     {currentResult.columns.map((col) => {
@@ -1245,10 +1245,10 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
                                       return (
                                         <td
                                           key={col}
-                                          className="p-2 text-zinc-200 border-r border-border-subtle/20 whitespace-nowrap select-text"
+                                          className="p-2 text-slate-800 dark:text-zinc-200 border-r border-slate-200/80 dark:border-zinc-800/20 whitespace-nowrap select-text"
                                         >
                                           {val === null || val === undefined ? (
-                                            <span className="text-zinc-600 italic">null</span>
+                                            <span className="text-slate-400 dark:text-zinc-600 italic">null</span>
                                           ) : typeof val === 'object' ? (
                                             JSON.stringify(val)
                                           ) : (
@@ -1291,50 +1291,50 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
           </div>
 
           {/* 3. Bottom Status Bar */}
-          <div className="px-3.5 py-1.5 bg-[#121214] border-t border-border-subtle flex items-center justify-between text-xs select-none flex-shrink-0 z-20">
+          <div className="px-3.5 py-1.5 bg-slate-100 dark:bg-[#121214] border-t border-slate-200 dark:border-zinc-800 flex items-center justify-between text-xs select-none flex-shrink-0 z-20">
             {/* Left DB Connection Context */}
-            <div className="flex items-center gap-2 text-zinc-400 font-mono text-[11px]">
+            <div className="flex items-center gap-2 text-slate-500 dark:text-zinc-400 font-mono text-[11px]">
               <div className="flex items-center gap-1.5">
-                <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                <span className="text-zinc-300 font-medium">
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse" />
+                <span className="text-slate-700 dark:text-zinc-300 font-medium">
                   Connected to database "{activeSession.activeDatabase}" on {activeSession.connection.name || activeSession.connection.host}
                 </span>
               </div>
             </div>
 
             {/* Right Status Info / Shortcuts */}
-            <div className="flex items-center gap-4 text-zinc-500 text-[11px] font-mono">
+            <div className="flex items-center gap-4 text-slate-500 dark:text-zinc-500 text-[11px] font-mono">
               {activeTab.isExecuting ? (
-                <div className="flex items-center gap-1.5 text-amber-400">
+                <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
                   <Loader2 className="w-3 h-3 animate-spin" />
                   <span>Executing query...</span>
                 </div>
               ) : currentResult ? (
-                <div className="flex items-center gap-1 text-emerald-400">
+                <div className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
                   <CheckCircle2 className="w-3 h-3" />
                   <span>
                     Executed in {currentResult.durationMs.toFixed(1)}ms ({currentResult.isSelect ? currentResult.rows.length : currentResult.rowsAffected} rows)
                   </span>
                 </div>
               ) : (
-                <span className="text-zinc-500">Ready</span>
+                <span className="text-slate-500 dark:text-zinc-500">Ready</span>
               )}
-              <div className="h-3 w-px bg-zinc-800" />
-              <span className="hidden md:inline text-zinc-500">
-                Run: <kbd className="px-1 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700">Ctrl+↵</kbd>
+              <div className="h-3 w-px bg-slate-200 dark:bg-zinc-800" />
+              <span className="hidden md:inline text-slate-500 dark:text-zinc-500">
+                Run: <kbd className="px-1 py-0.5 rounded bg-slate-200 dark:bg-zinc-800 text-slate-700 dark:text-zinc-400 border border-slate-300 dark:border-zinc-700">Ctrl+↵</kbd>
               </span>
-              <span className="hidden md:inline text-zinc-500">
-                Save: <kbd className="px-1 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700">Ctrl+S</kbd>
+              <span className="hidden md:inline text-slate-500 dark:text-zinc-500">
+                Save: <kbd className="px-1 py-0.5 rounded bg-slate-200 dark:bg-zinc-800 text-slate-700 dark:text-zinc-400 border border-slate-300 dark:border-zinc-700">Ctrl+S</kbd>
               </span>
-              <span className="hidden md:inline text-zinc-500">
-                Format: <kbd className="px-1 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700">Ctrl+Shift+F</kbd>
+              <span className="hidden md:inline text-slate-500 dark:text-zinc-500">
+                Format: <kbd className="px-1 py-0.5 rounded bg-slate-200 dark:bg-zinc-800 text-slate-700 dark:text-zinc-400 border border-slate-300 dark:border-zinc-700">Ctrl+Shift+F</kbd>
               </span>
             </div>
           </div>
         </div>
       ) : (
         /* Empty SQL Playground Workspace State */
-        <div className="flex-1 bg-[#121212] flex flex-col items-center justify-center p-8 text-center select-none">
+        <div className="flex-1 bg-slate-50/50 dark:bg-[#121212] flex flex-col items-center justify-center p-8 text-center select-none">
           <div className="w-[320px] h-[320px] sm:w-[400px] sm:h-[400px] md:w-[440px] md:h-[440px] max-w-[50vw] max-h-[50vh] flex items-center justify-center pointer-events-none mb-2">
             <img
               src={interfaceSvg}
@@ -1343,16 +1343,16 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
             />
           </div>
           <div className="flex flex-col items-center text-center mt-2">
-            <span className="text-sm font-semibold text-zinc-300">No Query Selected</span>
-            <span className="text-xs text-zinc-500 mt-1 max-w-sm">
+            <span className="text-sm font-semibold text-slate-700 dark:text-zinc-300">No Query Selected</span>
+            <span className="text-xs text-slate-500 dark:text-zinc-500 mt-1 max-w-sm">
               Select a query to edit or create a new one.
             </span>
             <button
               type="button"
               onClick={handleAddTab}
-              className="mt-6 flex items-center gap-2 px-4 py-2 text-xs font-medium text-zinc-300 hover:text-white bg-zinc-800/80 hover:bg-zinc-700 active:scale-[0.98] border border-zinc-700/60 hover:border-zinc-600 rounded-lg shadow-sm transition-all duration-150 cursor-pointer group"
+              className="mt-6 flex items-center gap-2 px-4 py-2 text-xs font-medium text-slate-700 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-white bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800/80 dark:hover:bg-zinc-700 active:scale-[0.98] border border-slate-200 dark:border-zinc-700/60 hover:border-slate-300 dark:hover:border-zinc-600 rounded-lg shadow-sm transition-all duration-150 cursor-pointer group"
             >
-              <Plus className="w-3.5 h-3.5 text-zinc-400 group-hover:text-zinc-200 transition-colors" />
+              <Plus className="w-3.5 h-3.5 text-slate-400 dark:text-zinc-400 group-hover:text-slate-700 dark:group-hover:text-zinc-200 transition-colors" />
               <span>New Query</span>
             </button>
           </div>
@@ -1363,19 +1363,19 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
       {isSaveModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in select-none">
           <div
-            className="w-full max-w-md bg-[#18181b] border border-zinc-800 rounded-xl shadow-2xl p-5 text-gray-100 animate-scale-up"
+            className="w-full max-w-md bg-white dark:bg-[#18181b] border border-slate-200 dark:border-zinc-800 rounded-xl shadow-2xl p-5 text-slate-900 dark:text-gray-100 animate-scale-up"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex items-center justify-between pb-3 border-b border-zinc-800/80 mb-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-zinc-800/80 mb-4">
               <div className="flex items-center gap-2">
-                <Save className="w-4 h-4 text-sky-400" />
-                <h3 className="text-sm font-semibold text-zinc-200">Save SQL Query</h3>
+                <Save className="w-4 h-4 text-sky-500 dark:text-sky-400" />
+                <h3 className="text-sm font-semibold text-slate-800 dark:text-zinc-200">Save SQL Query</h3>
               </div>
               <button
                 type="button"
                 onClick={() => setIsSaveModalOpen(false)}
-                className="text-zinc-500 hover:text-zinc-300 p-1 rounded-md transition-colors"
+                className="text-slate-400 hover:text-slate-700 dark:text-zinc-500 dark:hover:text-zinc-300 p-1 rounded-md transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1384,7 +1384,7 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
             {/* Form */}
             <form onSubmit={handleConfirmSaveModal} className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-zinc-400 mb-1.5">
+                <label className="block text-xs font-medium text-slate-600 dark:text-zinc-400 mb-1.5">
                   Query File Name (.sql)
                 </label>
                 <input
@@ -1394,18 +1394,18 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
                   value={saveModalName}
                   onChange={(e) => setSaveModalName(e.target.value)}
                   placeholder="e.g. Get User Payments.sql"
-                  className="w-full px-3 py-2 bg-zinc-900 border border-zinc-700/80 rounded-lg text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-sky-500 font-mono transition-all"
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700/80 rounded-lg text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:border-sky-500 font-mono transition-all"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-zinc-400 mb-1.5">
+                <label className="block text-xs font-medium text-slate-600 dark:text-zinc-400 mb-1.5">
                   Destination Folder (Optional)
                 </label>
                 <select
                   value={saveModalFolderId}
                   onChange={(e) => setSaveModalFolderId(e.target.value)}
-                  className="w-full px-3 py-2 bg-zinc-900 border border-zinc-700/80 rounded-lg text-xs text-white focus:outline-none focus:border-sky-500 font-sans transition-all"
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700/80 rounded-lg text-xs text-slate-900 dark:text-white focus:outline-none focus:border-sky-500 font-sans transition-all"
                 >
                   <option value="">/ (Root - No Folder)</option>
                   {availableFolders.map((f) => (
@@ -1421,7 +1421,7 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsSaveModalOpen(false)}
-                  className="px-3.5 py-1.5 text-xs text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded-lg transition-colors cursor-pointer"
+                  className="px-3.5 py-1.5 text-xs text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded-lg transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -1443,33 +1443,33 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
       {tabPendingClose && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in select-none">
           <div
-            className="w-full max-w-sm bg-[#18181b] border border-zinc-800 rounded-xl shadow-2xl p-5 text-gray-100 animate-scale-up"
+            className="w-full max-w-sm bg-white dark:bg-[#18181b] border border-slate-200 dark:border-zinc-800 rounded-xl shadow-2xl p-5 text-slate-900 dark:text-gray-100 animate-scale-up"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start gap-3 mb-4">
-              <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 flex-shrink-0">
+              <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-500 dark:text-amber-400 flex-shrink-0">
                 <AlertCircle className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-sm font-semibold text-zinc-200">Unsaved Changes</h3>
-                <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
-                  You have unsaved changes in <span className="font-mono text-zinc-200 font-medium">"{tabPendingClose.title}"</span>. Do you want to save before closing?
+                <h3 className="text-sm font-semibold text-slate-800 dark:text-zinc-200">Unsaved Changes</h3>
+                <p className="text-xs text-slate-600 dark:text-zinc-400 mt-1 leading-relaxed">
+                  You have unsaved changes in <span className="font-mono text-slate-800 dark:text-zinc-200 font-medium">"{tabPendingClose.title}"</span>. Do you want to save before closing?
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-zinc-800/80">
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200 dark:border-zinc-800/80">
               <button
                 type="button"
                 onClick={() => setTabPendingClose(null)}
-                className="px-3 py-1.5 text-xs text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded-lg transition-colors cursor-pointer"
+                className="px-3 py-1.5 text-xs text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded-lg transition-colors cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={() => performCloseTab(tabPendingClose.id)}
-                className="px-3 py-1.5 text-xs text-rose-400 hover:bg-rose-950/40 rounded-lg transition-colors cursor-pointer font-medium"
+                className="px-3 py-1.5 text-xs text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-colors cursor-pointer font-medium"
               >
                 Don't Save
               </button>

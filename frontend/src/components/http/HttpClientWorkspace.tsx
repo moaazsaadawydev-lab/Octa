@@ -1736,8 +1736,8 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
             'group relative flex items-center justify-between py-1.5 pr-2 rounded-lg text-xs cursor-pointer transition-all ' +
             (dropPosition === 'inside' ? 'bg-brand-500/20 ring-1 ring-brand-400/50 ' : '') +
             (!isFolder && activeTabId === item.id
-              ? 'bg-[#1f1f23] text-white font-medium shadow-sm border border-zinc-700/60'
-              : 'text-zinc-400 hover:text-zinc-200 hover:bg-[#18181b]')
+              ? 'bg-blue-50 dark:bg-[#1f1f23] text-blue-900 dark:text-white font-medium shadow-sm border border-blue-200 dark:border-zinc-700/60'
+              : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-100 dark:hover:bg-[#18181b]')
           }
         >
           {/* Left Title & Icons */}
@@ -1917,23 +1917,23 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
   };
 
   return (
-    <div className="flex-1 flex h-full bg-[#121214] text-zinc-100 overflow-hidden select-none font-sans relative">
+    <div className="flex-1 flex h-full bg-slate-50 dark:bg-[#121214] text-slate-900 dark:text-zinc-100 overflow-hidden select-none font-sans relative transition-colors">
       {/* Resizable Panel Group (Level 1: Sidebar vs Main Workspace) */}
       <Group orientation="horizontal" id="octa_http_main_split" className="h-full w-full">
         {/* 1. Request Explorer Tree Sidebar */}
-        <Panel defaultSize="22%" minSize="14%" maxSize="40%" className="flex flex-col h-full bg-[#161618] border-r border-[#26262a]">
+        <Panel defaultSize="22%" minSize="14%" maxSize="40%" className="flex flex-col h-full bg-white dark:bg-[#161618] border-r border-slate-200 dark:border-[#26262a]">
           {/* Sidebar Header */}
-          <div className="p-3 border-b border-[#26262a] flex items-center justify-between">
+          <div className="p-3 border-b border-slate-200 dark:border-[#26262a] flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Globe className="w-4 h-4 text-brand-400" />
-              <span className="text-xs font-bold text-zinc-200 uppercase tracking-wider">Explorer</span>
+              <span className="text-xs font-bold text-slate-700 dark:text-zinc-200 uppercase tracking-wider">Explorer</span>
             </div>
             <div className="flex items-center gap-1">
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 title="Import Postman Collection (JSON)"
-                className="p-1.5 rounded-lg bg-surface-800 hover:bg-surface-750 text-zinc-400 hover:text-brand-400 border border-[#2b2b2b] transition-colors cursor-pointer"
+                className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-300 hover:text-brand-600 dark:hover:text-brand-400 border border-slate-200 dark:border-zinc-700 transition-colors cursor-pointer"
               >
                 <Upload className="w-3.5 h-3.5" />
               </button>
@@ -1941,7 +1941,7 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
                 type="button"
                 onClick={handleCreateNewCollection}
                 title="New Collection"
-                className="p-1.5 rounded-lg bg-surface-800 hover:bg-surface-750 text-zinc-400 hover:text-zinc-200 border border-[#2b2b2b] transition-colors cursor-pointer"
+                className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-zinc-100 border border-slate-200 dark:border-zinc-700 transition-colors cursor-pointer"
               >
                 <FolderPlus className="w-3.5 h-3.5" />
               </button>
@@ -1958,7 +1958,7 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
 
           {/* Filter Input */}
           {collections.length > 0 && (
-            <div className="px-3 py-2 border-b border-[#26262a]">
+            <div className="px-3 py-2 border-b border-slate-200 dark:border-[#26262a]">
               <div className="relative">
                 <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
                 <input
@@ -1966,7 +1966,7 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Filter requests & folders..."
-                  className="w-full pl-8 pr-2.5 py-1 text-xs bg-[#1a1a1c] border border-[#2b2b30] rounded-md text-zinc-200 placeholder-zinc-500 focus:border-brand-500 outline-none font-mono"
+                  className="w-full pl-8 pr-2.5 py-1 text-xs bg-slate-100 dark:bg-[#1a1a1c] border border-slate-200 dark:border-[#2b2b30] rounded-md text-slate-900 dark:text-zinc-200 placeholder-slate-400 dark:placeholder-zinc-500 focus:border-brand-500 outline-none font-mono"
                 />
               </div>
             </div>
@@ -2017,14 +2017,14 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
         </Panel>
 
         {/* Resize Handle 1 (Sidebar vs Workspace) */}
-        <Separator className="w-1 bg-[#202023] hover:bg-brand-500/60 active:bg-brand-500 transition-colors cursor-col-resize relative flex items-center justify-center group/h1">
+        <Separator className="w-1 bg-slate-200 dark:bg-[#202023] hover:bg-brand-500/60 active:bg-brand-500 transition-colors cursor-col-resize relative flex items-center justify-center group/h1">
           <div className="w-0.5 h-8 bg-zinc-600 rounded-full group-hover/h1:bg-brand-300 transition-colors" />
         </Separator>
 
         {/* 2. Main API Workspace Panel */}
-        <Panel defaultSize="78%" minSize="40%" className="flex flex-col h-full overflow-hidden bg-[#121214]">
+        <Panel defaultSize="78%" minSize="40%" className="flex flex-col h-full overflow-hidden bg-slate-50 dark:bg-[#121214]">
           {/* Top Multi-Tab Bar Strip */}
-          <div className="bg-[#141416] border-b border-[#242428] flex items-center justify-between pl-2 pr-3 flex-shrink-0 select-none min-h-[38px]">
+          <div className="bg-white dark:bg-[#141416] border-b border-slate-200 dark:border-[#242428] flex items-center justify-between pl-2 pr-3 flex-shrink-0 select-none min-h-[38px]">
             {/* Scrollable Tabs List */}
             <div className="flex items-center gap-1 overflow-x-auto no-scrollbar flex-1 py-1.5">
               {openTabs.map((tab) => {
@@ -2041,8 +2041,8 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
                     className={
                       'group/tab relative flex items-center gap-2 px-3 py-1 rounded-lg text-xs transition-all cursor-pointer border max-w-[200px] ' +
                       (isActive
-                        ? 'bg-[#1e1e22] text-white border-zinc-700/80 shadow-sm font-medium'
-                        : 'text-zinc-400 hover:text-zinc-200 hover:bg-[#18181c] border-transparent')
+                        ? 'bg-slate-100 dark:bg-[#1e1e22] text-slate-900 dark:text-white border-slate-300 dark:border-zinc-700/80 shadow-sm font-medium'
+                        : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-100 dark:hover:bg-[#18181c] border-transparent')
                     }
                   >
                     {/* Method Tag */}
@@ -2206,7 +2206,7 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
 
           {/* Main Area: Empty Workspace Landing or Active Request Workspace */}
           {!activeRequest ? (
-            <div className="flex-1 w-full h-full bg-[#121212] flex flex-col items-center justify-center select-none overflow-hidden p-8">
+            <div className="flex-1 w-full h-full bg-slate-50 dark:bg-[#121212] flex flex-col items-center justify-center select-none overflow-hidden p-8">
               {/* Central Geometric Watermark Matching Database Empty State */}
               <div className="w-[320px] h-[320px] sm:w-[400px] sm:h-[400px] md:w-[440px] md:h-[440px] max-w-[50vw] max-h-[50vh] flex items-center justify-center pointer-events-none">
                 <img
@@ -2235,7 +2235,7 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
           ) : (
             <div className="flex-1 flex flex-col h-full overflow-hidden">
               {/* Request Header Bar (Custom Method Dropdown + URL + Send Button) */}
-              <div className="p-3 border-b border-[#242428] bg-[#161619] flex flex-col gap-2 flex-shrink-0">
+              <div className="p-3 border-b border-slate-200 dark:border-[#242428] bg-white dark:bg-[#161619] flex flex-col gap-2 flex-shrink-0">
                 {/* Request Name Header */}
                 <div className="flex items-center gap-2">
                   {editingId === activeRequest.id ? (
@@ -2316,17 +2316,17 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
                   className="h-full w-full"
                 >
                   {/* Left / Top: Request Builder Panel */}
-                  <Panel defaultSize="50%" minSize="20%" className="flex flex-col h-full min-h-0 overflow-hidden bg-[#131316]">
+                  <Panel defaultSize="50%" minSize="20%" className="flex flex-col h-full min-h-0 overflow-hidden bg-white dark:bg-[#131316]">
                     {/* Request Tabs Header */}
-                    <div className="px-3 border-b border-[#242428] bg-[#161619] flex items-center gap-1 text-xs flex-shrink-0">
+                    <div className="px-3 border-b border-slate-200 dark:border-[#242428] bg-slate-50 dark:bg-[#161619] flex items-center gap-1 text-xs flex-shrink-0">
                       <button
                         type="button"
                         onClick={() => setRequestTab('params')}
                         className={
                           'px-3 py-2 font-medium border-b-2 transition-colors cursor-pointer ' +
                           (requestTab === 'params'
-                            ? 'border-brand-400 text-brand-300 font-semibold'
-                            : 'border-transparent text-zinc-400 hover:text-zinc-200')
+                            ? 'border-brand-500 dark:border-brand-400 text-brand-600 dark:text-brand-300 font-semibold'
+                            : 'border-transparent text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200')
                         }
                       >
                         Params ({activeRequest.params.length})
@@ -2337,8 +2337,8 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
                         className={
                           'px-3 py-2 font-medium border-b-2 transition-colors cursor-pointer ' +
                           (requestTab === 'headers'
-                            ? 'border-brand-400 text-brand-300 font-semibold'
-                            : 'border-transparent text-zinc-400 hover:text-zinc-200')
+                            ? 'border-brand-500 dark:border-brand-400 text-brand-600 dark:text-brand-300 font-semibold'
+                            : 'border-transparent text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200')
                         }
                       >
                         Headers ({totalActiveHeadersCount})
@@ -2349,8 +2349,8 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
                         className={
                           'px-3 py-2 font-medium border-b-2 transition-colors cursor-pointer flex items-center gap-1.5 ' +
                           (requestTab === 'body'
-                            ? 'border-brand-400 text-brand-300 font-semibold'
-                            : 'border-transparent text-zinc-400 hover:text-zinc-200')
+                            ? 'border-brand-500 dark:border-brand-400 text-brand-600 dark:text-brand-300 font-semibold'
+                            : 'border-transparent text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200')
                         }
                       >
                         <span>Body</span>
@@ -2363,7 +2363,7 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
                     </div>
 
                     {/* Request Tab Content */}
-                    <div className={"p-3 min-h-0 bg-[#131316] " + (requestTab === 'body' && activeRequest.bodyType === 'json' ? 'flex-1 flex flex-col h-full overflow-hidden' : 'flex-1 overflow-y-auto')}>
+                    <div className={"p-3 min-h-0 bg-white dark:bg-[#131316] " + (requestTab === 'body' && activeRequest.bodyType === 'json' ? 'flex-1 flex flex-col h-full overflow-hidden' : 'flex-1 overflow-y-auto')}>
                       {/* 1. QUERY PARAMS TAB with Bidirectional Two-Way URL Sync */}
                       {requestTab === 'params' && (
                         <div className="space-y-2">
@@ -2403,7 +2403,7 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
                                   handleParamsChange(next);
                                 }}
                                 placeholder="Key"
-                                className="flex-1 px-2.5 py-1 text-xs bg-[#1a1a1e] border border-[#2b2b30] rounded text-zinc-200 font-mono outline-none focus:border-brand-500"
+                                className="flex-1 px-2.5 py-1 text-xs bg-slate-50 dark:bg-[#1a1a1e] border border-slate-200 dark:border-[#2b2b30] rounded text-slate-900 dark:text-zinc-200 font-mono outline-none focus:border-brand-500"
                               />
                               <input
                                 type="text"
@@ -2414,7 +2414,7 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
                                   handleParamsChange(next);
                                 }}
                                 placeholder="Value"
-                                className="flex-1 px-2.5 py-1 text-xs bg-[#1a1a1e] border border-[#2b2b30] rounded text-zinc-200 font-mono outline-none focus:border-brand-500"
+                                className="flex-1 px-2.5 py-1 text-xs bg-slate-50 dark:bg-[#1a1a1e] border border-slate-200 dark:border-[#2b2b30] rounded text-slate-900 dark:text-zinc-200 font-mono outline-none focus:border-brand-500"
                               />
                               <button
                                 type="button"
@@ -2494,8 +2494,8 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
 
                           {/* AUTO-GENERATED SYSTEM HEADERS TABLE */}
                           {showAutoHeaders && (
-                            <div className="border border-[#26262a]/80 rounded-xl overflow-hidden bg-[#161618]/60 animate-fade-in">
-                              <div className="px-3 py-1.5 bg-[#1a1a1e]/80 border-b border-[#26262a]/80 flex items-center justify-between text-[11px] font-semibold text-zinc-400">
+                            <div className="border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-slate-50 dark:bg-zinc-900/60 animate-fade-in">
+                              <div className="px-3 py-1.5 bg-slate-100 dark:bg-zinc-800/60 border-b border-slate-200 dark:border-zinc-800 text-[11px] font-semibold text-slate-700 dark:text-zinc-400 flex items-center justify-between">
                                 <div className="flex items-center gap-2">
                                   <ShieldCheck className="w-3.5 h-3.5 text-brand-400" />
                                   <span>Auto-Generated System Headers</span>
@@ -2505,17 +2505,17 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
                                 </span>
                               </div>
 
-                              <div className="divide-y divide-[#222226]/80">
+                              <div className="divide-y divide-slate-200 dark:divide-zinc-800/80">
                                 {computedAutoHeaders.map((ah) => (
                                   <div
                                     key={ah.key}
                                     className={
                                       'grid grid-cols-[36px_1.5fr_2fr_100px] items-center gap-2 px-3 py-1.5 text-xs transition-colors ' +
                                       (ah.isOverridden
-                                        ? 'bg-[#151517]/50 opacity-45'
+                                        ? 'bg-slate-100/50 dark:bg-[#151517]/50 opacity-50'
                                         : ah.isChecked
-                                        ? 'bg-[#161618]/40 hover:bg-[#18181c]/60'
-                                        : 'bg-[#141416]/40 opacity-50')
+                                        ? 'bg-white dark:bg-[#161618]/40 hover:bg-slate-50 dark:hover:bg-[#18181c]/60'
+                                        : 'bg-slate-50/60 dark:bg-[#141416]/40 opacity-60')
                                     }
                                   >
                                     {/* Checkbox */}
@@ -2533,8 +2533,8 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
                                     <div className="flex items-center gap-1.5">
                                       <span
                                         className={
-                                          'px-2.5 py-1 rounded bg-zinc-900/60 border border-zinc-800/80 font-mono text-[11px] select-text ' +
-                                          (ah.isOverridden ? 'line-through text-zinc-600' : 'text-zinc-400 italic')
+                                          'px-2.5 py-1 rounded bg-slate-100 dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800/80 font-mono text-[11px] select-text ' +
+                                          (ah.isOverridden ? 'line-through text-slate-400 dark:text-zinc-600' : 'text-slate-700 dark:text-zinc-300 italic')
                                         }
                                       >
                                         {ah.key}
@@ -2545,8 +2545,8 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
                                     <div className="flex items-center gap-1.5 truncate">
                                       <span
                                         className={
-                                          'px-2.5 py-1 rounded bg-zinc-900/60 border border-zinc-800/80 font-mono text-[11px] select-text truncate w-full ' +
-                                          (ah.isOverridden ? 'line-through text-zinc-600' : 'text-zinc-300 italic')
+                                          'px-2.5 py-1 rounded bg-slate-100 dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800/80 font-mono text-[11px] select-text truncate w-full ' +
+                                          (ah.isOverridden ? 'line-through text-slate-400 dark:text-zinc-600' : 'text-slate-800 dark:text-zinc-200 italic')
                                         }
                                         title={ah.value}
                                       >
@@ -2558,13 +2558,13 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
                                     <div className="flex items-center justify-end">
                                       {ah.isOverridden ? (
                                         <span
-                                          className="text-[9px] px-1.5 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-zinc-500 font-mono"
+                                          className="text-[9px] px-1.5 py-0.5 rounded bg-slate-200 dark:bg-zinc-800 border border-slate-300 dark:border-zinc-700 text-slate-500 dark:text-zinc-500 font-mono"
                                           title="Overridden by custom user header"
                                         >
                                           overridden
                                         </span>
                                       ) : (
-                                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-brand-950/60 border border-brand-500/30 text-brand-400 font-mono">
+                                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-200 dark:bg-brand-950/60 border border-slate-300 dark:border-brand-500/30 text-slate-700 dark:text-brand-400 font-mono">
                                           auto
                                         </span>
                                       )}
@@ -2601,7 +2601,7 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
                                     updateActiveRequest({ ...activeRequest, headers: next });
                                   }}
                                   placeholder="Header Name"
-                                  className="flex-1 px-2.5 py-1 text-xs bg-[#1a1a1e] border border-[#2b2b30] rounded text-zinc-200 font-mono outline-none focus:border-brand-500"
+                                  className="flex-1 px-2.5 py-1 text-xs bg-slate-50 dark:bg-[#1a1a1e] border border-slate-200 dark:border-[#2b2b30] rounded text-slate-900 dark:text-zinc-200 font-mono outline-none focus:border-brand-500"
                                 />
                                 <input
                                   type="text"
@@ -2612,7 +2612,7 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
                                     updateActiveRequest({ ...activeRequest, headers: next });
                                   }}
                                   placeholder="Value"
-                                  className="flex-1 px-2.5 py-1 text-xs bg-[#1a1a1e] border border-[#2b2b30] rounded text-zinc-200 font-mono outline-none focus:border-brand-500"
+                                  className="flex-1 px-2.5 py-1 text-xs bg-slate-50 dark:bg-[#1a1a1e] border border-slate-200 dark:border-[#2b2b30] rounded text-slate-900 dark:text-zinc-200 font-mono outline-none focus:border-brand-500"
                                 />
                                 <button
                                   type="button"
@@ -2648,15 +2648,15 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
                       {requestTab === 'body' && (
                         <div className="flex-1 flex flex-col min-h-0 h-full space-y-3">
                           {/* Body Type Sub-Navigation Radio Bar */}
-                          <div className="flex items-center gap-1.5 p-1 bg-[#18181c] border border-[#26262a] rounded-lg text-xs self-start flex-shrink-0">
+                          <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg text-xs self-start flex-shrink-0">
                             <button
                               type="button"
                               onClick={() => handleSwitchBodyType('none')}
                               className={
                                 'px-3 py-1 rounded-md text-xs transition-all cursor-pointer font-medium ' +
                                 (activeRequest.bodyType === 'none'
-                                  ? 'bg-zinc-700 text-white shadow-sm'
-                                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40')
+                                  ? 'bg-white dark:bg-zinc-800 text-slate-900 dark:text-zinc-100 shadow-sm border border-slate-200/80 dark:border-transparent'
+                                  : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-200/60 dark:hover:bg-zinc-800/40')
                               }
                             >
                               none
@@ -2668,7 +2668,7 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
                                 'flex items-center gap-1.5 px-3 py-1 rounded-md text-xs transition-all cursor-pointer font-medium ' +
                                 (activeRequest.bodyType === 'json'
                                   ? 'bg-brand-600 text-white shadow-sm'
-                                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40')
+                                  : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-200/60 dark:hover:bg-zinc-800/40')
                               }
                             >
                               <Code2 className="w-3.5 h-3.5" />
@@ -2681,7 +2681,7 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
                                 'flex items-center gap-1.5 px-3 py-1 rounded-md text-xs transition-all cursor-pointer font-medium ' +
                                 (activeRequest.bodyType === 'form-data'
                                   ? 'bg-amber-600 text-white shadow-sm'
-                                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40')
+                                  : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-200/60 dark:hover:bg-zinc-800/40')
                               }
                             >
                               <Layers className="w-3.5 h-3.5" />
@@ -2694,7 +2694,7 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
                                 'flex items-center gap-1.5 px-3 py-1 rounded-md text-xs transition-all cursor-pointer font-medium ' +
                                 (activeRequest.bodyType === 'x-www-form-urlencoded'
                                   ? 'bg-purple-600 text-white shadow-sm'
-                                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40')
+                                  : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-200/60 dark:hover:bg-zinc-800/40')
                               }
                             >
                               <Globe className="w-3.5 h-3.5" />
@@ -2832,8 +2832,8 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
                               </div>
 
                               {/* Form-Data Fields Table */}
-                              <div className="border border-[#26262a] rounded-xl overflow-hidden bg-[#161618]">
-                                <div className="grid grid-cols-[36px_1.5fr_110px_2.5fr_40px] items-center gap-2 px-3 py-1.5 bg-[#1a1a1e] border-b border-[#26262a] text-[11px] font-semibold text-zinc-400">
+                              <div className="border border-slate-200 dark:border-[#26262a] rounded-xl overflow-hidden bg-white dark:bg-[#161618]">
+                                <div className="grid grid-cols-[36px_1.5fr_110px_2.5fr_40px] items-center gap-2 px-3 py-1.5 bg-slate-100 dark:bg-[#1a1a1e] border-b border-slate-200 dark:border-[#26262a] text-[11px] font-semibold text-slate-700 dark:text-zinc-400">
                                   <span className="text-center">#</span>
                                   <span>Key</span>
                                   <span>Type</span>
@@ -2841,11 +2841,11 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
                                   <span className="text-right"></span>
                                 </div>
 
-                                <div className="divide-y divide-[#222226]">
+                                <div className="divide-y divide-slate-100 dark:divide-[#222226]">
                                   {(activeRequest.bodyFormData || []).map((row, idx) => (
                                     <div
                                       key={row.id || idx}
-                                      className="grid grid-cols-[36px_1.5fr_110px_2.5fr_40px] items-center gap-2 px-3 py-2 text-xs bg-[#161618] hover:bg-[#19191d] transition-colors"
+                                      className="grid grid-cols-[36px_1.5fr_110px_2.5fr_40px] items-center gap-2 px-3 py-2 text-xs bg-white dark:bg-[#161618] hover:bg-slate-50 dark:hover:bg-[#19191d] transition-colors"
                                     >
                                       {/* Enabled Checkbox */}
                                       <div className="flex items-center justify-center">
@@ -2871,7 +2871,7 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
                                           updateActiveRequest({ ...activeRequest, bodyFormData: next });
                                         }}
                                         placeholder="Field Name (e.g. file)"
-                                        className="w-full px-2.5 py-1 bg-[#1a1a1d] border border-[#2b2b30] rounded text-zinc-200 font-mono text-xs outline-none focus:border-brand-500"
+                                        className="w-full px-2.5 py-1 bg-slate-50 dark:bg-[#1a1a1d] border border-slate-200 dark:border-[#2b2b30] rounded text-slate-900 dark:text-zinc-200 font-mono text-xs outline-none focus:border-brand-500"
                                       />
 
                                       {/* Type Dropdown (Text vs File) */}
@@ -2886,7 +2886,7 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
                                           }
                                           updateActiveRequest({ ...activeRequest, bodyFormData: next });
                                         }}
-                                        className="w-full px-2 py-1 bg-[#1f1f23] border border-[#2b2b30] rounded text-zinc-200 text-xs outline-none font-medium cursor-pointer"
+                                        className="w-full px-2 py-1 bg-slate-100 dark:bg-[#1f1f23] border border-slate-200 dark:border-[#2b2b30] rounded text-slate-800 dark:text-zinc-200 text-xs outline-none font-medium cursor-pointer"
                                       >
                                         <option value="text">Text</option>
                                         <option value="file">File</option>
@@ -2903,7 +2903,7 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
                                             updateActiveRequest({ ...activeRequest, bodyFormData: next });
                                           }}
                                           placeholder="Value"
-                                          className="w-full px-2.5 py-1 bg-[#1a1a1d] border border-[#2b2b30] rounded text-zinc-200 font-mono text-xs outline-none focus:border-brand-500"
+                                          className="w-full px-2.5 py-1 bg-slate-50 dark:bg-[#1a1a1d] border border-slate-200 dark:border-[#2b2b30] rounded text-slate-900 dark:text-zinc-200 font-mono text-xs outline-none focus:border-brand-500"
                                         />
                                       ) : (
                                         <div className="flex items-center gap-1.5 flex-wrap">
@@ -2911,7 +2911,7 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
                                           {(row.files || []).map((fileItem, fIdx) => (
                                             <div
                                               key={fileItem.id || fIdx}
-                                              className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-[#222227] border border-zinc-700 text-zinc-200 text-[11px] font-mono group/chip"
+                                              className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-slate-100 dark:bg-[#222227] border border-slate-300 dark:border-zinc-700 text-slate-800 dark:text-zinc-200 text-[11px] font-mono group/chip"
                                             >
                                               <Paperclip className="w-3 h-3 text-amber-400 flex-shrink-0" />
                                               <span className="truncate max-w-[120px]" title={fileItem.name}>
@@ -2967,7 +2967,7 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
                                                 const fileInput = document.getElementById('file-input-' + (row.id || idx)) as HTMLInputElement;
                                                 if (fileInput) fileInput.click();
                                               }}
-                                              className="flex items-center gap-1 px-2.5 py-1 rounded bg-[#202024] hover:bg-[#28282e] text-zinc-300 hover:text-white border border-zinc-700/80 text-xs font-medium cursor-pointer transition-colors"
+                                              className="flex items-center gap-1 px-2.5 py-1 rounded bg-slate-100 hover:bg-slate-200 dark:bg-[#202024] dark:hover:bg-[#28282e] text-slate-700 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-white border border-slate-300 dark:border-zinc-700/80 text-xs font-medium cursor-pointer transition-colors"
                                             >
                                               <Upload className="w-3 h-3 text-brand-400" />
                                               <span>{row.files && row.files.length > 0 ? 'Add Files' : 'Select Files'}</span>
@@ -3058,7 +3058,7 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
                               </div>
 
                               <div className="border border-[#26262a] rounded-xl overflow-hidden bg-[#161618]">
-                                <div className="grid grid-cols-[36px_1fr_1fr_40px] items-center gap-2 px-3 py-1.5 bg-[#1a1a1e] border-b border-[#26262a] text-[11px] font-semibold text-zinc-400">
+                                <div className="grid grid-cols-[36px_1fr_1fr_40px] items-center gap-2 px-3 py-1.5 bg-slate-100 dark:bg-[#1a1a1e] border-b border-slate-200 dark:border-[#26262a] text-[11px] font-semibold text-slate-700 dark:text-zinc-400">
                                   <span className="text-center">#</span>
                                   <span>Key</span>
                                   <span>Value</span>
@@ -3069,7 +3069,7 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
                                   {(activeRequest.bodyUrlEncoded || []).map((row, idx) => (
                                     <div
                                       key={row.id || idx}
-                                      className="grid grid-cols-[36px_1fr_1fr_40px] items-center gap-2 px-3 py-2 text-xs bg-[#161618] hover:bg-[#19191d] transition-colors"
+                                      className="grid grid-cols-[36px_1fr_1fr_40px] items-center gap-2 px-3 py-2 text-xs bg-white dark:bg-[#161618] hover:bg-slate-50 dark:hover:bg-[#19191d] transition-colors"
                                     >
                                       {/* Enabled Checkbox */}
                                       <div className="flex items-center justify-center">
@@ -3095,7 +3095,7 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
                                           updateActiveRequest({ ...activeRequest, bodyUrlEncoded: next });
                                         }}
                                         placeholder="Key"
-                                        className="w-full px-2.5 py-1 bg-[#1a1a1d] border border-[#2b2b30] rounded text-zinc-200 font-mono text-xs outline-none focus:border-purple-500"
+                                        className="w-full px-2.5 py-1 bg-slate-50 dark:bg-[#1a1a1d] border border-slate-200 dark:border-[#2b2b30] rounded text-slate-900 dark:text-zinc-200 font-mono text-xs outline-none focus:border-purple-500"
                                       />
 
                                       {/* Value Input */}
@@ -3108,7 +3108,7 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
                                           updateActiveRequest({ ...activeRequest, bodyUrlEncoded: next });
                                         }}
                                         placeholder="Value"
-                                        className="w-full px-2.5 py-1 bg-[#1a1a1d] border border-[#2b2b30] rounded text-zinc-200 font-mono text-xs outline-none focus:border-purple-500"
+                                        className="w-full px-2.5 py-1 bg-slate-50 dark:bg-[#1a1a1d] border border-slate-200 dark:border-[#2b2b30] rounded text-slate-900 dark:text-zinc-200 font-mono text-xs outline-none focus:border-purple-500"
                                       />
 
                                       {/* Delete Row */}
@@ -3175,9 +3175,9 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
                   </Separator>
 
                   {/* Right / Bottom: Response Inspector Panel with Monaco Viewer */}
-                  <Panel defaultSize="50%" minSize="20%" className="flex flex-col h-full min-h-0 overflow-hidden bg-[#141417]">
+                  <Panel defaultSize="50%" minSize="20%" className="flex flex-col h-full min-h-0 overflow-hidden bg-white dark:bg-[#141417]">
                     {/* Response Status Bar */}
-                    <div className="px-3 py-2 border-b border-[#242428] bg-[#17171a] flex items-center justify-between flex-shrink-0">
+                    <div className="px-3 py-2 border-b border-slate-200 dark:border-[#242428] bg-slate-50 dark:bg-[#17171a] flex items-center justify-between flex-shrink-0">
                       <div className="flex items-center gap-3">
                         <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Response</span>
                         {activeResponseState && (
@@ -3252,13 +3252,13 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
                           }}
                         />
                       ) : (
-                        <div className="h-full flex flex-col items-center justify-center p-8 text-center select-none text-zinc-500">
-                          <div className="w-12 h-12 rounded-2xl bg-[#1a1a1e] border border-[#2b2b30] flex items-center justify-center mb-3 text-zinc-400">
-                            <Send className="w-5 h-5 text-brand-400 opacity-80" />
+                        <div className="h-full flex flex-col items-center justify-center p-8 text-center select-none text-slate-500 dark:text-zinc-500">
+                          <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-[#1a1a1e] border border-slate-200 dark:border-[#2b2b30] flex items-center justify-center mb-3 text-slate-500 dark:text-zinc-400 shadow-sm">
+                            <Send className="w-5 h-5 text-brand-500 dark:text-brand-400 opacity-80" />
                           </div>
-                          <span className="text-xs font-semibold text-zinc-300">No response yet</span>
-                          <span className="text-[11px] text-zinc-500 mt-1 max-w-xs leading-normal">
-                            Enter a URL and click <strong className="text-brand-400">Send</strong> to execute the request and view response data, headers, and status metrics.
+                          <span className="text-xs font-semibold text-slate-800 dark:text-zinc-300">No response yet</span>
+                          <span className="text-[11px] text-slate-500 dark:text-zinc-500 mt-1 max-w-xs leading-normal">
+                            Enter a URL and click <strong className="text-brand-500 dark:text-brand-400 font-semibold">Send</strong> to execute the request and view response data, headers, and status metrics.
                           </span>
                         </div>
                       )}
@@ -3283,9 +3283,9 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
       {/* Cookie Jar Management Modal */}
       {isCookieJarOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div className="w-full max-w-xl bg-[#161619] border border-zinc-700/80 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
+          <div className="w-full max-w-xl bg-white dark:bg-[#161619] border border-slate-200 dark:border-zinc-700/80 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
             {/* Modal Header */}
-            <div className="px-4 py-3 border-b border-[#26262a] bg-[#1a1a1e] flex items-center justify-between">
+            <div className="px-4 py-3 border-b border-slate-200 dark:border-[#26262a] bg-slate-50 dark:bg-[#1a1a1e] flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <CookieIcon className="w-4 h-4 text-amber-400" />
                 <span className="text-sm font-bold text-zinc-200">Cookie Jar</span>
@@ -3383,9 +3383,9 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
       {/* Manage Environments Modal */}
       {isEnvModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm animate-in fade-in duration-150 p-4">
-          <div className="bg-[#141416] border border-zinc-800 rounded-2xl w-full max-w-4xl h-[620px] shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-150">
+          <div className="bg-white dark:bg-[#141416] border border-slate-200 dark:border-zinc-800 rounded-2xl w-full max-w-4xl h-[620px] shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-150">
             {/* Modal Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800 bg-[#18181b]/60 flex-shrink-0">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-[#18181b]/60 flex-shrink-0">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-xl bg-emerald-950/60 border border-emerald-500/30 text-emerald-400">
                   <Globe className="w-5 h-5" />
@@ -3411,7 +3411,7 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
             {/* Modal Content Split Pane */}
             <div className="flex-1 flex overflow-hidden">
               {/* Left Pane: Environment List */}
-              <div className="w-64 border-r border-zinc-800 bg-[#121214] flex flex-col overflow-hidden">
+              <div className="w-64 border-r border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-[#121214] flex flex-col overflow-hidden">
                 <div className="p-3 border-b border-zinc-800/80 flex items-center justify-between">
                   <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Scopes</span>
                   <button
@@ -3496,7 +3496,7 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
               </div>
 
               {/* Right Pane: Variable Editor Table */}
-              <div className="flex-1 flex flex-col bg-[#141416] overflow-hidden">
+              <div className="flex-1 flex flex-col bg-white dark:bg-[#141416] overflow-hidden">
                 {selectedEnvIdInModal === 'globals' ? (
                   /* Globals Editor */
                   <div className="flex-1 flex flex-col p-6 overflow-hidden">

@@ -611,25 +611,25 @@ export const Workspace: React.FC<WorkspaceProps> = ({
   }
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-surface-950 text-gray-100 overflow-hidden select-none">
+    <div className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-[#090a0f] text-slate-900 dark:text-zinc-100 overflow-hidden select-none transition-colors">
       {/* 1. Database Connection Status Header */}
-      <div className="px-5 py-2.5 border-b border-border-subtle bg-surface-900/90 backdrop-blur flex items-center justify-between gap-3 flex-shrink-0 relative z-30">
+      <div className="px-5 py-2.5 border-b border-slate-200 dark:border-zinc-800 bg-white/95 dark:bg-[#0c0d12]/95 backdrop-blur flex items-center justify-between gap-3 flex-shrink-0 relative z-30">
         {/* Left Status & Breadcrumb */}
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 text-xs">
-            <span className="text-gray-400 font-mono text-[11px]">
+            <span className="text-slate-500 dark:text-zinc-400 font-mono text-[11px]">
               {activeSession.connection.host}:{activeSession.connection.port}
             </span>
-            <span className="text-gray-600">/</span>
-            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-950/60 border border-emerald-500/30 text-emerald-300 text-[11px] font-medium">
-              <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-slate-300 dark:text-zinc-600">/</span>
+            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-500/30 text-emerald-800 dark:text-emerald-300 text-[11px] font-medium">
+              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse" />
               <span className="font-semibold">{activeSession.activeDatabase}</span>
             </div>
             {activeTableTab && (
               <>
-                <span className="text-gray-600">/</span>
-                <span className="text-brand-300 font-semibold flex items-center gap-1">
-                  <Table className="w-3.5 h-3.5 text-brand-400" />
+                <span className="text-slate-300 dark:text-zinc-600">/</span>
+                <span className="text-brand-600 dark:text-brand-300 font-semibold flex items-center gap-1">
+                  <Table className="w-3.5 h-3.5 text-brand-500 dark:text-brand-400" />
                   {activeTableTab}
                 </span>
               </>
@@ -643,10 +643,10 @@ export const Workspace: React.FC<WorkspaceProps> = ({
             type="button"
             onClick={handleRefreshActiveTab}
             title="Refresh Data and Schema"
-            className="flex items-center gap-1.5 p-1.5 px-2.5 rounded-lg bg-surface-800 hover:bg-surface-750 text-gray-300 border border-border/60 transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 p-1.5 px-2.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-300 border border-slate-200 dark:border-zinc-800 transition-colors cursor-pointer"
           >
             <RefreshCw
-              className={'w-3.5 h-3.5 ' + (currentTabState.loadingData || loadingTables ? 'animate-spin text-brand-400' : '')}
+              className={'w-3.5 h-3.5 ' + (currentTabState.loadingData || loadingTables ? 'animate-spin text-brand-500 dark:text-brand-400' : '')}
             />
             <span className="text-xs hidden sm:inline">Refresh</span>
           </button>
@@ -658,31 +658,31 @@ export const Workspace: React.FC<WorkspaceProps> = ({
         {/* Inner Tables Sidebar */}
         <div
           style={{ width: tablesWidth, minWidth: tablesWidth, maxWidth: tablesWidth }}
-          className="bg-surface-900 border-r border-border-subtle flex flex-col flex-shrink-0 select-none relative group/tables-sidebar"
+          className="bg-white dark:bg-[#0c0d12] border-r border-slate-200 dark:border-zinc-800 flex flex-col flex-shrink-0 select-none relative group/tables-sidebar transition-colors"
         >
           {/* Tables Header */}
-          <div className="px-3.5 py-2.5 border-b border-border-subtle flex items-center justify-between">
+          <div className="px-3.5 py-2.5 border-b border-slate-200 dark:border-zinc-800 flex items-center justify-between">
             <div className="flex items-center gap-1.5">
-              <Layers className="w-3.5 h-3.5 text-gray-400" />
-              <span className="text-xs font-bold uppercase tracking-wider text-gray-400">
+              <Layers className="w-3.5 h-3.5 text-slate-500 dark:text-zinc-400" />
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-zinc-400">
                 Tables
               </span>
             </div>
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-surface-800 text-gray-400 border border-border/50 font-mono">
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 border border-slate-200 dark:border-zinc-800 font-mono">
               {tables.length}
             </span>
           </div>
 
           {/* Search Table */}
-          <div className="p-2 border-b border-border-subtle bg-surface-850/40">
+          <div className="p-2 border-b border-slate-200 dark:border-zinc-800 bg-slate-50/70 dark:bg-zinc-900/40">
             <div className="relative">
-              <Search className="w-3 h-3 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500" />
+              <Search className="w-3 h-3 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-zinc-500" />
               <input
                 type="text"
                 value={tableSearch}
                 onChange={(e) => setTableSearch(e.target.value)}
                 placeholder="Filter tables..."
-                className="w-full pl-7 pr-2 py-1 bg-surface-800 border border-border/60 rounded text-xs text-gray-200 placeholder-gray-500 focus:outline-none focus:border-brand-500 transition-all font-mono text-[11px]"
+                className="w-full pl-7 pr-2 py-1 bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-800 rounded text-xs text-slate-900 dark:text-zinc-200 placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:border-brand-500 transition-all font-mono text-[11px]"
               />
             </div>
           </div>
@@ -690,14 +690,14 @@ export const Workspace: React.FC<WorkspaceProps> = ({
           {/* Table List */}
           <div className="flex-1 overflow-y-auto p-1.5 space-y-0.5">
             {loadingTables && (
-              <div className="flex items-center justify-center py-6 text-xs text-gray-400 gap-2">
-                <Loader2 className="w-4 h-4 animate-spin text-brand-400" />
+              <div className="flex items-center justify-center py-6 text-xs text-slate-500 dark:text-zinc-400 gap-2">
+                <Loader2 className="w-4 h-4 animate-spin text-brand-500 dark:text-brand-400" />
                 <span>Loading tables...</span>
               </div>
             )}
 
             {!loadingTables && tables.length === 0 && (
-              <div className="p-4 text-center text-xs text-gray-500 italic">
+              <div className="p-4 text-center text-xs text-slate-400 dark:text-zinc-500 italic">
                 No tables in public schema
               </div>
             )}
@@ -715,21 +715,21 @@ export const Workspace: React.FC<WorkspaceProps> = ({
                       (isSelected
                         ? 'bg-brand-600 text-white font-medium shadow-sm'
                         : isOpenInTabs
-                        ? 'text-brand-300 bg-surface-800/70 hover:bg-surface-800'
-                        : 'text-gray-300 hover:bg-surface-800 hover:text-gray-100')
+                        ? 'text-brand-700 dark:text-brand-300 bg-slate-100/80 dark:bg-zinc-800/70 hover:bg-slate-200 dark:hover:bg-zinc-800'
+                        : 'text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 hover:text-slate-900 dark:hover:text-zinc-100')
                     }
                   >
                     <div className="flex items-center gap-2 truncate">
                       <Table
                         className={
                           'w-3.5 h-3.5 flex-shrink-0 ' +
-                          (isSelected ? 'text-white' : isOpenInTabs ? 'text-brand-400' : 'text-gray-400')
+                          (isSelected ? 'text-white' : isOpenInTabs ? 'text-brand-500 dark:text-brand-400' : 'text-slate-400 dark:text-zinc-400')
                         }
                       />
                       <span className="truncate font-mono text-[11px]">{tbl}</span>
                     </div>
                     {isSelected && (
-                      <ChevronRight className="w-3.5 h-3.5 text-white flex-shrink-0" />
+                      <ChevronRight className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
                     )}
                   </button>
                 );
@@ -746,9 +746,9 @@ export const Workspace: React.FC<WorkspaceProps> = ({
         </div>
 
         {/* Multi-Tab Table Content Area */}
-        <div className="flex-1 flex flex-col overflow-hidden bg-surface-950">
+        <div className="flex-1 flex flex-col overflow-hidden bg-slate-50 dark:bg-[#090a0f] transition-colors">
           {/* Top Multi-Tab Bar for Tables */}
-          <div className="bg-[#141416] border-b border-border-subtle flex items-center justify-between pl-2 pr-3 flex-shrink-0 select-none min-h-[38px]">
+          <div className="bg-slate-100/70 dark:bg-[#141416] border-b border-slate-200 dark:border-zinc-800 flex items-center justify-between pl-2 pr-3 flex-shrink-0 select-none min-h-[38px]">
             {/* Scrollable Table Tabs List */}
             <div className="flex items-center gap-1 overflow-x-auto no-scrollbar flex-1 py-1.5">
               {openTableTabs.map((tbl) => {
@@ -771,14 +771,14 @@ export const Workspace: React.FC<WorkspaceProps> = ({
                     className={
                       'group/tab relative flex items-center gap-2 px-3 py-1 rounded-lg text-xs transition-all cursor-pointer border max-w-[220px] ' +
                       (isActive
-                        ? 'bg-[#1e1e22] text-white border-zinc-700/80 shadow-sm font-medium'
-                        : 'text-zinc-400 hover:text-zinc-200 hover:bg-[#18181c] border-transparent')
+                        ? 'bg-white dark:bg-[#1e1e22] text-slate-900 dark:text-white border-slate-200 dark:border-zinc-700/80 shadow-sm font-medium'
+                        : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-200/60 dark:hover:bg-[#18181c] border-transparent')
                     }
                   >
                     <Table
                       className={
                         'w-3.5 h-3.5 flex-shrink-0 ' +
-                        (isActive ? 'text-brand-400' : 'text-zinc-500 group-hover/tab:text-zinc-400')
+                        (isActive ? 'text-brand-500 dark:text-brand-400' : 'text-slate-400 dark:text-zinc-500 group-hover/tab:text-slate-600 dark:group-hover/tab:text-zinc-400')
                       }
                     />
 
@@ -787,7 +787,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({
 
                     {/* Row Count Pill if loaded */}
                     {rowCount !== undefined && (
-                      <span className="text-[9px] px-1 py-0.2 rounded bg-zinc-800/80 text-zinc-500 font-mono flex-shrink-0">
+                      <span className="text-[9px] px-1 py-0.2 rounded bg-slate-100 dark:bg-zinc-800/80 text-slate-500 dark:text-zinc-500 font-mono flex-shrink-0">
                         {rowCount}
                       </span>
                     )}
@@ -797,7 +797,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({
                       type="button"
                       onClick={(e) => handleCloseTab(tbl, e)}
                       title="Close Tab (Ctrl+W)"
-                      className="opacity-0 group-hover/tab:opacity-100 p-0.5 rounded text-zinc-500 hover:text-zinc-200 hover:bg-zinc-700/60 transition-all cursor-pointer"
+                      className="opacity-0 group-hover/tab:opacity-100 p-0.5 rounded text-slate-400 dark:text-zinc-500 hover:text-slate-800 dark:hover:text-zinc-200 hover:bg-slate-200 dark:hover:bg-zinc-700/60 transition-all cursor-pointer"
                     >
                       <X className="w-3 h-3" />
                     </button>
@@ -811,16 +811,16 @@ export const Workspace: React.FC<WorkspaceProps> = ({
           {activeTableTab ? (
             <div className="flex-1 flex flex-col overflow-hidden">
               {/* Context-Aware Table Action Header */}
-              <div className="px-4 py-2 border-b border-border-subtle bg-[#161616] flex flex-wrap items-center justify-between gap-2 flex-shrink-0 relative z-20">
+              <div className="px-4 py-2 border-b border-slate-200 dark:border-zinc-800 bg-white dark:bg-[#161616] flex flex-wrap items-center justify-between gap-2 flex-shrink-0 relative z-20">
                 {/* Table Title & Column Count */}
                 <div className="flex items-center gap-2">
-                  <Table className="w-4 h-4 text-brand-400" />
-                  <span className="font-mono text-xs font-bold text-zinc-100">{activeTableTab}</span>
-                  <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-zinc-800 text-zinc-400 font-mono">
+                  <Table className="w-4 h-4 text-brand-500 dark:text-brand-400" />
+                  <span className="font-mono text-xs font-bold text-slate-900 dark:text-zinc-100">{activeTableTab}</span>
+                  <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 font-mono">
                     {currentTabState.schema.length} cols
                   </span>
                   {currentTabState.tableData && (
-                    <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-zinc-800/80 text-zinc-400 font-mono">
+                    <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-100 dark:bg-zinc-800/80 text-slate-600 dark:text-zinc-400 font-mono">
                       {currentTabState.tableData.totalRows} rows
                     </span>
                   )}
@@ -833,9 +833,9 @@ export const Workspace: React.FC<WorkspaceProps> = ({
                     type="button"
                     onClick={() => setIsImportModalOpen(true)}
                     title="Import SQL script (.sql)"
-                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-surface-800 hover:bg-surface-750 text-cyan-300 border border-cyan-500/30 font-medium text-xs shadow-sm transition-all cursor-pointer"
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-cyan-700 dark:text-cyan-300 border border-cyan-500/30 font-medium text-xs shadow-sm transition-all cursor-pointer"
                   >
-                    <Upload className="w-3.5 h-3.5 text-cyan-400" />
+                    <Upload className="w-3.5 h-3.5 text-cyan-500 dark:text-cyan-400" />
                     <span className="hidden sm:inline">Import SQL</span>
                   </button>
 
@@ -846,56 +846,56 @@ export const Workspace: React.FC<WorkspaceProps> = ({
                       onClick={() => setShowExportMenu(!showExportMenu)}
                       disabled={isExporting}
                       title="Export table SQL dump"
-                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-surface-800 hover:bg-surface-750 text-emerald-300 border border-emerald-500/30 font-medium text-xs shadow-sm transition-all disabled:opacity-50 cursor-pointer"
+                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 font-medium text-xs shadow-sm transition-all disabled:opacity-50 cursor-pointer"
                     >
                       {isExporting ? (
-                        <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-400" />
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-500 dark:text-emerald-400" />
                       ) : (
-                        <Download className="w-3.5 h-3.5 text-emerald-400" />
+                        <Download className="w-3.5 h-3.5 text-emerald-500 dark:text-emerald-400" />
                       )}
                       <span className="hidden sm:inline">Export SQL</span>
-                      <ChevronDown className="w-3 h-3 text-gray-400" />
+                      <ChevronDown className="w-3 h-3 text-slate-400 dark:text-zinc-400" />
                     </button>
 
                     {showExportMenu && (
-                      <div className="absolute right-0 top-full mt-1 w-56 bg-[#1f1f1f] border border-zinc-700/80 rounded-md shadow-2xl py-1.5 z-[100] animate-fade-in select-none">
-                        <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-zinc-500 font-mono">
+                      <div className="absolute right-0 top-full mt-1 w-56 bg-white dark:bg-[#1f1f1f] border border-slate-200 dark:border-zinc-700/80 rounded-md shadow-2xl py-1.5 z-[100] animate-fade-in select-none">
+                        <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 font-mono">
                           Table: {activeTableTab}
                         </div>
                         <button
                           type="button"
                           onClick={() => handleExportTable(false)}
-                          className="w-full px-3 py-1.5 text-xs text-left text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors flex items-center gap-2 cursor-pointer"
+                          className="w-full px-3 py-1.5 text-xs text-left text-slate-700 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors flex items-center gap-2 cursor-pointer"
                         >
-                          <FileCode className="w-3.5 h-3.5 text-zinc-400" />
+                          <FileCode className="w-3.5 h-3.5 text-slate-400 dark:text-zinc-400" />
                           <span>Structure only (.sql)</span>
                         </button>
                         <button
                           type="button"
                           onClick={() => handleExportTable(true)}
-                          className="w-full px-3 py-1.5 text-xs text-left text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors flex items-center gap-2 cursor-pointer"
+                          className="w-full px-3 py-1.5 text-xs text-left text-slate-700 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors flex items-center gap-2 cursor-pointer"
                         >
-                          <Download className="w-3.5 h-3.5 text-emerald-400" />
+                          <Download className="w-3.5 h-3.5 text-emerald-500 dark:text-emerald-400" />
                           <span>Structure + Data (.sql)</span>
                         </button>
-                        <div className="my-1 border-t border-zinc-800" />
-                        <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-zinc-500 font-mono">
+                        <div className="my-1 border-t border-slate-200 dark:border-zinc-800" />
+                        <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 font-mono">
                           Database: {activeSession.activeDatabase}
                         </div>
                         <button
                           type="button"
                           onClick={() => handleExportDatabase(false)}
-                          className="w-full px-3 py-1.5 text-xs text-left text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors flex items-center gap-2 cursor-pointer"
+                          className="w-full px-3 py-1.5 text-xs text-left text-slate-700 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors flex items-center gap-2 cursor-pointer"
                         >
-                          <FileCode className="w-3.5 h-3.5 text-zinc-400" />
+                          <FileCode className="w-3.5 h-3.5 text-slate-400 dark:text-zinc-400" />
                           <span>Database Structure (.sql)</span>
                         </button>
                         <button
                           type="button"
                           onClick={() => handleExportDatabase(true)}
-                          className="w-full px-3 py-1.5 text-xs text-left text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors flex items-center gap-2 cursor-pointer"
+                          className="w-full px-3 py-1.5 text-xs text-left text-slate-700 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors flex items-center gap-2 cursor-pointer"
                         >
-                          <Download className="w-3.5 h-3.5 text-emerald-400" />
+                          <Download className="w-3.5 h-3.5 text-emerald-500 dark:text-emerald-400" />
                           <span>Full Database Dump (.sql)</span>
                         </button>
                       </div>
@@ -903,19 +903,19 @@ export const Workspace: React.FC<WorkspaceProps> = ({
                   </div>
 
                   {/* Add Column Form */}
-                  <form onSubmit={handleAddColumn} className="flex items-center gap-1.5 text-xs border-l border-border/60 pl-2">
+                  <form onSubmit={handleAddColumn} className="flex items-center gap-1.5 text-xs border-l border-slate-200 dark:border-zinc-800 pl-2">
                     <input
                       type="text"
                       required
                       value={newColName}
                       onChange={(e) => setNewColName(e.target.value)}
                       placeholder="Col name"
-                      className="px-2 py-1 bg-surface-800 border border-border/80 rounded-md text-xs text-gray-100 placeholder-gray-500 focus:outline-none focus:border-brand-500 w-24 font-mono"
+                      className="px-2 py-1 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-800/80 rounded-md text-xs text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:border-brand-500 w-24 font-mono"
                     />
                     <select
                       value={newColType}
                       onChange={(e) => setNewColType(e.target.value)}
-                      className="px-1.5 py-1 bg-surface-800 border border-border/80 rounded-md text-xs text-gray-200 focus:outline-none focus:border-brand-500 font-mono"
+                      className="px-1.5 py-1 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-800/80 rounded-md text-xs text-slate-800 dark:text-zinc-200 focus:outline-none focus:border-brand-500 font-mono"
                     >
                       {COMMON_COLUMN_TYPES.map((t) => (
                         <option key={t} value={t}>
@@ -923,12 +923,12 @@ export const Workspace: React.FC<WorkspaceProps> = ({
                         </option>
                       ))}
                     </select>
-                    <label className="flex items-center gap-1 text-[11px] text-gray-300 cursor-pointer bg-surface-800/80 px-1.5 py-1 rounded-md border border-border/60">
+                    <label className="flex items-center gap-1 text-[11px] text-slate-700 dark:text-zinc-300 cursor-pointer bg-slate-50 dark:bg-zinc-800/80 px-1.5 py-1 rounded-md border border-slate-200 dark:border-zinc-800">
                       <input
                         type="checkbox"
                         checked={newColNullable}
                         onChange={(e) => setNewColNullable(e.target.checked)}
-                        className="rounded border-border bg-surface-700 text-brand-600 focus:ring-0 w-3 h-3"
+                        className="rounded border-slate-300 dark:border-zinc-800 bg-white dark:bg-surface-700 text-brand-600 focus:ring-0 w-3 h-3"
                       />
                       <span>Null</span>
                     </label>
@@ -976,7 +976,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({
             </div>
           ) : (
             /* Empty Table Workspace State */
-            <div className="flex-1 bg-[#121212] flex flex-col items-center justify-center p-8 text-center select-none">
+            <div className="flex-1 bg-slate-50/50 dark:bg-[#090a0f] flex flex-col items-center justify-center p-8 text-center select-none">
               <div className="w-[320px] h-[320px] sm:w-[400px] sm:h-[400px] md:w-[440px] md:h-[440px] max-w-[50vw] max-h-[50vh] flex items-center justify-center pointer-events-none mb-2">
                 <img
                   src={interfaceSvg}
@@ -985,8 +985,8 @@ export const Workspace: React.FC<WorkspaceProps> = ({
                 />
               </div>
               <div className="flex flex-col items-center text-center mt-2">
-                <span className="text-sm font-semibold text-zinc-300">No Table Selected</span>
-                <span className="text-xs text-zinc-500 mt-1 max-w-sm">
+                <span className="text-sm font-semibold text-slate-700 dark:text-zinc-300">No Table Selected</span>
+                <span className="text-xs text-slate-500 dark:text-zinc-500 mt-1 max-w-sm">
                   Select a table from the sidebar to view its structure and records.
                 </span>
               </div>

@@ -116,7 +116,7 @@ export const RedisWorkbench: React.FC<RedisWorkbenchProps> = ({
     setTimeout(() => {
       try {
         editor.layout();
-      } catch {}
+      } catch { }
     }, 60);
   };
 
@@ -331,11 +331,11 @@ export const RedisWorkbench: React.FC<RedisWorkbenchProps> = ({
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-[#0d0d10] overflow-hidden select-none">
+    <div className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-[#0d0d10] overflow-hidden select-none transition-colors">
       {/* =========================================================================
           TOP WORKBENCH ACTION BAR
          ========================================================================= */}
-      <div className="h-12 border-b border-[#242429] bg-[#141418] px-4 flex items-center justify-between gap-4 flex-shrink-0">
+      <div className="h-12 border-b border-slate-200 dark:border-[#242429] bg-white dark:bg-[#141418] px-4 flex items-center justify-between gap-4 flex-shrink-0">
         {/* Left: Run Button & Connection DB Pill */}
         <div className="flex items-center gap-3">
           <button
@@ -358,7 +358,7 @@ export const RedisWorkbench: React.FC<RedisWorkbenchProps> = ({
 
           {/* Quick Command Snippets Dropdown */}
           <div className="hidden md:flex items-center gap-1.5 overflow-x-auto py-1">
-            <span className="text-[11px] font-bold uppercase text-zinc-500 tracking-wider mr-1">
+            <span className="text-[11px] font-bold uppercase text-slate-400 dark:text-zinc-500 tracking-wider mr-1">
               Quick:
             </span>
             {[
@@ -375,7 +375,7 @@ export const RedisWorkbench: React.FC<RedisWorkbenchProps> = ({
                 key={tmpl.label}
                 type="button"
                 onClick={() => handleInsertTemplate(tmpl.cmd)}
-                className="px-2 py-0.8 rounded-md bg-[#1c1c22] hover:bg-zinc-700 text-zinc-300 hover:text-white border border-zinc-800 text-[11px] font-mono transition-colors cursor-pointer"
+                className="px-2 py-0.8 rounded-md bg-slate-100 hover:bg-slate-200 dark:bg-[#1c1c22] dark:hover:bg-zinc-700 text-slate-700 hover:text-slate-900 dark:text-zinc-300 dark:hover:text-white border border-slate-200 dark:border-zinc-800 text-[11px] font-mono transition-colors cursor-pointer"
                 title={`Insert ${tmpl.cmd}`}
               >
                 {tmpl.label}
@@ -389,7 +389,7 @@ export const RedisWorkbench: React.FC<RedisWorkbenchProps> = ({
           <button
             type="button"
             onClick={() => setCommandText('')}
-            className="flex items-center gap-1 px-2.5 py-1.2 rounded-lg bg-[#1a1a20] hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 border border-zinc-800 text-xs transition-colors cursor-pointer"
+            className="flex items-center gap-1 px-2.5 py-1.2 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-[#1a1a20] dark:hover:bg-zinc-800 text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 border border-slate-200 dark:border-zinc-800 text-xs transition-colors cursor-pointer"
             title="Clear Editor"
           >
             <Trash2 className="w-3.5 h-3.5" />
@@ -399,11 +399,10 @@ export const RedisWorkbench: React.FC<RedisWorkbenchProps> = ({
           <button
             type="button"
             onClick={() => setIsHistoryDrawerOpen(!isHistoryDrawerOpen)}
-            className={`flex items-center gap-1.5 px-3 py-1.2 rounded-lg text-xs border transition-colors cursor-pointer ${
-              isHistoryDrawerOpen
-                ? 'bg-blue-600/20 border-blue-500/50 text-blue-400'
-                : 'bg-[#1a1a20] hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 border-zinc-800'
-            }`}
+            className={`flex items-center gap-1.5 px-3 py-1.2 rounded-lg text-xs border transition-colors cursor-pointer ${isHistoryDrawerOpen
+                ? 'bg-blue-50 dark:bg-blue-600/20 border-blue-300 dark:border-blue-500/50 text-blue-600 dark:text-blue-400'
+                : 'bg-slate-100 hover:bg-slate-200 dark:bg-[#1a1a20] dark:hover:bg-zinc-800 text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 border-slate-200 dark:border-zinc-800'
+              }`}
             title="Command History"
           >
             <History className="w-3.5 h-3.5" />
@@ -417,16 +416,16 @@ export const RedisWorkbench: React.FC<RedisWorkbenchProps> = ({
          ========================================================================= */}
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
         {/* TOP / LEFT: MONACO EDITOR */}
-        <div className="flex-1 flex flex-col border-b lg:border-b-0 lg:border-r border-[#242429] min-h-[220px] bg-[#141418]">
-          <div className="px-3 py-1.5 border-b border-[#242429] bg-[#18181d] flex items-center justify-between text-xs text-zinc-400">
+        <div className="flex-1 flex flex-col border-b lg:border-b-0 lg:border-r border-slate-200 dark:border-[#242429] min-h-[220px] bg-white dark:bg-[#141418]">
+          <div className="px-3 py-1.5 border-b border-slate-200 dark:border-[#242429] bg-slate-50 dark:bg-[#18181d] flex items-center justify-between text-xs text-slate-500 dark:text-zinc-400">
             <div className="flex items-center gap-2">
-              <Terminal className="w-3.5 h-3.5 text-blue-400" />
-              <span className="font-semibold text-zinc-300">Redis CLI Editor</span>
-              <span className="text-[10px] text-zinc-500 font-mono">
+              <Terminal className="w-3.5 h-3.5 text-blue-500 dark:text-blue-400" />
+              <span className="font-semibold text-slate-800 dark:text-zinc-300">Redis CLI Editor</span>
+              <span className="text-[10px] text-slate-400 dark:text-zinc-500 font-mono">
                 (Type command name for IntelliSense autocomplete)
               </span>
             </div>
-            <div className="flex items-center gap-2 text-[11px] font-mono text-zinc-500">
+            <div className="flex items-center gap-2 text-[11px] font-mono text-slate-400 dark:text-zinc-500">
               <span>{activeConn ? `${activeConn.name} [db${activeDb}]` : 'Disconnected'}</span>
             </div>
           </div>
@@ -469,35 +468,34 @@ export const RedisWorkbench: React.FC<RedisWorkbenchProps> = ({
         </div>
 
         {/* BOTTOM / RIGHT: RESULTS OUTPUT CONSOLE */}
-        <div className="flex-1 flex flex-col bg-[#0f0f12] overflow-hidden min-h-[220px]">
+        <div className="flex-1 flex flex-col bg-slate-50 dark:bg-[#0f0f12] overflow-hidden min-h-[220px]">
           {/* Console Header */}
-          <div className="px-4 py-2 border-b border-[#242429] bg-[#16161b] flex items-center justify-between flex-shrink-0">
+          <div className="px-4 py-2 border-b border-slate-200 dark:border-[#242429] bg-white dark:bg-[#16161b] flex items-center justify-between flex-shrink-0">
             <div className="flex items-center gap-3">
-              <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-zinc-400">
-                <Code2 className="w-3.5 h-3.5 text-emerald-400" />
+              <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-zinc-400">
+                <Code2 className="w-3.5 h-3.5 text-emerald-500 dark:text-emerald-400" />
                 <span>Result Console</span>
               </div>
 
               {activeResult && renderResultBadge(activeResult.resultType)}
 
               {activeResult && (
-                <div className="flex items-center gap-1 text-[11px] text-zinc-400 font-mono">
-                  <Clock className="w-3 h-3 text-zinc-500" />
+                <div className="flex items-center gap-1 text-[11px] text-slate-500 dark:text-zinc-400 font-mono">
+                  <Clock className="w-3 h-3 text-slate-400 dark:text-zinc-500" />
                   <span>{activeResult.durationMs.toFixed(2)} ms</span>
                 </div>
               )}
             </div>
 
             {/* View Mode Toggle: CLI vs Table vs JSON */}
-            <div className="flex items-center gap-1 bg-[#101014] border border-zinc-800 rounded-lg p-0.5">
+            <div className="flex items-center gap-1 bg-slate-100 dark:bg-[#101014] border border-slate-200 dark:border-zinc-800 rounded-lg p-0.5">
               <button
                 type="button"
                 onClick={() => setActiveViewTab('cli')}
-                className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer ${
-                  activeViewTab === 'cli'
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer ${activeViewTab === 'cli'
                     ? 'bg-blue-600 text-white shadow-sm'
-                    : 'text-zinc-400 hover:text-zinc-200'
-                }`}
+                    : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
+                  }`}
                 title="Raw CLI Output"
               >
                 <Terminal className="w-3 h-3" />
@@ -508,12 +506,11 @@ export const RedisWorkbench: React.FC<RedisWorkbenchProps> = ({
                 <button
                   type="button"
                   onClick={() => setActiveViewTab('table')}
-                  className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer ${
-                    activeViewTab === 'table'
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer ${activeViewTab === 'table'
                       ? 'bg-blue-600 text-white shadow-sm'
-                      : 'text-zinc-400 hover:text-zinc-200'
-                  }`}
-                  title="Structured Table View"
+                      : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
+                    }`}
+                title="Structured Table View"
                 >
                   <Table className="w-3 h-3" />
                   <span>Table</span>
@@ -524,11 +521,10 @@ export const RedisWorkbench: React.FC<RedisWorkbenchProps> = ({
                 <button
                   type="button"
                   onClick={() => setActiveViewTab('json')}
-                  className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer ${
-                    activeViewTab === 'json'
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer ${activeViewTab === 'json'
                       ? 'bg-blue-600 text-white shadow-sm'
-                      : 'text-zinc-400 hover:text-zinc-200'
-                  }`}
+                      : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
+                    }`}
                   title="JSON Output"
                 >
                   <FileCode className="w-3 h-3" />
@@ -540,11 +536,11 @@ export const RedisWorkbench: React.FC<RedisWorkbenchProps> = ({
                 <button
                   type="button"
                   onClick={handleCopyResult}
-                  className="p-1 rounded text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors ml-1"
+                  className="p-1 rounded text-slate-400 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors ml-1 cursor-pointer"
                   title="Copy Output"
                 >
                   {isCopied ? (
-                    <Check className="w-3.5 h-3.5 text-emerald-400" />
+                    <Check className="w-3.5 h-3.5 text-emerald-500 dark:text-emerald-400" />
                   ) : (
                     <Copy className="w-3.5 h-3.5" />
                   )}
@@ -556,28 +552,27 @@ export const RedisWorkbench: React.FC<RedisWorkbenchProps> = ({
           {/* Console Output Body */}
           <div className="flex-1 overflow-auto p-4 font-mono text-xs">
             {!activeResult ? (
-              <div className="flex flex-col items-center justify-center h-full text-zinc-600 select-none py-12">
+              <div className="flex flex-col items-center justify-center h-full text-slate-400 dark:text-zinc-600 select-none py-12">
                 <Terminal className="w-10 h-10 mb-2 opacity-30" />
                 <p className="text-xs">No command executed yet</p>
-                <p className="text-[11px] text-zinc-600 mt-1">
-                  Type a Redis command and click <strong className="text-emerald-400">Run</strong> or press <kbd className="px-1 py-0.5 rounded bg-zinc-800 text-zinc-400 font-mono">Ctrl+Enter</kbd>
+                <p className="text-[11px] text-slate-500 dark:text-zinc-600 mt-1">
+                  Type a Redis command and click <strong className="text-emerald-500 dark:text-emerald-400">Run</strong> or press <kbd className="px-1 py-0.5 rounded bg-slate-200 dark:bg-zinc-800 text-slate-700 dark:text-zinc-400 font-mono">Ctrl+Enter</kbd>
                 </p>
               </div>
             ) : activeViewTab === 'cli' ? (
               /* RAW CLI VIEW */
               <div className="space-y-2">
-                <div className="text-zinc-500 font-mono text-xs flex items-center gap-1.5 pb-2 border-b border-zinc-800/80">
-                  <span className="text-emerald-400 font-bold">&gt;</span>
-                  <span className="text-zinc-300 font-semibold">{activeItem?.command}</span>
+                <div className="text-slate-500 dark:text-zinc-500 font-mono text-xs flex items-center gap-1.5 pb-2 border-b border-slate-200 dark:border-zinc-800/80">
+                  <span className="text-emerald-500 dark:text-emerald-400 font-bold">&gt;</span>
+                  <span className="text-slate-800 dark:text-zinc-300 font-semibold">{activeItem?.command}</span>
                 </div>
                 <pre
-                  className={`p-3 rounded-lg overflow-x-auto whitespace-pre-wrap leading-relaxed ${
-                    activeResult.resultType === 'error'
-                      ? 'bg-rose-950/30 text-rose-400 border border-rose-900/40'
+                  className={`p-3 rounded-lg overflow-x-auto whitespace-pre-wrap leading-relaxed ${activeResult.resultType === 'error'
+                      ? 'bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-900/40'
                       : activeResult.resultType === 'status'
-                      ? 'bg-emerald-950/20 text-emerald-300 border border-emerald-900/30'
-                      : 'bg-[#141418] text-zinc-200 border border-zinc-800/60'
-                  }`}
+                        ? 'bg-emerald-50 dark:bg-emerald-950/20 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900/30'
+                        : 'bg-white dark:bg-[#141418] text-slate-800 dark:text-zinc-200 border border-slate-200 dark:border-zinc-800/60 shadow-sm'
+                    }`}
                 >
                   {activeResult.formatted || '(empty response)'}
                 </pre>
@@ -588,25 +583,25 @@ export const RedisWorkbench: React.FC<RedisWorkbenchProps> = ({
                 {/* Table Search */}
                 <div className="flex items-center gap-2">
                   <div className="relative flex-1">
-                    <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-500" />
+                    <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-zinc-500" />
                     <input
                       type="text"
                       value={tableSearchQuery}
                       onChange={(e) => setTableSearchQuery(e.target.value)}
                       placeholder="Filter records..."
-                      className="w-full pl-8 pr-3 py-1 bg-[#141418] border border-zinc-800 rounded-lg text-xs text-zinc-200 outline-none focus:border-blue-500"
+                      className="w-full pl-8 pr-3 py-1 bg-white dark:bg-[#141418] border border-slate-200 dark:border-zinc-800 rounded-lg text-xs text-slate-900 dark:text-zinc-200 outline-none focus:border-blue-500"
                     />
                   </div>
-                  <span className="text-[11px] text-zinc-500">
+                  <span className="text-[11px] text-slate-500 dark:text-zinc-500">
                     {filteredRows.length} / {structuredData.length} rows
                   </span>
                 </div>
 
                 {/* Table Grid */}
-                <div className="border border-zinc-800 rounded-xl overflow-hidden bg-[#141418]">
+                <div className="border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden bg-white dark:bg-[#141418] shadow-sm">
                   <table className="w-full text-left text-xs">
                     <thead>
-                      <tr className="bg-[#18181d] border-b border-zinc-800 text-zinc-400 font-semibold">
+                      <tr className="bg-slate-100 dark:bg-[#18181d] border-b border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400 font-semibold">
                         <th className="py-2 px-3 w-12 text-center">#</th>
                         <th className="py-2 px-3">
                           {'key' in (structuredData[0] || {}) ? 'Field / Key' : 'Index'}
@@ -614,16 +609,16 @@ export const RedisWorkbench: React.FC<RedisWorkbenchProps> = ({
                         <th className="py-2 px-3">Value</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-zinc-800/60">
+                    <tbody className="divide-y divide-slate-100 dark:divide-zinc-800/60">
                       {filteredRows.map((row: any, idx: number) => (
-                        <tr key={idx} className="hover:bg-zinc-800/30 transition-colors">
-                          <td className="py-1.5 px-3 text-center text-zinc-500 font-mono text-[11px]">
+                        <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-zinc-800/30 transition-colors">
+                          <td className="py-1.5 px-3 text-center text-slate-400 dark:text-zinc-500 font-mono text-[11px]">
                             {idx + 1}
                           </td>
-                          <td className="py-1.5 px-3 font-mono font-semibold text-blue-400">
+                          <td className="py-1.5 px-3 font-mono font-semibold text-blue-600 dark:text-blue-400">
                             {row.key !== undefined ? row.key : row.index}
                           </td>
-                          <td className="py-1.5 px-3 font-mono text-zinc-200 break-all">
+                          <td className="py-1.5 px-3 font-mono text-slate-800 dark:text-zinc-200 break-all">
                             {row.value}
                           </td>
                         </tr>
@@ -634,11 +629,11 @@ export const RedisWorkbench: React.FC<RedisWorkbenchProps> = ({
               </div>
             ) : (
               /* JSON VIEW */
-              <div className="h-full">
+              <div className="h-full bg-white dark:bg-[#101014] rounded-xl overflow-hidden border border-slate-200 dark:border-zinc-800">
                 <Editor
                   height="100%"
                   language="json"
-                  theme="octa-dark"
+                  theme={monacoTheme}
                   value={JSON.stringify(activeResult.rawOutput, null, 2)}
                   options={{
                     readOnly: true,
@@ -662,15 +657,15 @@ export const RedisWorkbench: React.FC<RedisWorkbenchProps> = ({
           COMMAND HISTORY DRAWER
          ========================================================================= */}
       {isHistoryDrawerOpen && (
-        <div className="border-t border-[#242429] bg-[#121216] max-h-48 overflow-y-auto p-3 select-none">
+        <div className="border-t border-slate-200 dark:border-[#242429] bg-white dark:bg-[#121216] max-h-48 overflow-y-auto p-3 select-none transition-colors">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-zinc-400">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-zinc-400">
               Execution History
             </span>
             <button
               type="button"
               onClick={() => setHistory([])}
-              className="text-[11px] text-zinc-500 hover:text-rose-400 transition-colors"
+              className="text-[11px] text-slate-400 dark:text-zinc-500 hover:text-rose-500 dark:hover:text-rose-400 transition-colors cursor-pointer"
             >
               Clear History
             </button>
@@ -684,17 +679,16 @@ export const RedisWorkbench: React.FC<RedisWorkbenchProps> = ({
                   onClick={() => {
                     setActiveHistoryId(h.id);
                   }}
-                  className={`flex items-center justify-between gap-3 px-3 py-1.5 rounded-lg text-xs font-mono cursor-pointer transition-colors ${
-                    isSelected
-                      ? 'bg-blue-600/20 border border-blue-500/40 text-blue-200'
-                      : 'bg-[#18181d] hover:bg-zinc-800 text-zinc-300 border border-zinc-800/60'
-                  }`}
+                  className={`flex items-center justify-between gap-3 px-3 py-1.5 rounded-lg text-xs font-mono cursor-pointer transition-colors ${isSelected
+                      ? 'bg-blue-50 dark:bg-blue-600/20 border border-blue-400 dark:border-blue-500/40 text-blue-900 dark:text-blue-200 font-medium'
+                      : 'bg-slate-50 hover:bg-slate-100 dark:bg-[#18181d] dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-300 border border-slate-200 dark:border-zinc-800/60'
+                    }`}
                 >
                   <div className="flex items-center gap-2 truncate flex-1">
                     {renderResultBadge(h.result.resultType)}
                     <span className="truncate font-semibold">{h.command}</span>
                   </div>
-                  <div className="flex items-center gap-2 text-[10px] text-zinc-500 flex-shrink-0">
+                  <div className="flex items-center gap-2 text-[10px] text-slate-400 dark:text-zinc-500 flex-shrink-0">
                     <span>{h.result.durationMs.toFixed(1)}ms</span>
                     <span>{h.timestamp}</span>
                     <button
@@ -703,7 +697,7 @@ export const RedisWorkbench: React.FC<RedisWorkbenchProps> = ({
                         e.stopPropagation();
                         setCommandText(h.command);
                       }}
-                      className="p-1 rounded hover:bg-zinc-700 text-zinc-400 hover:text-white transition-colors"
+                      className="p-1 rounded hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-400 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-white transition-colors cursor-pointer"
                       title="Load Command into Editor"
                     >
                       <RotateCcw className="w-3 h-3" />

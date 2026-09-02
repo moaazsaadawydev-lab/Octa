@@ -6,20 +6,22 @@ import (
 
 // App is the lightweight delegator / facade struct exposed to Wails.
 type App struct {
-	ctx            context.Context
-	dbService      *DBService
-	redisService   *RedisService
-	httpService    *HTTPService
-	projectService *ProjectService
+	ctx             context.Context
+	dbService       *DBService
+	redisService    *RedisService
+	httpService     *HTTPService
+	projectService  *ProjectService
+	terminalService *TerminalService
 }
 
 // NewApp creates a new App application struct with domain services.
 func NewApp() *App {
 	return &App{
-		dbService:      NewDBService(),
-		redisService:   NewRedisService(),
-		httpService:    NewHTTPService(),
-		projectService: NewProjectService(),
+		dbService:       NewDBService(),
+		redisService:    NewRedisService(),
+		httpService:     NewHTTPService(),
+		projectService:  NewProjectService(),
+		terminalService: NewTerminalService(),
 	}
 }
 
@@ -30,6 +32,7 @@ func (a *App) startup(ctx context.Context) {
 	a.redisService = NewRedisService()
 	a.httpService.SetContext(ctx)
 	a.projectService.SetContext(ctx)
+	a.terminalService.SetContext(ctx)
 }
 
 // ============================================================================
@@ -197,8 +200,26 @@ func (a *App) SaveProjectFile(filePath string, jsonData string) (bool, error) {
 }
 func (a *App) CloseProjectConnections() (bool, error) {
 	a.dbService.ClosePools()
+	a.terminalService.CloseAllTerminalSessions()
 	return a.projectService.CloseProjectConnections()
 }
 func (a *App) WipeLegacyStorage() (bool, error) {
 	return a.projectService.WipeLegacyStorage()
+}
+
+// ============================================================================
+// TERMINAL DOMAIN (Delegated to TerminalService)
+// ============================================================================
+
+func (a *App) StartTerminalSession(sessionID string, workDir string, cols int, rows int) error {
+	return a.terminalService.StartTerminalSession(sessionID, workDir, cols, rows)
+}
+func (a *App) WriteTerminalSession(sessionID string, data string) error {
+	return a.terminalService.WriteTerminalSession(sessionID, data)
+}
+func (a *App) ResizeTerminalSession(sessionID string, cols int, rows int) error {
+	return a.terminalService.ResizeTerminalSession(sessionID, cols, rows)
+}
+func (a *App) CloseTerminalSession(sessionID string) error {
+	return a.terminalService.CloseTerminalSession(sessionID)
 }

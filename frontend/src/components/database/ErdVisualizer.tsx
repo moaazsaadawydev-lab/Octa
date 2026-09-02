@@ -295,21 +295,21 @@ const ErdCanvas: React.FC<ErdVisualizerProps> = ({
   }
 
   return (
-    <div className="flex-1 w-full h-full bg-[#121212] flex flex-col overflow-hidden relative select-none">
+    <div className="flex-1 w-full h-full bg-slate-50 dark:bg-[#121212] flex flex-col overflow-hidden relative select-none transition-colors">
       {/* 1. Header Bar */}
-      <div className="px-4 py-2.5 bg-[#181818] border-b border-[#262626] flex items-center justify-between gap-3 z-10 flex-shrink-0">
+      <div className="px-4 py-2.5 bg-white dark:bg-[#181818] border-b border-slate-200 dark:border-[#262626] flex items-center justify-between gap-3 z-10 flex-shrink-0">
         <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg bg-brand-500/15 border border-brand-500/30 flex items-center justify-center text-brand-400">
+          <div className="w-7 h-7 rounded-lg bg-brand-500/15 border border-brand-500/30 flex items-center justify-center text-brand-600 dark:text-brand-400">
             <Layers className="w-4 h-4" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-gray-100">Schema & ERD Visualizer</span>
-              <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-emerald-950/60 border border-emerald-500/30 text-emerald-300 font-medium">
+              <span className="text-xs font-semibold text-slate-800 dark:text-gray-100">Schema & ERD Visualizer</span>
+              <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-500/30 text-emerald-800 dark:text-emerald-300 font-medium">
                 {activeSession.activeDatabase}
               </span>
             </div>
-            <div className="text-[10px] text-zinc-400 font-mono">
+            <div className="text-[10px] text-slate-500 dark:text-zinc-400 font-mono">
               {nodes.length} tables · {edges.length} relationships
             </div>
           </div>
@@ -319,13 +319,13 @@ const ErdCanvas: React.FC<ErdVisualizerProps> = ({
         <div className="flex items-center gap-2 mr-72">
           {/* Table Search */}
           <form onSubmit={handleSearch} className="relative">
-            <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
+            <Search className="w-3.5 h-3.5 text-slate-400 dark:text-zinc-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search table node..."
-              className="w-44 sm:w-56 pl-8 pr-3 py-1 text-xs bg-[#121212] border border-[#2d2d2d] rounded-lg text-gray-200 placeholder-zinc-500 focus:outline-none focus:border-brand-500 transition-colors font-mono"
+              className="w-44 sm:w-56 pl-8 pr-3 py-1 text-xs bg-slate-100 dark:bg-[#121212] border border-slate-200 dark:border-[#2d2d2d] rounded-lg text-slate-900 dark:text-gray-200 placeholder-slate-400 dark:placeholder-zinc-500 focus:outline-none focus:border-brand-500 transition-colors font-mono"
             />
           </form>
 
@@ -334,9 +334,9 @@ const ErdCanvas: React.FC<ErdVisualizerProps> = ({
             type="button"
             onClick={() => handleAutoLayout()}
             title="Rearrange Auto-Layout (Dagre)"
-            className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-zinc-300 hover:text-white bg-[#222222] hover:bg-[#2a2a2a] border border-[#333333] rounded-lg transition-colors shadow-sm"
+            className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-slate-700 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-white bg-slate-100 hover:bg-slate-200 dark:bg-[#222222] dark:hover:bg-[#2a2a2a] border border-slate-200 dark:border-[#333333] rounded-lg transition-colors shadow-sm cursor-pointer"
           >
-            <GitFork className="w-3.5 h-3.5 text-brand-400" />
+            <GitFork className="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" />
             <span className="hidden sm:inline">Layout ({direction})</span>
           </button>
 
@@ -345,7 +345,7 @@ const ErdCanvas: React.FC<ErdVisualizerProps> = ({
             type="button"
             onClick={() => fitView({ padding: 0.2, duration: 500 })}
             title="Fit Diagram to View"
-            className="p-1.5 rounded-lg bg-[#222222] hover:bg-[#2a2a2a] text-zinc-300 border border-[#333333] transition-colors"
+            className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-[#222222] dark:hover:bg-[#2a2a2a] text-slate-700 dark:text-zinc-300 border border-slate-200 dark:border-[#333333] transition-colors cursor-pointer"
           >
             <Maximize2 className="w-3.5 h-3.5" />
           </button>
@@ -355,24 +355,24 @@ const ErdCanvas: React.FC<ErdVisualizerProps> = ({
             <button
               type="button"
               disabled={isExporting || nodes.length === 0}
-              className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-zinc-300 hover:text-white bg-[#222222] hover:bg-[#2a2a2a] disabled:opacity-50 border border-[#333333] rounded-lg transition-colors shadow-sm"
+              className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-slate-700 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-white bg-slate-100 hover:bg-slate-200 dark:bg-[#222222] dark:hover:bg-[#2a2a2a] disabled:opacity-50 border border-slate-200 dark:border-[#333333] rounded-lg transition-colors shadow-sm cursor-pointer"
             >
-              <Download className="w-3.5 h-3.5 text-cyan-400" />
+              <Download className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
               <span className="hidden sm:inline">Export</span>
-              <ChevronDown className="w-3 h-3 text-zinc-400" />
+              <ChevronDown className="w-3 h-3 text-slate-400 dark:text-zinc-400" />
             </button>
-            <div className="absolute right-0 top-full mt-1 hidden group-hover:flex flex-col w-32 bg-[#181818] border border-[#2d2d2d] rounded-lg shadow-2xl py-1 z-30">
+            <div className="absolute right-0 top-full mt-1 hidden group-hover:flex flex-col w-32 bg-white dark:bg-[#181818] border border-slate-200 dark:border-[#2d2d2d] rounded-lg shadow-2xl py-1 z-30">
               <button
                 type="button"
                 onClick={handleExportPng}
-                className="w-full px-3 py-1.5 text-left text-xs text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors"
+                className="w-full px-3 py-1.5 text-left text-xs text-slate-700 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
               >
                 Export as PNG
               </button>
               <button
                 type="button"
                 onClick={handleExportSvg}
-                className="w-full px-3 py-1.5 text-left text-xs text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors"
+                className="w-full px-3 py-1.5 text-left text-xs text-slate-700 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
               >
                 Export as SVG
               </button>
@@ -385,9 +385,9 @@ const ErdCanvas: React.FC<ErdVisualizerProps> = ({
             onClick={() => loadSchema()}
             disabled={loading}
             title="Reload Schema"
-            className="p-1.5 rounded-lg bg-[#222222] hover:bg-[#2a2a2a] text-zinc-300 border border-[#333333] transition-colors"
+            className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-[#222222] dark:hover:bg-[#2a2a2a] text-slate-700 dark:text-zinc-300 border border-slate-200 dark:border-[#333333] transition-colors cursor-pointer"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-brand-400' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-brand-500 dark:text-brand-400' : ''}`} />
           </button>
         </div>
       </div>
@@ -395,9 +395,9 @@ const ErdCanvas: React.FC<ErdVisualizerProps> = ({
       {/* 2. ReactFlow Canvas */}
       <div ref={reactFlowWrapper} className="flex-1 w-full h-full relative">
         {loading && (
-          <div className="absolute inset-0 z-20 bg-[#121212]/80 backdrop-blur-sm flex flex-col items-center justify-center gap-3">
-            <Loader2 className="w-8 h-8 text-brand-400 animate-spin" />
-            <span className="text-xs text-zinc-400 font-mono">Extracting Database Schema & Foreign Keys...</span>
+          <div className="absolute inset-0 z-20 bg-white/70 dark:bg-[#121212]/80 backdrop-blur-sm flex flex-col items-center justify-center gap-3">
+            <Loader2 className="w-8 h-8 text-brand-500 dark:text-brand-400 animate-spin" />
+            <span className="text-xs text-slate-600 dark:text-zinc-400 font-mono">Extracting Database Schema & Foreign Keys...</span>
           </div>
         )}
 
@@ -413,43 +413,42 @@ const ErdCanvas: React.FC<ErdVisualizerProps> = ({
           defaultEdgeOptions={{
             type: 'smoothstep',
           }}
-          className="bg-[#121212]"
+          className="bg-slate-100/50 dark:bg-[#121212]"
         >
-          {/* Dark Dot Grid Background */}
+          {/* Dot Grid Background */}
           <Background
             variant={BackgroundVariant.Dots}
             gap={20}
             size={1.2}
-            color="#262626"
-            className="bg-[#121212]"
+            className="bg-slate-100/50 dark:bg-[#121212]"
           />
 
           {/* Standard Canvas Controls */}
           <Controls
-            className="!bg-[#181818] !border !border-[#2d2d2d] !rounded-xl !overflow-hidden !shadow-2xl [&>button]:!bg-[#181818] [&>button]:!border-b [&>button]:!border-[#2d2d2d] [&>button]:!text-zinc-300 hover:[&>button]:!bg-[#222222] [&>button]:!transition-colors"
+            className="!bg-white dark:!bg-[#181818] !border !border-slate-200 dark:!border-[#2d2d2d] !rounded-xl !overflow-hidden !shadow-2xl [&>button]:!bg-white dark:[&>button]:!bg-[#181818] [&>button]:!border-b [&>button]:!border-slate-200 dark:[&>button]:!border-[#2d2d2d] [&>button]:!text-slate-700 dark:[&>button]:!text-zinc-300 hover:[&>button]:!bg-slate-100 dark:hover:[&>button]:!bg-[#222222] [&>button]:!transition-colors"
             showInteractive={false}
           />
 
           {/* MiniMap */}
           <MiniMap
             nodeColor="#3b82f6"
-            maskColor="rgba(18, 18, 18, 0.85)"
-            className="!bg-[#181818] !border !border-[#2d2d2d] !rounded-xl !overflow-hidden !shadow-2xl"
+            maskColor="rgba(0, 0, 0, 0.15)"
+            className="!bg-white dark:!bg-[#181818] !border !border-slate-200 dark:!border-[#2d2d2d] !rounded-xl !overflow-hidden !shadow-2xl"
           />
 
           {/* Empty Table State */}
           {!loading && nodes.length === 0 && (
             <Panel position="top-center" className="mt-20">
-              <div className="p-6 rounded-2xl bg-[#181818] border border-[#2d2d2d] shadow-2xl flex flex-col items-center text-center max-w-sm">
-                <TableIcon className="w-8 h-8 text-zinc-500 mb-3" />
-                <h3 className="text-sm font-semibold text-gray-200 mb-1">No Public Tables Found</h3>
-                <p className="text-xs text-zinc-400 mb-4">
+              <div className="p-6 rounded-2xl bg-white dark:bg-[#181818] border border-slate-200 dark:border-[#2d2d2d] shadow-2xl flex flex-col items-center text-center max-w-sm">
+                <TableIcon className="w-8 h-8 text-slate-400 dark:text-zinc-500 mb-3" />
+                <h3 className="text-sm font-semibold text-slate-800 dark:text-gray-200 mb-1">No Public Tables Found</h3>
+                <p className="text-xs text-slate-500 dark:text-zinc-400 mb-4">
                   Database &ldquo;{activeSession.activeDatabase}&rdquo; has no public schema tables or schema extraction is empty.
                 </p>
                 <button
                   type="button"
                   onClick={() => loadSchema()}
-                  className="px-3 py-1.5 text-xs font-medium text-brand-300 bg-brand-500/10 border border-brand-500/30 rounded-lg hover:bg-brand-500/20 transition-colors"
+                  className="px-3 py-1.5 text-xs font-medium text-brand-600 dark:text-brand-300 bg-brand-500/10 border border-brand-500/30 rounded-lg hover:bg-brand-500/20 transition-colors"
                 >
                   Retry Inspection
                 </button>

@@ -1,4 +1,4 @@
-﻿import React, { memo } from 'react';
+import React, { memo } from 'react';
 import { Handle, Position, NodeProps } from '@xyflow/react';
 import { Table, Key, Link2 } from 'lucide-react';
 import { TableSchema } from '../../../types/connection';
@@ -33,24 +33,24 @@ export const TableNode: React.FC<NodeProps> = memo(({ data, selected }) => {
 
   return (
     <div
-      className={`w-72 rounded-xl bg-[#181818] border transition-all duration-200 shadow-xl overflow-hidden font-sans select-none ${
+      className={`w-72 rounded-xl bg-white dark:bg-[#181818] border transition-all duration-200 shadow-xl overflow-hidden font-sans select-none ${
         selected || isHighlighted
           ? 'border-brand-500 ring-2 ring-brand-500/40 shadow-brand-500/10'
-          : 'border-[#2d2d2d] hover:border-[#3d3d3d]'
+          : 'border-slate-200 dark:border-[#2d2d2d] hover:border-slate-300 dark:hover:border-[#3d3d3d]'
       }`}
     >
       {/* Node Header */}
-      <div className="px-3.5 py-2.5 bg-[#1f1f1f] border-b border-[#2d2d2d] flex items-center justify-between gap-2">
+      <div className="px-3.5 py-2.5 bg-slate-100/90 dark:bg-[#1f1f1f] border-b border-slate-200 dark:border-[#2d2d2d] flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 truncate">
-          <div className="w-6 h-6 rounded-md bg-brand-500/15 border border-brand-500/30 flex items-center justify-center text-brand-400 flex-shrink-0">
+          <div className="w-6 h-6 rounded-md bg-brand-500/15 border border-brand-500/30 flex items-center justify-center text-brand-600 dark:text-brand-400 flex-shrink-0">
             <Table className="w-3.5 h-3.5" />
           </div>
-          <span className="font-bold text-xs text-gray-100 font-mono truncate" title={table.name}>
+          <span className="font-bold text-xs text-slate-800 dark:text-gray-100 font-mono truncate" title={table.name}>
             {table.name}
           </span>
         </div>
 
-        <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#141414] border border-[#2d2d2d] text-gray-400 flex-shrink-0">
+        <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white dark:bg-[#141414] border border-slate-200 dark:border-[#2d2d2d] text-slate-600 dark:text-gray-400 flex-shrink-0">
           {table.rowCount.toLocaleString()} rows
         </span>
       </div>
@@ -60,11 +60,11 @@ export const TableNode: React.FC<NodeProps> = memo(({ data, selected }) => {
         type="target"
         position={Position.Left}
         id={`${table.name}-target`}
-        className="!w-2.5 !h-2.5 !bg-brand-400 !border-2 !border-[#181818] hover:!scale-125 transition-transform"
+        className="!w-2.5 !h-2.5 !bg-brand-500 dark:!bg-brand-400 !border-2 !border-white dark:!border-[#181818] hover:!scale-125 transition-transform"
       />
 
       {/* Columns List */}
-      <div className="divide-y divide-[#242424] max-h-72 overflow-y-auto no-scrollbar py-0.5">
+      <div className="divide-y divide-slate-100 dark:divide-[#242424] max-h-72 overflow-y-auto no-scrollbar py-0.5">
         {table.columns && table.columns.length > 0 ? (
           table.columns.map((col) => {
             const isPk = col.isPrimaryKey;
@@ -75,7 +75,9 @@ export const TableNode: React.FC<NodeProps> = memo(({ data, selected }) => {
               <div
                 key={col.name}
                 className={`relative px-3 py-1.5 flex items-center justify-between text-xs transition-colors ${
-                  isColHighlighted ? 'bg-brand-500/15 text-brand-200' : 'hover:bg-[#202020]'
+                  isColHighlighted
+                    ? 'bg-brand-50 dark:bg-brand-500/15 text-brand-900 dark:text-brand-200'
+                    : 'hover:bg-slate-50 dark:hover:bg-[#202020]'
                 }`}
               >
                 {/* Column Target Handle for specific FK matching */}
@@ -83,7 +85,7 @@ export const TableNode: React.FC<NodeProps> = memo(({ data, selected }) => {
                   type="target"
                   position={Position.Left}
                   id={`${table.name}-${col.name}-target`}
-                  className="!w-1.5 !h-1.5 !bg-cyan-400 !border-none !left-0 opacity-0 group-hover:opacity-100"
+                  className="!w-1.5 !h-1.5 !bg-cyan-500 dark:!bg-cyan-400 !border-none !left-0 opacity-0 group-hover:opacity-100"
                 />
 
                 <div className="flex items-center gap-1.5 truncate mr-2">
@@ -91,7 +93,7 @@ export const TableNode: React.FC<NodeProps> = memo(({ data, selected }) => {
                   {isPk && (
                     <span
                       title="Primary Key"
-                      className="flex items-center gap-0.5 text-[9px] font-bold font-mono px-1 py-0.2 rounded bg-amber-500/15 border border-amber-500/30 text-amber-300 flex-shrink-0"
+                      className="flex items-center gap-0.5 text-[9px] font-bold font-mono px-1 py-0.2 rounded bg-amber-100 dark:bg-amber-500/15 border border-amber-300 dark:border-amber-500/30 text-amber-800 dark:text-amber-300 flex-shrink-0"
                     >
                       <Key className="w-2.5 h-2.5" />
                       <span>PK</span>
@@ -102,7 +104,7 @@ export const TableNode: React.FC<NodeProps> = memo(({ data, selected }) => {
                   {isFk && (
                     <span
                       title="Foreign Key"
-                      className="flex items-center gap-0.5 text-[9px] font-bold font-mono px-1 py-0.2 rounded bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 flex-shrink-0"
+                      className="flex items-center gap-0.5 text-[9px] font-bold font-mono px-1 py-0.2 rounded bg-cyan-100 dark:bg-cyan-500/15 border border-cyan-300 dark:border-cyan-500/30 text-cyan-800 dark:text-cyan-300 flex-shrink-0"
                     >
                       <Link2 className="w-2.5 h-2.5" />
                       <span>FK</span>
@@ -112,10 +114,10 @@ export const TableNode: React.FC<NodeProps> = memo(({ data, selected }) => {
                   <span
                     className={`font-mono text-[11px] truncate ${
                       isPk
-                        ? 'font-semibold text-gray-100'
+                        ? 'font-semibold text-slate-900 dark:text-gray-100'
                         : isFk
-                        ? 'font-medium text-cyan-200'
-                        : 'text-gray-300'
+                        ? 'font-medium text-cyan-700 dark:text-cyan-200'
+                        : 'text-slate-700 dark:text-gray-300'
                     }`}
                     title={col.name}
                   >
@@ -126,7 +128,7 @@ export const TableNode: React.FC<NodeProps> = memo(({ data, selected }) => {
                 {/* Data Type & Nullable Tag */}
                 <div className="flex items-center gap-1.5 flex-shrink-0">
                   <span
-                    className="text-[10px] font-mono text-zinc-500"
+                    className="text-[10px] font-mono text-slate-400 dark:text-zinc-500"
                     title={col.dataType}
                   >
                     {formatColType(col.dataType)}
@@ -134,7 +136,7 @@ export const TableNode: React.FC<NodeProps> = memo(({ data, selected }) => {
                   {col.isNullable && (
                     <span
                       title="Nullable"
-                      className="text-[9px] font-mono text-zinc-600 font-normal"
+                      className="text-[9px] font-mono text-slate-400 dark:text-zinc-600 font-normal"
                     >
                       ?
                     </span>
@@ -146,13 +148,13 @@ export const TableNode: React.FC<NodeProps> = memo(({ data, selected }) => {
                   type="source"
                   position={Position.Right}
                   id={`${table.name}-${col.name}-source`}
-                  className="!w-1.5 !h-1.5 !bg-brand-400 !border-none !right-0 opacity-0 group-hover:opacity-100"
+                  className="!w-1.5 !h-1.5 !bg-brand-500 dark:!bg-brand-400 !border-none !right-0 opacity-0 group-hover:opacity-100"
                 />
               </div>
             );
           })
         ) : (
-          <div className="px-3 py-2 text-center text-[11px] text-gray-500 italic">
+          <div className="px-3 py-2 text-center text-[11px] text-slate-400 dark:text-gray-500 italic">
             No columns found
           </div>
         )}
@@ -163,7 +165,7 @@ export const TableNode: React.FC<NodeProps> = memo(({ data, selected }) => {
         type="source"
         position={Position.Right}
         id={`${table.name}-source`}
-        className="!w-2.5 !h-2.5 !bg-cyan-400 !border-2 !border-[#181818] hover:!scale-125 transition-transform"
+        className="!w-2.5 !h-2.5 !bg-cyan-500 dark:!bg-cyan-400 !border-2 !border-white dark:!border-[#181818] hover:!scale-125 transition-transform"
       />
     </div>
   );

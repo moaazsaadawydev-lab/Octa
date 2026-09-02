@@ -259,7 +259,7 @@ export const UrlHighlightInput: React.FC<UrlHighlightInputProps> = ({
         spellCheck={false}
         autoComplete="off"
         style={SHARED_TYPOGRAPHY_STYLE}
-        className="w-full h-full px-3 py-1.5 bg-[#1a1a1d] border border-[#2b2b30] rounded-lg text-transparent caret-brand-400 placeholder:text-zinc-500 selection:bg-brand-500/30 focus:border-brand-500 focus:ring-1 focus:ring-brand-500/20 outline-none transition-all relative z-0"
+        className="w-full h-full px-3 py-1.5 bg-slate-100 dark:bg-[#1a1a1d] border border-slate-200 dark:border-[#2b2b30] rounded-lg text-transparent caret-brand-600 dark:caret-brand-400 placeholder:text-slate-400 dark:placeholder:text-zinc-500 selection:bg-brand-500/30 focus:border-brand-500 focus:ring-1 focus:ring-brand-500/20 outline-none transition-all relative z-0"
       />
 
       {/* Syntax Highlighting & Interactive Hover Trigger Overlay */}
@@ -278,7 +278,7 @@ export const UrlHighlightInput: React.FC<UrlHighlightInputProps> = ({
           tokens.map((tok, idx) => {
             if (tok.type === 'text') {
               return (
-                <span key={idx} className="text-zinc-100 pointer-events-none">
+                <span key={idx} className="text-slate-900 dark:text-zinc-100 pointer-events-none">
                   {tok.text}
                 </span>
               );
@@ -300,8 +300,8 @@ export const UrlHighlightInput: React.FC<UrlHighlightInputProps> = ({
                 }}
                 className={`pointer-events-auto cursor-pointer rounded-sm px-0 mx-0 font-semibold transition-colors hover:brightness-125 ${
                   isValid
-                    ? 'text-sky-400 bg-sky-500/20 shadow-[inset_0_0_0_1px_rgba(56,189,248,0.35)]'
-                    : 'text-rose-400 bg-rose-500/20 shadow-[inset_0_0_0_1px_rgba(244,63,94,0.4)]'
+                    ? 'text-sky-600 dark:text-sky-400 bg-sky-100 dark:bg-sky-500/20 shadow-[inset_0_0_0_1px_rgba(56,189,248,0.35)]'
+                    : 'text-rose-600 dark:text-rose-400 bg-rose-100 dark:bg-rose-500/20 shadow-[inset_0_0_0_1px_rgba(244,63,94,0.4)]'
                 }`}
               >
                 {tok.text}
@@ -318,12 +318,12 @@ export const UrlHighlightInput: React.FC<UrlHighlightInputProps> = ({
           onMouseEnter={handlePopoverMouseEnter}
           onMouseLeave={handlePopoverMouseLeave}
           style={{ left: `${Math.min(Math.max(8, popoverLeft), 400)}px` }}
-          className="absolute top-full mt-2 w-80 bg-[#18181b] border border-zinc-700/80 rounded-xl shadow-2xl z-50 p-3 animate-in fade-in zoom-in-95 duration-100 font-sans"
+          className="absolute top-full mt-2 w-80 bg-white dark:bg-[#18181b] border border-slate-200 dark:border-zinc-700/80 rounded-xl shadow-2xl z-50 p-3 animate-in fade-in zoom-in-95 duration-100 font-sans"
         >
           {/* Popover Header */}
-          <div className="flex items-center justify-between pb-2 mb-2 border-b border-zinc-800/80">
+          <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-200 dark:border-zinc-800/80">
             <div className="flex items-center gap-1.5 truncate">
-              <span className="text-xs font-mono font-bold text-zinc-100 truncate">
+              <span className="text-xs font-mono font-bold text-slate-900 dark:text-zinc-100 truncate">
                 &#123;&#123;{activePopoverToken.rawKey}&#125;&#125;
               </span>
             </div>
@@ -331,7 +331,7 @@ export const UrlHighlightInput: React.FC<UrlHighlightInputProps> = ({
             <button
               type="button"
               onClick={() => setActivePopoverToken(null)}
-              className="p-1 text-zinc-500 hover:text-zinc-300 rounded hover:bg-zinc-800 transition-colors"
+              className="p-1 text-slate-400 dark:text-zinc-500 hover:text-slate-700 dark:hover:text-zinc-300 rounded hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
             >
               <X className="w-3.5 h-3.5" />
             </button>
@@ -340,19 +340,19 @@ export const UrlHighlightInput: React.FC<UrlHighlightInputProps> = ({
           {/* Popover Body: Value Editor */}
           {activePopoverToken.source === 'macro' ? (
             <div className="space-y-2 py-1">
-              <div className="text-[11px] text-zinc-400">
+              <div className="text-[11px] text-slate-500 dark:text-zinc-400">
                 Generated dynamic macro value:
               </div>
-              <div className="p-2 bg-[#121214] border border-zinc-800 rounded-lg font-mono text-xs text-amber-300 select-all break-all">
+              <div className="p-2 bg-slate-50 dark:bg-[#121214] border border-slate-200 dark:border-zinc-800 rounded-lg font-mono text-xs text-amber-700 dark:text-amber-300 select-all break-all">
                 {activePopoverToken.value}
               </div>
             </div>
           ) : (
             <div className="space-y-2 py-1">
               <div className="flex items-center justify-between text-[11px]">
-                <span className="text-zinc-400 font-medium">Value:</span>
+                <span className="text-slate-500 dark:text-zinc-400 font-medium">Value:</span>
                 {activePopoverToken.resolved && (
-                  <span className="text-[10px] text-zinc-500 font-mono">
+                  <span className="text-[10px] text-slate-400 dark:text-zinc-500 font-mono">
                     {editValue.length} chars
                   </span>
                 )}
@@ -370,12 +370,12 @@ export const UrlHighlightInput: React.FC<UrlHighlightInputProps> = ({
                     }
                   }}
                   placeholder="Enter variable value..."
-                  className="w-full px-2.5 py-1.5 bg-[#121214] border border-zinc-700/80 focus:border-sky-500 rounded-lg text-xs font-mono text-zinc-100 placeholder:text-zinc-600 outline-none transition-all shadow-inner"
+                  className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-[#121214] border border-slate-200 dark:border-zinc-700/80 focus:border-sky-500 rounded-lg text-xs font-mono text-slate-900 dark:text-zinc-100 placeholder:text-slate-400 dark:placeholder:text-zinc-600 outline-none transition-all shadow-inner"
                 />
               </div>
 
               {editValue.trim() === '' && (
-                <div className="text-[10px] text-rose-400 flex items-center gap-1 font-medium pt-0.5">
+                <div className="text-[10px] text-rose-600 dark:text-rose-400 flex items-center gap-1 font-medium pt-0.5">
                   <AlertCircle className="w-3 h-3" />
                   <span>Value is empty (token renders in Red)</span>
                 </div>
@@ -384,20 +384,20 @@ export const UrlHighlightInput: React.FC<UrlHighlightInputProps> = ({
           )}
 
           {/* Popover Footer: Scope Bar & Edit Link */}
-          <div className="flex items-center justify-between pt-2 mt-2 border-t border-zinc-800/80 text-[11px]">
-            <div className="flex items-center gap-1.5 text-zinc-400 truncate">
+          <div className="flex items-center justify-between pt-2 mt-2 border-t border-slate-200 dark:border-zinc-800/80 text-[11px]">
+            <div className="flex items-center gap-1.5 text-slate-500 dark:text-zinc-400 truncate">
               {activePopoverToken.resolved ? (
                 activePopoverToken.source === 'macro' ? (
-                  <Sparkles className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
+                  <Sparkles className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400 flex-shrink-0" />
                 ) : activePopoverToken.source === 'global' ? (
-                  <Key className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
+                  <Key className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400 flex-shrink-0" />
                 ) : (
-                  <Globe className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+                  <Globe className="w-3.5 h-3.5 text-emerald-500 dark:text-emerald-400 flex-shrink-0" />
                 )
               ) : (
-                <AlertCircle className="w-3.5 h-3.5 text-rose-400 flex-shrink-0" />
+                <AlertCircle className="w-3.5 h-3.5 text-rose-500 dark:text-rose-400 flex-shrink-0" />
               )}
-              <span className="truncate font-medium text-zinc-300">
+              <span className="truncate font-medium text-slate-700 dark:text-zinc-300">
                 {activePopoverToken.scope || 'Unresolved Scope'}
               </span>
             </div>
@@ -413,7 +413,7 @@ export const UrlHighlightInput: React.FC<UrlHighlightInputProps> = ({
                     );
                   }
                 }}
-                className="flex items-center gap-1 text-sky-400 hover:text-sky-300 font-medium hover:underline transition-colors flex-shrink-0 cursor-pointer ml-2"
+                className="flex items-center gap-1 text-sky-600 dark:text-sky-400 hover:text-sky-500 dark:hover:text-sky-300 font-medium hover:underline transition-colors flex-shrink-0 cursor-pointer ml-2"
               >
                 <span>Edit in Environment</span>
                 <ArrowUpRight className="w-3 h-3" />

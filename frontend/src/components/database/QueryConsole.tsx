@@ -187,7 +187,7 @@ export const QueryConsole: React.FC<QueryConsoleProps> = ({
   };
 
   return (
-    <div className="flex-shrink-0 flex flex-col bg-surface-950 border-t border-[#262626] transition-all duration-200 select-none z-10">
+    <div className="flex-shrink-0 flex flex-col bg-white dark:bg-[#0c0d12] border-t border-slate-200 dark:border-zinc-800 transition-all duration-200 select-none z-10">
       {/* Resizable handle line */}
       {isExpanded && (
         <div
@@ -200,7 +200,7 @@ export const QueryConsole: React.FC<QueryConsoleProps> = ({
       {/* Header Bar */}
       <div
         onClick={onToggleExpand}
-        className="px-3 py-1.5 bg-[#141414] hover:bg-[#181818] cursor-pointer flex items-center justify-between border-b border-[#262626] text-xs transition-colors"
+        className="px-3 py-1.5 bg-slate-100/80 dark:bg-[#0c0d12] hover:bg-slate-200/60 dark:hover:bg-zinc-800/60 cursor-pointer flex items-center justify-between border-b border-slate-200 dark:border-zinc-800 text-xs transition-colors"
       >
         {/* Tabs: SQL Logs & HTTP Network */}
         <div className="flex items-center gap-1">
@@ -213,13 +213,13 @@ export const QueryConsole: React.FC<QueryConsoleProps> = ({
             }}
             className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md transition-colors cursor-pointer ${
               activeConsoleTab === 'sql'
-                ? 'bg-surface-800 text-brand-400 font-semibold shadow-sm'
-                : 'text-zinc-400 hover:text-zinc-200'
+                ? 'bg-white dark:bg-zinc-800 text-brand-600 dark:text-brand-400 font-semibold shadow-sm'
+                : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
             }`}
           >
             <Terminal className="w-3.5 h-3.5" />
             <span className="font-mono text-[11px]">SQL Logs</span>
-            <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-zinc-800 text-zinc-300 font-mono">
+            <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-200/80 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 font-mono">
               {logs.length}
             </span>
           </button>
@@ -233,13 +233,13 @@ export const QueryConsole: React.FC<QueryConsoleProps> = ({
             }}
             className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md transition-colors cursor-pointer ${
               activeConsoleTab === 'http'
-                ? 'bg-surface-800 text-cyan-400 font-semibold shadow-sm'
-                : 'text-zinc-400 hover:text-zinc-200'
+                ? 'bg-white dark:bg-zinc-800 text-cyan-600 dark:text-cyan-400 font-semibold shadow-sm'
+                : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
             }`}
           >
             <span className="text-xs">🌐</span>
             <span className="font-mono text-[11px]">HTTP Network</span>
-            <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-zinc-800 text-zinc-300 font-mono">
+            <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-200/80 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 font-mono">
               {httpLogs.length}
             </span>
           </button>
@@ -252,13 +252,13 @@ export const QueryConsole: React.FC<QueryConsoleProps> = ({
               type="button"
               onClick={handleClear}
               title={`Clear ${activeConsoleTab === 'sql' ? 'SQL' : 'HTTP'} Logs`}
-              className="p-1 rounded text-zinc-400 hover:text-rose-400 hover:bg-surface-750 transition-colors cursor-pointer"
+              className="p-1 rounded text-slate-400 hover:text-rose-500 dark:text-zinc-400 dark:hover:text-rose-400 hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
             >
               <Trash2 className="w-3.5 h-3.5" />
             </button>
           )}
 
-          <div className="text-zinc-400 hover:text-zinc-200 p-0.5 rounded">
+          <div className="text-slate-500 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-zinc-200 p-0.5 rounded">
             {isExpanded ? (
               <ChevronDown className="w-4 h-4" />
             ) : (
@@ -273,11 +273,11 @@ export const QueryConsole: React.FC<QueryConsoleProps> = ({
         <div
           ref={scrollRef}
           style={{ height: consoleHeight }}
-          className="overflow-y-auto p-3 font-mono text-[11px] leading-relaxed space-y-1.5 bg-[#0d0d0d] select-text"
+          className="overflow-y-auto p-3 font-mono text-[11px] leading-relaxed space-y-1.5 bg-slate-50 dark:bg-[#090a0f] select-text"
         >
           {activeConsoleTab === 'sql' ? (
             logs.length === 0 ? (
-              <div className="text-zinc-600 italic py-4 text-center select-none font-sans">
+              <div className="text-slate-400 dark:text-zinc-600 italic py-4 text-center select-none font-sans">
                 No SQL queries executed yet. Query executions and schema modifications will appear here in real time.
               </div>
             ) : (
@@ -287,38 +287,38 @@ export const QueryConsole: React.FC<QueryConsoleProps> = ({
                 return (
                   <div
                     key={log.id}
-                    className={`flex items-start gap-2.5 p-1.5 rounded hover:bg-surface-850/60 group transition-colors ${
-                      isError ? 'bg-rose-950/20 border-l-2 border-rose-500 pl-2' : ''
+                    className={`flex items-start gap-2.5 p-1.5 rounded hover:bg-slate-200/60 dark:hover:bg-zinc-800/50 group transition-colors ${
+                      isError ? 'bg-rose-50 dark:bg-rose-950/20 border-l-2 border-rose-500 pl-2' : ''
                     }`}
                   >
                     {/* Status & Timestamp */}
-                    <div className="flex items-center gap-1.5 text-zinc-500 flex-shrink-0 pt-0.5">
+                    <div className="flex items-center gap-1.5 text-slate-400 dark:text-zinc-500 flex-shrink-0 pt-0.5">
                       {isError ? (
-                        <AlertCircle className="w-3.5 h-3.5 text-rose-400" />
+                        <AlertCircle className="w-3.5 h-3.5 text-rose-500 dark:text-rose-400" />
                       ) : (
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500/80" />
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
                       )}
-                      <span className="text-[10px] text-zinc-400 font-mono">{log.timestamp}</span>
+                      <span className="text-[10px] text-slate-500 dark:text-zinc-400 font-mono">{log.timestamp}</span>
                     </div>
 
                     {/* Duration Badge */}
                     <span
                       className={`text-[10px] px-1.5 py-0.2 rounded font-mono font-medium flex-shrink-0 ${
                         isError
-                          ? 'text-rose-400 bg-rose-950/50'
+                          ? 'text-rose-700 bg-rose-100 dark:text-rose-400 dark:bg-rose-950/50'
                           : log.durationMs > 100
-                          ? 'text-amber-400 bg-amber-950/40'
-                          : 'text-emerald-400 bg-emerald-950/40'
+                          ? 'text-amber-700 bg-amber-100 dark:text-amber-400 dark:bg-amber-950/40'
+                          : 'text-emerald-700 bg-emerald-100 dark:text-emerald-400 dark:bg-emerald-950/40'
                       }`}
                     >
                       {log.durationMs.toFixed(2)}ms
                     </span>
 
                     {/* SQL Statement / Error */}
-                    <div className="flex-1 break-all font-mono">
+                    <div className="flex-1 break-all font-mono text-slate-800 dark:text-zinc-200">
                       <div className="whitespace-pre-wrap">{highlightSQL(log.query)}</div>
                       {isError && log.error && (
-                        <div className="text-rose-400 mt-1 font-sans text-[11px] bg-rose-950/30 p-1.5 rounded border border-rose-900/40">
+                        <div className="text-rose-600 dark:text-rose-400 mt-1 font-sans text-[11px] bg-rose-50 dark:bg-rose-950/30 p-1.5 rounded border border-rose-200 dark:border-rose-900/40">
                           Error: {log.error}
                         </div>
                       )}
@@ -328,11 +328,11 @@ export const QueryConsole: React.FC<QueryConsoleProps> = ({
                     <button
                       type="button"
                       onClick={(e) => handleCopy(e, log.id, log.query)}
-                      title="Copy Query"
-                      className="opacity-0 group-hover:opacity-100 p-1 text-zinc-500 hover:text-zinc-300 hover:bg-surface-750 rounded transition-opacity flex-shrink-0 cursor-pointer"
+                      title="Copy SQL Query"
+                      className="opacity-0 group-hover:opacity-100 p-1 rounded text-slate-400 hover:text-slate-700 dark:text-zinc-500 dark:hover:text-zinc-300 hover:bg-slate-200 dark:hover:bg-zinc-800 transition-all flex-shrink-0 cursor-pointer"
                     >
                       {copiedId === log.id ? (
-                        <Check className="w-3 h-3 text-emerald-400" />
+                        <Check className="w-3 h-3 text-emerald-500 dark:text-emerald-400" />
                       ) : (
                         <Copy className="w-3 h-3" />
                       )}
@@ -343,24 +343,24 @@ export const QueryConsole: React.FC<QueryConsoleProps> = ({
             )
           ) : (
             httpLogs.length === 0 ? (
-              <div className="text-zinc-600 italic py-4 text-center select-none font-sans">
-                No HTTP network requests recorded yet.
+              <div className="text-slate-400 dark:text-zinc-600 italic py-4 text-center select-none font-sans">
+                No HTTP network requests logged yet. API requests will appear here in real time.
               </div>
             ) : (
               httpLogs.map((req) => (
                 <div
                   key={req.id}
-                  className="flex items-center gap-2.5 p-1.5 rounded hover:bg-surface-850/60 transition-colors font-mono text-[11px]"
+                  className="flex items-center gap-2.5 p-1.5 rounded hover:bg-slate-200/60 dark:hover:bg-zinc-800/50 group transition-colors text-slate-800 dark:text-zinc-200"
                 >
-                  <span className="text-[10px] text-zinc-500">{req.timestamp}</span>
-                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-950/70 border border-emerald-500/40 text-emerald-300">
+                  <span className="text-[10px] text-slate-400 dark:text-zinc-500">{req.timestamp}</span>
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 dark:bg-emerald-950/70 border border-emerald-300 dark:border-emerald-500/40 text-emerald-700 dark:text-emerald-300">
                     {req.method}
                   </span>
-                  <span className="text-[10px] px-1.5 py-0.2 rounded bg-zinc-800 text-zinc-300">
+                  <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300">
                     {req.status}
                   </span>
-                  <span className="text-zinc-300 truncate flex-1">{req.url}</span>
-                  <span className="text-zinc-500 text-[10px]">{req.durationMs}ms</span>
+                  <span className="text-slate-800 dark:text-zinc-300 truncate flex-1">{req.url}</span>
+                  <span className="text-slate-400 dark:text-zinc-500 text-[10px]">{req.durationMs}ms</span>
                 </div>
               ))
             )

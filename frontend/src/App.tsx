@@ -754,17 +754,17 @@ export function App() {
             <div className="flex-1 flex flex-col overflow-hidden relative">
               {/* View Switcher Segmented Pill Toggle (Visible when connected) */}
               {activeSession && (
-                <div className="absolute right-4 top-2 z-40 flex items-center bg-[#141414] border border-[#2b2b2b] p-0.5 rounded-lg shadow-md">
+                <div className="absolute right-4 top-2 z-40 flex items-center bg-slate-100 dark:bg-[#141416] border border-slate-300 dark:border-zinc-800 p-0.5 rounded-lg shadow-sm">
                   <button
                     type="button"
                     onClick={() => setDbSubView('tables')}
                     className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs transition-colors cursor-pointer ${
                       dbSubView === 'tables'
-                        ? 'bg-zinc-700 text-white font-medium shadow-sm'
-                        : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40'
+                        ? 'bg-white dark:bg-zinc-800 text-slate-900 dark:text-white font-medium shadow-sm border border-slate-200/80 dark:border-transparent'
+                        : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-200/60 dark:hover:bg-zinc-800/40'
                     }`}
                   >
-                    <Table className="w-3.5 h-3.5 text-brand-400" />
+                    <Table className="w-3.5 h-3.5 text-brand-500 dark:text-brand-400" />
                     <span>Tables</span>
                   </button>
                   <button
@@ -772,11 +772,11 @@ export function App() {
                     onClick={() => setDbSubView('playground')}
                     className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs transition-colors cursor-pointer ${
                       dbSubView === 'playground'
-                        ? 'bg-zinc-700 text-white font-medium shadow-sm'
-                        : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40'
+                        ? 'bg-white dark:bg-zinc-800 text-slate-900 dark:text-white font-medium shadow-sm border border-slate-200/80 dark:border-transparent'
+                        : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-200/60 dark:hover:bg-zinc-800/40'
                     }`}
                   >
-                    <Terminal className="w-3.5 h-3.5 text-amber-400" />
+                    <Terminal className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
                     <span>SQL Playground</span>
                   </button>
                   <button
@@ -784,11 +784,11 @@ export function App() {
                     onClick={() => setDbSubView('erd')}
                     className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs transition-colors cursor-pointer ${
                       dbSubView === 'erd'
-                        ? 'bg-zinc-700 text-white font-medium shadow-sm'
-                        : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40'
+                        ? 'bg-white dark:bg-zinc-800 text-slate-900 dark:text-white font-medium shadow-sm border border-slate-200/80 dark:border-transparent'
+                        : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-200/60 dark:hover:bg-zinc-800/40'
                     }`}
                   >
-                    <Layers className="w-3.5 h-3.5 text-cyan-400" />
+                    <Layers className="w-3.5 h-3.5 text-cyan-500 dark:text-cyan-400" />
                     <span>ERD</span>
                   </button>
                 </div>

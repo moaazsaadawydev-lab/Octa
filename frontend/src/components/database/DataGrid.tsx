@@ -530,8 +530,8 @@ const formatDisplayType = (type?: string, enumValues?: string[]): string => {
       return (
         <span className={`text-[10px] italic px-1.5 py-0.5 rounded border font-mono ${
           isStaged
-            ? 'text-amber-300 bg-amber-950/60 border-amber-500/50'
-            : 'text-gray-500 bg-surface-850 border-border/40'
+            ? 'text-amber-800 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/60 border-amber-300 dark:border-amber-500/50'
+            : 'text-slate-400 dark:text-zinc-500 bg-slate-100 dark:bg-zinc-900 border-slate-200 dark:border-zinc-800'
         }`}>
           NULL
         </span>
@@ -539,25 +539,25 @@ const formatDisplayType = (type?: string, enumValues?: string[]): string => {
     }
     if (typeof val === 'boolean') {
       return val ? (
-        <span className="text-[11px] text-emerald-400 font-mono font-medium">true</span>
+        <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-mono font-medium">true</span>
       ) : (
-        <span className="text-[11px] text-rose-400 font-mono font-medium">false</span>
+        <span className="text-[11px] text-rose-600 dark:text-rose-400 font-mono font-medium">false</span>
       );
     }
     if (typeof val === 'object') {
       return (
-        <span className="font-mono text-gray-300 text-xs truncate max-w-xs block" title={JSON.stringify(val)}>
+        <span className="font-mono text-slate-700 dark:text-zinc-300 text-xs truncate max-w-xs block" title={JSON.stringify(val)}>
           {JSON.stringify(val)}
         </span>
       );
     }
-    return <span className={`truncate ${isStaged ? 'text-amber-200 font-semibold' : 'text-gray-200'}`}>{String(val)}</span>;
+    return <span className={`truncate ${isStaged ? 'text-amber-800 dark:text-amber-200 font-semibold' : 'text-slate-800 dark:text-zinc-200'}`}>{String(val)}</span>;
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-[#141414] overflow-hidden select-none relative">
+    <div className="flex-1 flex flex-col h-full bg-slate-100/60 dark:bg-[#090a0f] text-slate-800 dark:text-zinc-200 overflow-hidden select-none relative transition-colors">
       {/* Quick Filter & Sort Toolbar */}
-      <div className="px-3.5 py-2 bg-[#171717] border-b border-[#292929] flex flex-wrap items-center justify-between gap-2 z-20 text-xs select-none">
+      <div className="px-3.5 py-2 bg-white dark:bg-[#0c0d12] border-b border-slate-200 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-2 z-20 text-xs select-none">
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -567,9 +567,9 @@ const formatDisplayType = (type?: string, enumValues?: string[]): string => {
           }}
           className="flex flex-wrap items-center gap-2"
         >
-          <div className="flex items-center gap-1.5 text-zinc-400 font-medium mr-1">
-            <Filter className="w-3.5 h-3.5 text-cyan-400" />
-            <span className="text-[11px] uppercase tracking-wider text-zinc-400 font-semibold hidden sm:inline">
+          <div className="flex items-center gap-1.5 text-slate-500 dark:text-zinc-400 font-medium mr-1">
+            <Filter className="w-3.5 h-3.5 text-cyan-500 dark:text-cyan-400" />
+            <span className="text-[11px] uppercase tracking-wider text-slate-500 dark:text-zinc-400 font-semibold hidden sm:inline">
               Filter:
             </span>
           </div>
@@ -578,7 +578,7 @@ const formatDisplayType = (type?: string, enumValues?: string[]): string => {
           <select
             value={inputFilterCol}
             onChange={(e) => setInputFilterCol(e.target.value)}
-            className="bg-zinc-900 border border-zinc-700 text-xs px-2.5 py-1 rounded text-zinc-200 focus:border-cyan-500 outline-none font-mono cursor-pointer transition-colors"
+            className="bg-slate-100 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 text-xs px-2.5 py-1 rounded text-slate-800 dark:text-zinc-200 focus:border-cyan-500 outline-none font-mono cursor-pointer transition-colors"
           >
             {columns.map((c) => (
               <option key={c.name} value={c.name}>
@@ -591,7 +591,7 @@ const formatDisplayType = (type?: string, enumValues?: string[]): string => {
           <select
             value={inputFilterOp}
             onChange={(e) => setInputFilterOp(e.target.value)}
-            className="bg-zinc-900 border border-zinc-700 text-xs px-2.5 py-1 rounded text-zinc-200 focus:border-cyan-500 outline-none font-mono cursor-pointer transition-colors"
+            className="bg-slate-100 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 text-xs px-2.5 py-1 rounded text-slate-800 dark:text-zinc-200 focus:border-cyan-500 outline-none font-mono cursor-pointer transition-colors"
           >
             <option value="contains">contains</option>
             <option value="equals">equals</option>
@@ -604,19 +604,19 @@ const formatDisplayType = (type?: string, enumValues?: string[]): string => {
           {/* Value Input */}
           {inputFilterOp !== 'is_null' && (
             <div className="relative flex items-center">
-              <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-2.5 pointer-events-none" />
+              <Search className="w-3.5 h-3.5 text-slate-400 dark:text-zinc-500 absolute left-2.5 pointer-events-none" />
               <input
                 type="text"
                 value={inputFilterVal}
                 onChange={(e) => setInputFilterVal(e.target.value)}
                 placeholder="Filter value..."
-                className="bg-zinc-900 border border-zinc-700 text-xs pl-8 pr-6 py-1 rounded text-zinc-200 focus:border-cyan-500 outline-none font-mono w-40 sm:w-48 placeholder-zinc-500"
+                className="bg-slate-100 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 text-xs pl-8 pr-6 py-1 rounded text-slate-800 dark:text-zinc-200 focus:border-cyan-500 outline-none font-mono w-40 sm:w-48 placeholder-slate-400 dark:placeholder-zinc-500"
               />
               {inputFilterVal && (
                 <button
                   type="button"
                   onClick={() => setInputFilterVal('')}
-                  className="absolute right-2 text-zinc-500 hover:text-zinc-300"
+                  className="absolute right-2 text-slate-400 hover:text-slate-700 dark:text-zinc-500 dark:hover:text-zinc-300"
                 >
                   <X className="w-3 h-3" />
                 </button>
@@ -641,9 +641,9 @@ const formatDisplayType = (type?: string, enumValues?: string[]): string => {
                 onClearFilter();
               }}
               title="Clear Filter"
-              className="px-2 py-1 bg-zinc-800 hover:bg-zinc-750 text-zinc-300 border border-zinc-700 rounded transition-colors text-xs flex items-center gap-1 cursor-pointer"
+              className="px-2 py-1 bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-600 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700 rounded transition-colors text-xs flex items-center gap-1 cursor-pointer"
             >
-              <X className="w-3 h-3 text-zinc-400" />
+              <X className="w-3 h-3 text-slate-400 dark:text-zinc-400" />
               <span>Clear</span>
             </button>
           )}
@@ -652,9 +652,9 @@ const formatDisplayType = (type?: string, enumValues?: string[]): string => {
         {/* Active Filter & Sort Badges */}
         <div className="flex items-center gap-2 flex-wrap">
           {filterColumn && onClearFilter && (
-            <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-cyan-950/70 border border-cyan-500/40 text-cyan-300 text-[11px] font-mono shadow-sm animate-fade-in">
+            <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-cyan-50 dark:bg-cyan-950/70 border border-cyan-300 dark:border-cyan-500/40 text-cyan-800 dark:text-cyan-300 text-[11px] font-mono shadow-sm animate-fade-in">
               <span>
-                Filtered by <strong className="text-cyan-200">{filterColumn}</strong> {filterOp}{' '}
+                Filtered by <strong className="text-cyan-900 dark:text-cyan-200">{filterColumn}</strong> {filterOp}{' '}
                 {filterOp !== 'is_null' && `"${filterValue}"`}
               </span>
               <button
@@ -664,7 +664,7 @@ const formatDisplayType = (type?: string, enumValues?: string[]): string => {
                   onClearFilter();
                 }}
                 title="Clear filter"
-                className="text-cyan-400 hover:text-white p-0.5 rounded-full hover:bg-cyan-900/60 transition-colors ml-0.5"
+                className="text-cyan-600 dark:text-cyan-400 hover:text-cyan-900 dark:hover:text-white p-0.5 rounded-full hover:bg-cyan-100 dark:hover:bg-cyan-900/60 transition-colors ml-0.5"
               >
                 <X className="w-3 h-3" />
               </button>
@@ -672,15 +672,15 @@ const formatDisplayType = (type?: string, enumValues?: string[]): string => {
           )}
 
           {sortColumn && onSortChange && (
-            <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-brand-950/70 border border-brand-500/40 text-brand-300 text-[11px] font-mono shadow-sm animate-fade-in">
+            <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-brand-50 dark:bg-brand-950/70 border border-brand-300 dark:border-brand-500/40 text-brand-800 dark:text-brand-300 text-[11px] font-mono shadow-sm animate-fade-in">
               <span>
-                Sorted by <strong className="text-brand-200">{sortColumn}</strong> ({sortOrder})
+                Sorted by <strong className="text-brand-900 dark:text-brand-200">{sortColumn}</strong> ({sortOrder})
               </span>
               <button
                 type="button"
                 onClick={() => onSortChange('', '')}
                 title="Clear sort"
-                className="text-brand-400 hover:text-white p-0.5 rounded-full hover:bg-brand-900/60 transition-colors ml-0.5"
+                className="text-brand-600 dark:text-brand-400 hover:text-brand-900 dark:hover:text-white p-0.5 rounded-full hover:bg-brand-100 dark:hover:bg-brand-900/60 transition-colors ml-0.5"
               >
                 <X className="w-3 h-3" />
               </button>
@@ -691,8 +691,8 @@ const formatDisplayType = (type?: string, enumValues?: string[]): string => {
 
       {/* 1. Staged Changes Action Banner (when edits exist) */}
       {totalStagedEditsCount > 0 && (
-        <div className="px-4 py-2 bg-amber-950/80 border-b border-amber-500/40 backdrop-blur-md flex items-center justify-between z-30 animate-fade-in">
-          <div className="flex items-center gap-2 text-xs text-amber-200 font-medium">
+        <div className="px-4 py-2 bg-amber-50 dark:bg-amber-950/80 border-b border-amber-300 dark:border-amber-500/40 backdrop-blur-md flex items-center justify-between z-30 animate-fade-in">
+          <div className="flex items-center gap-2 text-xs text-amber-900 dark:text-amber-200 font-medium">
             <span className="flex h-2 w-2 relative">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
@@ -700,7 +700,7 @@ const formatDisplayType = (type?: string, enumValues?: string[]): string => {
             <span>
               <strong>{totalStagedEditsCount}</strong> unsaved cell mutation{totalStagedEditsCount > 1 ? 's' : ''} staged
             </span>
-            <span className="text-amber-400/60 text-[11px] font-mono">(PK: {detectedPkCol})</span>
+            <span className="text-amber-700 dark:text-amber-400/60 text-[11px] font-mono">(PK: {detectedPkCol})</span>
           </div>
 
           <div className="flex items-center gap-2">
@@ -708,9 +708,9 @@ const formatDisplayType = (type?: string, enumValues?: string[]): string => {
               type="button"
               onClick={handleDiscardStaged}
               disabled={savingUpdates}
-              className="flex items-center gap-1 px-2.5 py-1 rounded bg-surface-850 hover:bg-surface-800 text-gray-300 border border-border text-xs font-medium transition-colors"
+              className="flex items-center gap-1 px-2.5 py-1 rounded bg-slate-100 hover:bg-slate-200 dark:bg-zinc-900 dark:hover:bg-surface-800 text-slate-700 dark:text-zinc-300 border border-slate-200 dark:border-zinc-800 text-xs font-medium transition-colors"
             >
-              <RotateCcw className="w-3 h-3 text-gray-400" />
+              <RotateCcw className="w-3 h-3 text-slate-500 dark:text-zinc-400" />
               <span>Discard</span>
             </button>
 
@@ -733,17 +733,17 @@ const formatDisplayType = (type?: string, enumValues?: string[]): string => {
 
       {/* 2. Multi-Row Selection Sticky Action Bar */}
       {(selectedRowIds.size > 0 || isAllTableSelected) && (
-        <div className="px-4 py-2 bg-brand-950/85 border-b border-brand-500/40 backdrop-blur-md flex items-center justify-between z-30 animate-fade-in">
-          <div className="flex items-center gap-2.5 text-xs text-brand-200 font-medium">
-            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-brand-500/20 border border-brand-500/30 text-brand-300">
-              <Sparkles className="w-3.5 h-3.5 text-brand-400" />
+        <div className="px-4 py-2 bg-brand-50 dark:bg-brand-950/85 border-b border-brand-300 dark:border-brand-500/40 backdrop-blur-md flex items-center justify-between z-30 animate-fade-in">
+          <div className="flex items-center gap-2.5 text-xs text-brand-900 dark:text-brand-200 font-medium">
+            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-brand-500/10 dark:bg-brand-500/20 border border-brand-500/30 text-brand-700 dark:text-brand-300">
+              <Sparkles className="w-3.5 h-3.5 text-brand-500 dark:text-brand-400" />
               <span>
                 {isAllTableSelected
                   ? `All ${totalRows.toLocaleString()} rows selected in table`
                   : `${selectedRowIds.size} row${selectedRowIds.size > 1 ? 's' : ''} selected`}
               </span>
             </div>
-            <span className="text-brand-400/60 text-[11px] font-mono">(PK: {detectedPkCol})</span>
+            <span className="text-brand-600 dark:text-brand-400/60 text-[11px] font-mono">(PK: {detectedPkCol})</span>
           </div>
 
           <div className="flex items-center gap-2">
@@ -754,9 +754,9 @@ const formatDisplayType = (type?: string, enumValues?: string[]): string => {
                 setIsAllTableSelected(false);
               }}
               disabled={deletingRows}
-              className="flex items-center gap-1 px-2.5 py-1 rounded bg-surface-850 hover:bg-surface-800 text-gray-300 border border-border text-xs font-medium transition-colors"
+              className="flex items-center gap-1 px-2.5 py-1 rounded bg-slate-100 hover:bg-slate-200 dark:bg-zinc-900 dark:hover:bg-surface-800 text-slate-700 dark:text-zinc-300 border border-slate-200 dark:border-zinc-800 text-xs font-medium transition-colors"
             >
-              <X className="w-3 h-3 text-gray-400" />
+              <X className="w-3 h-3 text-slate-500 dark:text-zinc-400" />
               <span>Deselect All</span>
             </button>
 
@@ -777,13 +777,13 @@ const formatDisplayType = (type?: string, enumValues?: string[]): string => {
 
       {/* 3. Table Prompt Banner for Selecting All Table Records */}
       {allPageRowsSelected && totalRows > rows.length && !isAllTableSelected && (
-        <div className="px-4 py-1.5 bg-[#1b2230] border-b border-brand-500/30 flex items-center justify-center text-xs text-brand-200 z-20">
+        <div className="px-4 py-1.5 bg-brand-50 dark:bg-[#1b2230] border-b border-brand-300 dark:border-brand-500/30 flex items-center justify-center text-xs text-brand-900 dark:text-brand-200 z-20">
           <span>
             All <strong>{rows.length}</strong> rows on this page are selected.{' '}
             <button
               type="button"
               onClick={() => setIsAllTableSelected(true)}
-              className="text-brand-400 hover:text-brand-300 font-semibold underline ml-1 cursor-pointer transition-colors"
+              className="text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 font-semibold underline ml-1 cursor-pointer transition-colors"
             >
               Select all {totalRows.toLocaleString()} records in "{tableName}"
             </button>
@@ -792,11 +792,11 @@ const formatDisplayType = (type?: string, enumValues?: string[]): string => {
       )}
 
       {/* 4. Table Content Container */}
-      <div className="flex-1 overflow-auto relative">
+      <div className="flex-1 overflow-auto relative bg-white dark:bg-[#090a0f]">
         {loading && (
-          <div className="absolute inset-0 bg-surface-950/60 backdrop-blur-xs flex items-center justify-center z-30">
-            <div className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-surface-900 border border-border text-xs text-brand-300 shadow-xl">
-              <Loader2 className="w-4 h-4 animate-spin text-brand-400" />
+          <div className="absolute inset-0 bg-white/70 dark:bg-surface-950/60 backdrop-blur-xs flex items-center justify-center z-30">
+            <div className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-white dark:bg-[#0c0d12] border border-slate-200 dark:border-zinc-800 text-xs text-brand-600 dark:text-brand-300 shadow-xl">
+              <Loader2 className="w-4 h-4 animate-spin text-brand-500 dark:text-brand-400" />
               <span>Fetching records...</span>
             </div>
           </div>
@@ -804,21 +804,21 @@ const formatDisplayType = (type?: string, enumValues?: string[]): string => {
 
         <table className="text-left border-collapse text-xs select-text table-fixed min-w-full">
           {/* Sticky Header */}
-          <thead className="sticky top-0 bg-[#1F1F1F] z-20 shadow-sm border-b border-[#2D2D2D]">
+          <thead className="sticky top-0 bg-slate-100 dark:bg-[#12141a] z-20 shadow-sm border-b border-slate-200 dark:border-zinc-800">
             <tr>
               {/* Checkbox Column */}
-              <th className="w-[44px] min-w-[44px] max-w-[44px] px-2.5 py-2.5 text-center border-r border-[#2D2D2D] bg-[#1a1a1a] sticky left-0 z-30">
+              <th className="w-[44px] min-w-[44px] max-w-[44px] px-2.5 py-2.5 text-center border-r border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-[#12141a] sticky left-0 z-30">
                 <input
                   ref={headerCheckboxRef}
                   type="checkbox"
                   checked={isAllTableSelected || (allPageRowsSelected && rows.length > 0)}
                   onChange={handleToggleSelectAllPage}
-                  className="rounded border-gray-600 bg-surface-800 text-brand-500 focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                  className="rounded border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-brand-500 focus:ring-0 focus:ring-offset-0 cursor-pointer"
                 />
               </th>
 
               {/* Row Number Sticky Column */}
-              <th className="w-[50px] min-w-[50px] max-w-[50px] px-2 py-2.5 text-center text-gray-500 font-mono font-medium text-[11px] border-r border-[#2D2D2D] bg-[#1a1a1a] sticky left-[44px] z-30">
+              <th className="w-[50px] min-w-[50px] max-w-[50px] px-2 py-2.5 text-center text-slate-500 dark:text-zinc-500 font-mono font-medium text-[11px] border-r border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-[#12141a] sticky left-[44px] z-30">
                 #
               </th>
 
@@ -830,8 +830,8 @@ const formatDisplayType = (type?: string, enumValues?: string[]): string => {
                   <th
                     key={col.name}
                     style={{ width, minWidth: width, maxWidth: width }}
-                    className={`px-4 py-2.5 font-medium border-r border-[#2D2D2D] group/col transition-colors relative select-none whitespace-nowrap ${
-                      isColSorted ? 'bg-[#242424] text-cyan-300' : 'text-gray-200 hover:bg-[#252525]'
+                    className={`px-4 py-2.5 font-medium border-r border-slate-200 dark:border-zinc-800 group/col transition-colors relative select-none whitespace-nowrap ${
+                      isColSorted ? 'bg-slate-200/70 dark:bg-zinc-800 text-cyan-700 dark:text-cyan-300' : 'text-slate-800 dark:text-zinc-200 hover:bg-slate-200/60 dark:hover:bg-zinc-800/60'
                     }`}
                   >
                     <div className="flex items-center justify-between gap-1.5 pr-2 overflow-hidden">
@@ -845,17 +845,17 @@ const formatDisplayType = (type?: string, enumValues?: string[]): string => {
                           }
                           onSortChange(col.name, nextOrder);
                         }}
-                        className="flex items-center gap-1.5 min-w-0 truncate flex-1 cursor-pointer hover:text-cyan-300 transition-colors"
+                        className="flex items-center gap-1.5 min-w-0 truncate flex-1 cursor-pointer hover:text-cyan-600 dark:hover:text-cyan-300 transition-colors"
                         title={`Click to sort by "${col.name}"`}
                       >
                         {col.isPrimaryKey && (
                           <span title="Primary Key" className="inline-flex flex-shrink-0">
-                            <Key className="w-3 h-3 text-amber-400" />
+                            <Key className="w-3 h-3 text-amber-500 dark:text-amber-400" />
                           </span>
                         )}
                         <span
                           className={`font-semibold truncate ${
-                            isColSorted ? 'text-cyan-300' : 'text-gray-100'
+                            isColSorted ? 'text-cyan-700 dark:text-cyan-300' : 'text-slate-900 dark:text-zinc-100'
                           }`}
                         >
                           {col.name}
@@ -864,17 +864,17 @@ const formatDisplayType = (type?: string, enumValues?: string[]): string => {
                         {/* Sort Indicator */}
                         {isColSorted ? (
                           sortOrder === 'ASC' ? (
-                            <ArrowUp className="w-3.5 h-3.5 text-cyan-400 flex-shrink-0" />
+                            <ArrowUp className="w-3.5 h-3.5 text-cyan-500 dark:text-cyan-400 flex-shrink-0" />
                           ) : (
-                            <ArrowDown className="w-3.5 h-3.5 text-cyan-400 flex-shrink-0" />
+                            <ArrowDown className="w-3.5 h-3.5 text-cyan-500 dark:text-cyan-400 flex-shrink-0" />
                           )
                         ) : (
-                          <ArrowUpDown className="w-3 h-3 text-zinc-500 opacity-0 group-hover/col:opacity-60 flex-shrink-0 transition-opacity" />
+                          <ArrowUpDown className="w-3 h-3 text-slate-400 dark:text-zinc-500 opacity-0 group-hover/col:opacity-60 flex-shrink-0 transition-opacity" />
                         )}
 
                         {col.type && (
                           <span
-                            className="text-[10px] text-zinc-500 font-normal font-mono flex-shrink-0"
+                            className="text-[10px] text-slate-500 dark:text-zinc-500 font-normal font-mono flex-shrink-0"
                             title={col.type}
                           >
                             ({formatDisplayType(col.type, col.enumValues)})
@@ -891,7 +891,7 @@ const formatDisplayType = (type?: string, enumValues?: string[]): string => {
                             setColumnToRename({ oldName: col.name, newName: col.name });
                           }}
                           title="Rename Column"
-                          className="p-1 rounded text-gray-400 hover:text-brand-300 hover:bg-surface-700 transition-colors"
+                          className="p-1 rounded text-slate-400 hover:text-brand-600 dark:text-zinc-400 dark:hover:text-brand-300 hover:bg-slate-200 dark:hover:bg-zinc-700 transition-colors"
                         >
                           <Edit2 className="w-2.5 h-2.5" />
                         </button>
@@ -902,7 +902,7 @@ const formatDisplayType = (type?: string, enumValues?: string[]): string => {
                             setColumnToDrop(col.name);
                           }}
                           title="Drop Column"
-                          className="p-1 rounded text-gray-400 hover:text-rose-400 hover:bg-surface-700 transition-colors"
+                          className="p-1 rounded text-slate-400 hover:text-rose-600 dark:text-zinc-400 dark:hover:text-rose-400 hover:bg-slate-200 dark:hover:bg-zinc-700 transition-colors"
                         >
                           <Trash2 className="w-2.5 h-2.5" />
                         </button>
@@ -923,12 +923,12 @@ const formatDisplayType = (type?: string, enumValues?: string[]): string => {
           </thead>
 
           {/* Table Body */}
-          <tbody className="divide-y divide-[#242424]">
+          <tbody className="divide-y divide-slate-200/80 dark:divide-zinc-800/60">
             {rows.length === 0 && !loading && (
               <tr>
                 <td
                   colSpan={columns.length + 2}
-                  className="py-16 text-center text-gray-500 italic select-none"
+                  className="py-16 text-center text-slate-400 dark:text-zinc-500 italic select-none"
                 >
                   No records in "{tableName}"
                 </td>
@@ -944,25 +944,25 @@ const formatDisplayType = (type?: string, enumValues?: string[]): string => {
                   key={rIdx}
                   className={`transition-colors group/row ${
                     isRowSelected
-                      ? 'bg-brand-950/35 hover:bg-brand-900/45 text-blue-100'
-                      : 'hover:bg-[#1a1a1a]'
+                      ? 'bg-brand-50/70 dark:bg-brand-950/35 hover:bg-brand-100/70 dark:hover:bg-brand-900/45 text-slate-900 dark:text-blue-100'
+                      : 'hover:bg-slate-50/80 dark:hover:bg-zinc-800/40'
                   }`}
                 >
                   {/* Row Checkbox Column */}
-                  <td className={`w-[44px] min-w-[44px] max-w-[44px] px-2.5 py-2 text-center border-r border-[#242424] sticky left-0 z-10 select-none ${
-                    isRowSelected ? 'bg-[#151c28]' : 'bg-[#141414] group-hover/row:bg-[#1a1a1a]'
+                  <td className={`w-[44px] min-w-[44px] max-w-[44px] px-2.5 py-2 text-center border-r border-slate-200 dark:border-[#242424] sticky left-0 z-10 select-none ${
+                    isRowSelected ? 'bg-brand-50 dark:bg-[#151c28]' : 'bg-white dark:bg-[#141414] group-hover/row:bg-slate-50 dark:group-hover/row:bg-[#1a1a1a]'
                   }`}>
                     <input
                       type="checkbox"
                       checked={isRowSelected}
                       onChange={() => handleToggleRowSelect(rowId)}
-                      className="rounded border-gray-600 bg-surface-800 text-brand-500 focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                      className="rounded border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-brand-500 focus:ring-0 focus:ring-offset-0 cursor-pointer"
                     />
                   </td>
 
                   {/* Sticky Row Index */}
-                  <td className={`w-[50px] min-w-[50px] max-w-[50px] px-2 py-2 text-center text-gray-500 font-mono text-[10px] border-r border-[#242424] sticky left-[44px] z-10 select-none ${
-                    isRowSelected ? 'bg-[#151c28]' : 'bg-[#141414] group-hover/row:bg-[#1a1a1a]'
+                  <td className={`w-[50px] min-w-[50px] max-w-[50px] px-2 py-2 text-center text-slate-400 dark:text-zinc-500 font-mono text-[10px] border-r border-slate-200 dark:border-[#242424] sticky left-[44px] z-10 select-none ${
+                    isRowSelected ? 'bg-brand-50 dark:bg-[#151c28]' : 'bg-white dark:bg-[#141414] group-hover/row:bg-slate-50 dark:group-hover/row:bg-[#1a1a1a]'
                   }`}>
                     {(page - 1) * limit + rIdx + 1}
                   </td>
@@ -981,15 +981,15 @@ const formatDisplayType = (type?: string, enumValues?: string[]): string => {
                         key={col.name}
                         style={{ width, minWidth: width, maxWidth: width }}
                         onDoubleClick={() => handleStartEdit(rIdx, row, col)}
-                        className={`px-4 py-2 border-r border-[#242424] truncate relative cursor-pointer ${
+                        className={`px-4 py-2 border-r border-slate-200 dark:border-[#242424] truncate relative cursor-pointer ${
                           staged
-                            ? 'bg-amber-500/15 text-amber-200 border-b-amber-500/40'
+                            ? 'bg-amber-100/60 dark:bg-amber-500/15 text-amber-900 dark:text-amber-200 border-b-amber-500/40'
                             : ''
                         }`}
                       >
                         {/* Staged Indicator Corner Dot */}
                         {staged && (
-                          <div className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-amber-400 ring-1 ring-black" title="Staged edit" />
+                          <div className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-amber-500 ring-1 ring-white dark:ring-black" title="Staged edit" />
                         )}
 
                         {/* Inline Editor */}
@@ -1008,7 +1008,7 @@ const formatDisplayType = (type?: string, enumValues?: string[]): string => {
                                   if (e.key === 'Enter') commitEdit();
                                   if (e.key === 'Escape') setEditingCell(null);
                                 }}
-                                className="w-full bg-[#1a1a1a] border border-brand-500 rounded px-1 py-0.5 text-xs text-gray-100 outline-none font-mono"
+                                className="w-full bg-white dark:bg-[#12141a] border border-brand-500 rounded px-1 py-0.5 text-xs text-slate-900 dark:text-zinc-100 outline-none font-mono"
                               >
                                 <option value="true">true</option>
                                 <option value="false">false</option>
@@ -1027,7 +1027,7 @@ const formatDisplayType = (type?: string, enumValues?: string[]): string => {
                                   if (e.key === 'Enter') commitEdit();
                                   if (e.key === 'Escape') setEditingCell(null);
                                 }}
-                                className="w-full bg-[#1a1a1a] border border-brand-500 rounded px-1 py-0.5 text-xs text-gray-100 outline-none font-mono"
+                                className="w-full bg-white dark:bg-[#12141a] border border-brand-500 rounded px-1 py-0.5 text-xs text-slate-900 dark:text-zinc-100 outline-none font-mono"
                               >
                                 {col.enumValues?.map((opt) => (
                                   <option key={opt} value={opt}>
@@ -1049,7 +1049,7 @@ const formatDisplayType = (type?: string, enumValues?: string[]): string => {
                                   if (e.key === 'Enter') commitEdit();
                                   if (e.key === 'Escape') setEditingCell(null);
                                 }}
-                                className="w-full bg-[#1a1a1a] border border-brand-500 rounded px-1.5 py-0.5 text-xs text-gray-100 outline-none font-mono"
+                                className="w-full bg-white dark:bg-[#12141a] border border-brand-500 rounded px-1.5 py-0.5 text-xs text-slate-900 dark:text-zinc-100 outline-none font-mono"
                               />
                             )}
                           </div>
@@ -1067,19 +1067,19 @@ const formatDisplayType = (type?: string, enumValues?: string[]): string => {
       </div>
 
       {/* 3. Pagination Footer */}
-      <div className="px-4 py-2.5 bg-surface-900 border-t border-border-subtle flex items-center justify-between text-xs text-gray-400 select-none flex-shrink-0">
+      <div className="px-4 py-2.5 bg-white dark:bg-[#0c0d12] border-t border-slate-200 dark:border-zinc-800 flex items-center justify-between text-xs text-slate-600 dark:text-zinc-400 select-none flex-shrink-0 transition-colors">
         <div className="flex items-center gap-4">
           <span>
-            Showing <strong className="text-gray-200">{startRow}-{endRow}</strong> of{' '}
-            <strong className="text-gray-200">{totalRows.toLocaleString()}</strong> rows
+            Showing <strong className="text-slate-900 dark:text-zinc-200">{startRow}-{endRow}</strong> of{' '}
+            <strong className="text-slate-900 dark:text-zinc-200">{totalRows.toLocaleString()}</strong> rows
           </span>
 
           <div className="flex items-center gap-1.5">
-            <span className="text-[11px] text-gray-500">Rows per page:</span>
+            <span className="text-[11px] text-slate-500 dark:text-zinc-500">Rows per page:</span>
             <select
               value={limit}
               onChange={(e) => onLimitChange(Number(e.target.value))}
-              className="bg-surface-800 border border-border text-gray-300 text-xs rounded px-2 py-1 focus:outline-none focus:border-brand-500"
+              className="bg-slate-100 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-800 text-slate-800 dark:text-zinc-300 text-xs rounded px-2 py-1 focus:outline-none focus:border-brand-500"
             >
               <option value={25}>25</option>
               <option value={50}>50</option>
@@ -1091,21 +1091,21 @@ const formatDisplayType = (type?: string, enumValues?: string[]): string => {
 
         {/* Page Navigation */}
         <div className="flex items-center gap-2">
-          <span className="text-[11px] text-gray-400">
+          <span className="text-[11px] text-slate-500 dark:text-zinc-400">
             Page {page} of {totalPages}
           </span>
           <div className="flex items-center gap-1">
             <button
               onClick={() => onPageChange(Math.max(1, page - 1))}
               disabled={page <= 1 || loading}
-              className="p-1 rounded bg-surface-800 hover:bg-surface-750 text-gray-300 border border-border/80 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="p-1 rounded bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-surface-750 text-slate-700 dark:text-zinc-300 border border-slate-200 dark:border-zinc-800/80 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               <ChevronLeft className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={() => onPageChange(Math.min(totalPages, page + 1))}
               disabled={page >= totalPages || loading}
-              className="p-1 rounded bg-surface-800 hover:bg-surface-750 text-gray-300 border border-border/80 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="p-1 rounded bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-surface-750 text-slate-700 dark:text-zinc-300 border border-slate-200 dark:border-zinc-800/80 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               <ChevronRight className="w-3.5 h-3.5" />
             </button>

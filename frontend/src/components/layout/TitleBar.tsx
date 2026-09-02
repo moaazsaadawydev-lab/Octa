@@ -102,13 +102,13 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                       setIsMenuOpen(false);
                       onSaveProject();
                     }}
-                    className="w-full px-3 py-1.5 flex items-center justify-between hover:bg-zinc-800 hover:text-white transition-colors cursor-pointer"
+                    className="w-full px-3 py-1.5 flex items-center justify-between hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
                   >
                     <div className="flex items-center gap-2">
-                      <Save className="w-3.5 h-3.5 text-brand-400" />
+                      <Save className="w-3.5 h-3.5 text-brand-500 dark:text-brand-400" />
                       <span>Save Project</span>
                     </div>
-                    <span className="text-[10px] text-zinc-500 font-mono">Ctrl+S</span>
+                    <span className="text-[10px] text-slate-400 dark:text-zinc-500 font-mono">Ctrl+S</span>
                   </button>
                 )}
 
@@ -119,9 +119,9 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                       setIsMenuOpen(false);
                       onSaveProjectAs();
                     }}
-                    className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-zinc-800 hover:text-white transition-colors cursor-pointer"
+                    className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
                   >
-                    <FileCode className="w-3.5 h-3.5 text-zinc-400" />
+                    <FileCode className="w-3.5 h-3.5 text-slate-500 dark:text-zinc-400" />
                     <span>Save Project As...</span>
                   </button>
                 )}
@@ -133,9 +133,9 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                       setIsMenuOpen(false);
                       onOpenProject();
                     }}
-                    className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-zinc-800 hover:text-white transition-colors cursor-pointer"
+                    className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
                   >
-                    <FolderOpen className="w-3.5 h-3.5 text-zinc-400" />
+                    <FolderOpen className="w-3.5 h-3.5 text-slate-500 dark:text-zinc-400" />
                     <span>Open Another Project...</span>
                   </button>
                 )}
@@ -147,17 +147,17 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                       setIsMenuOpen(false);
                       onOpenSettings();
                     }}
-                    className="w-full px-3 py-1.5 flex items-center justify-between hover:bg-zinc-800 hover:text-white transition-colors cursor-pointer"
+                    className="w-full px-3 py-1.5 flex items-center justify-between hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
                   >
                     <div className="flex items-center gap-2">
-                      <Settings className="w-3.5 h-3.5 text-zinc-400" />
+                      <Settings className="w-3.5 h-3.5 text-slate-500 dark:text-zinc-400" />
                       <span>Preferences</span>
                     </div>
-                    <span className="text-[10px] text-zinc-500 font-mono">Ctrl+,</span>
+                    <span className="text-[10px] text-slate-400 dark:text-zinc-500 font-mono">Ctrl+,</span>
                   </button>
                 )}
 
-                <div className="h-px bg-zinc-800 my-1" />
+                <div className="h-px bg-slate-200 dark:bg-zinc-800 my-1" />
 
                 {onCloseProject && (
                   <button
@@ -166,9 +166,9 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                       setIsMenuOpen(false);
                       onCloseProject();
                     }}
-                    className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-rose-950/40 text-rose-400 hover:text-rose-300 transition-colors cursor-pointer"
+                    className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 transition-colors cursor-pointer"
                   >
-                    <LogOut className="w-3.5 h-3.5 text-rose-400" />
+                    <LogOut className="w-3.5 h-3.5 text-rose-500 dark:text-rose-400" />
                     <span>Close Project</span>
                   </button>
                 )}
@@ -227,23 +227,23 @@ export const TitleBar: React.FC<TitleBarProps> = ({
       {/* Right Auto-save Status & Project Actions */}
       <div className="flex items-center gap-2" style={{ '--wails-draggable': 'no-drag' } as any}>
         {activeProject && (
-          <div className="flex items-center gap-1 text-[11px] text-zinc-400 font-mono px-2 py-0.5 rounded bg-zinc-900/80 border border-zinc-800">
+          <div className="flex items-center gap-1 text-[11px] text-slate-700 dark:text-zinc-300 font-mono px-2 py-0.5 rounded bg-slate-100 dark:bg-zinc-800/80 border border-slate-200 dark:border-zinc-700">
             {isSavingProject ? (
               <>
-                <Loader2 className="w-3 h-3 text-brand-400 animate-spin" />
+                <Loader2 className="w-3 h-3 text-brand-500 dark:text-brand-400 animate-spin" />
                 <span>Saving...</span>
               </>
             ) : (
               <>
-                <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
                 <span>Auto-saved</span>
               </>
             )}
           </div>
         )}
 
-        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-mono bg-zinc-900 border border-zinc-800 text-zinc-400">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-mono bg-slate-100 dark:bg-zinc-800/80 border border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-300">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse" />
           <span>Octa v2.0</span>
         </div>
       </div>

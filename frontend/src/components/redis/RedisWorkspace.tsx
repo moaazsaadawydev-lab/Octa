@@ -238,7 +238,7 @@ export const RedisWorkspace: React.FC<RedisWorkspaceProps> = ({
       setIsResizing(false);
       try {
         localStorage.setItem('octa_redis_sidebar_width', String(sidebarWidth));
-      } catch {}
+      } catch { }
     };
     if (isResizing) {
       window.addEventListener('mousemove', handleMouseMove);
@@ -817,13 +817,12 @@ export const RedisWorkspace: React.FC<RedisWorkspaceProps> = ({
           setContextMenu({ x: e.clientX, y: e.clientY, node });
         }}
         style={{ paddingLeft: depth * 14 + 22 }}
-        className={`w-full pr-2 py-1.5 rounded-lg flex items-center justify-between text-left transition-all cursor-pointer group select-none ${
-          isTabActive
-            ? 'bg-blue-600/20 text-white font-medium border-l-2 border-blue-400 shadow-sm'
-            : isTabOpen
+        className={`w-full pr-2 py-1.5 rounded-lg flex items-center justify-between text-left transition-all cursor-pointer group select-none ${isTabActive
+          ? 'bg-blue-600/20 text-white font-medium border-l-2 border-blue-400 shadow-sm'
+          : isTabOpen
             ? 'bg-zinc-800/40 text-blue-300'
             : 'text-zinc-300 hover:text-zinc-100 hover:bg-[#1a1a1e]'
-        }`}
+          }`}
       >
         <div className="flex items-center gap-1.5 truncate min-w-0 pr-1">
           <Key className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />
@@ -855,21 +854,21 @@ export const RedisWorkspace: React.FC<RedisWorkspaceProps> = ({
   // =========================================================================
   if (connections.length === 0) {
     return (
-      <div className="flex-1 flex h-full bg-[#121212] text-zinc-100 font-sans overflow-hidden select-none">
+      <div className="flex-1 flex h-full bg-slate-50 dark:bg-[#121212] text-slate-900 dark:text-zinc-100 font-sans overflow-hidden select-none transition-colors">
         {/* Left Sidebar (Matching Database Workspace Sidebar Zero-State) */}
         <div
           style={{ width: sidebarWidth, minWidth: sidebarWidth, maxWidth: sidebarWidth }}
-          className="bg-surface-900 border-r border-border-subtle flex flex-col h-full select-none flex-shrink-0 font-sans"
+          className="bg-white dark:bg-surface-900 border-r border-slate-200 dark:border-border-subtle flex flex-col h-full select-none flex-shrink-0 font-sans transition-colors"
         >
           {/* Header */}
-          <div className="p-2 border-b border-border-subtle bg-surface-850/50">
+          <div className="p-2 border-b border-slate-200 dark:border-border-subtle bg-slate-50/70 dark:bg-surface-850/50">
             <div className="px-2 py-1.5 flex items-center justify-between">
               <div className="flex items-center gap-1.5">
-                <ChevronRight className="w-3.5 h-3.5 text-zinc-400 rotate-90" />
-                <span className="text-xs font-bold uppercase tracking-wider text-gray-400">
+                <ChevronRight className="w-3.5 h-3.5 text-slate-400 dark:text-zinc-400 rotate-90" />
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-gray-400">
                   Explorer
                 </span>
-                <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-surface-800 text-gray-400 border border-border/50 font-mono">
+                <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-100 dark:bg-surface-800 text-slate-600 dark:text-gray-400 border border-slate-200 dark:border-border/50 font-mono">
                   0
                 </span>
               </div>
@@ -881,7 +880,7 @@ export const RedisWorkspace: React.FC<RedisWorkspaceProps> = ({
                     setIsConnModalOpen(true);
                   }}
                   title="Add New Connection"
-                  className="p-1 rounded-md bg-brand-600/20 text-brand-400 hover:bg-brand-600 hover:text-white border border-brand-500/30 transition-all cursor-pointer"
+                  className="p-1 rounded-md bg-brand-500/10 dark:bg-brand-600/20 text-brand-600 dark:text-brand-400 hover:bg-brand-600 hover:text-white border border-brand-500/30 transition-all cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5" />
                 </button>
@@ -891,11 +890,11 @@ export const RedisWorkspace: React.FC<RedisWorkspaceProps> = ({
 
           {/* Sidebar Empty State Body */}
           <div className="p-4 text-center my-2 flex flex-col items-center justify-center flex-1">
-            <div className="w-10 h-10 rounded-xl bg-surface-800 border border-border flex items-center justify-center text-gray-400 mb-2">
-              <HardDrive className="w-5 h-5 text-gray-400" />
+            <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-surface-800 border border-slate-200 dark:border-border flex items-center justify-center text-slate-400 dark:text-gray-400 mb-2">
+              <HardDrive className="w-5 h-5 text-slate-400 dark:text-gray-400" />
             </div>
-            <div className="text-xs font-semibold text-gray-200 mb-1">No connections</div>
-            <p className="text-[11px] text-gray-400 leading-relaxed mb-3">
+            <div className="text-xs font-semibold text-slate-800 dark:text-gray-200 mb-1">No connections</div>
+            <p className="text-[11px] text-slate-500 dark:text-gray-400 leading-relaxed mb-3">
               Add your Redis server to start exploring.
             </p>
             <button
@@ -915,9 +914,8 @@ export const RedisWorkspace: React.FC<RedisWorkspaceProps> = ({
         {/* Resizable Handle Divider in Zero State */}
         <div
           onMouseDown={startResizing}
-          className={`w-1 hover:w-1.5 cursor-col-resize select-none transition-colors ${
-            isResizing ? 'bg-blue-500 w-1.5' : 'bg-zinc-800/80 hover:bg-blue-500/50'
-          }`}
+          className={`w-1 hover:w-1.5 cursor-col-resize select-none transition-colors ${isResizing ? 'bg-blue-500 w-1.5' : 'bg-slate-200 dark:bg-zinc-800/80 hover:bg-blue-500/50'
+            }`}
         />
 
         {/* Center Viewport (Central Graphic with "+ Create New Connection") */}
@@ -946,20 +944,20 @@ export const RedisWorkspace: React.FC<RedisWorkspaceProps> = ({
   // MAIN WORKSPACE LAYOUT (Active Connection Tree + Multi-Tab Center Panel)
   // =========================================================================
   return (
-    <div className="flex-1 flex flex-col h-full bg-[#0e0e11] text-zinc-100 font-sans overflow-hidden select-none">
+    <div className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-[#0e0e11] text-slate-900 dark:text-zinc-100 font-sans overflow-hidden select-none transition-colors">
       {/* Top Global Toolbar */}
-      <div className="h-12 border-b border-[#242429] bg-[#141418] px-4 flex items-center justify-between flex-shrink-0 z-20">
+      <div className="h-12 border-b border-slate-200 dark:border-[#242429] bg-white dark:bg-[#141418] px-4 flex items-center justify-between flex-shrink-0 z-20">
         {/* Left: Active Connection & DB Switcher */}
         <div className="flex items-center gap-3">
           {/* Connection Selector */}
           <div className="flex items-center gap-2">
-            <div className="p-1.5 rounded-lg bg-blue-600/20 border border-blue-500/30 text-blue-400">
+            <div className="p-1.5 rounded-lg bg-blue-500/10 dark:bg-blue-600/20 border border-blue-500/30 text-blue-600 dark:text-blue-400">
               <Layers className="w-4 h-4" />
             </div>
             <select
               value={activeConnId}
               onChange={(e) => setActiveConnId(e.target.value)}
-              className="bg-[#1b1b20] border border-zinc-700/80 rounded-lg px-2.5 py-1 text-xs font-semibold text-zinc-100 outline-none hover:border-zinc-500 transition-colors cursor-pointer"
+              className="bg-slate-100 dark:bg-[#1b1b20] border border-slate-200 dark:border-zinc-700/80 rounded-lg px-2.5 py-1 text-xs font-semibold text-slate-800 dark:text-zinc-100 outline-none hover:border-slate-400 dark:hover:border-zinc-500 transition-colors cursor-pointer"
             >
               {connections.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -970,15 +968,15 @@ export const RedisWorkspace: React.FC<RedisWorkspaceProps> = ({
           </div>
 
           {/* Database Switcher (db0 - db15) */}
-          <div className="flex items-center gap-1.5 bg-[#1b1b20] border border-zinc-700/80 rounded-lg px-2 py-0.5">
-            <span className="text-[11px] text-zinc-400 font-mono">DB:</span>
+          <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-[#1b1b20] border border-slate-200 dark:border-zinc-700/80 rounded-lg px-2 py-0.5">
+            <span className="text-[11px] text-slate-500 dark:text-zinc-400 font-mono">DB:</span>
             <select
               value={activeDb}
               onChange={(e) => setActiveDb(parseInt(e.target.value) || 0)}
-              className="bg-transparent text-xs font-mono font-bold text-blue-400 outline-none cursor-pointer"
+              className="bg-transparent text-xs font-mono font-bold text-blue-600 dark:text-blue-400 outline-none cursor-pointer"
             >
               {Array.from({ length: 16 }, (_, i) => (
-                <option key={i} value={i} className="bg-[#1b1b20] text-zinc-100">
+                <option key={i} value={i} className="bg-white dark:bg-[#1b1b20] text-slate-800 dark:text-zinc-100">
                   db{i}
                 </option>
               ))}
@@ -986,32 +984,30 @@ export const RedisWorkspace: React.FC<RedisWorkspaceProps> = ({
           </div>
 
           {/* Connection Status Badge */}
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#1b1b20] border border-zinc-800 text-[11px]">
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 dark:bg-[#1b1b20] border border-slate-200 dark:border-zinc-800 text-[11px]">
             <span
-              className={`w-2 h-2 rounded-full ${
-                isConnected ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]' : 'bg-zinc-600'
-              }`}
+              className={`w-2 h-2 rounded-full ${isConnected ? 'bg-emerald-500 shadow-[0_0_8px_rgba(52,211,153,0.8)]' : 'bg-slate-400 dark:bg-zinc-600'
+                }`}
             />
-            <span className="text-zinc-300 font-medium">
+            <span className="text-slate-700 dark:text-zinc-300 font-medium">
               {isConnecting
                 ? 'Connecting...'
                 : isConnected
-                ? `Online (${keys.length} keys)`
-                : 'Disconnected'}
+                  ? `Online (${keys.length} keys)`
+                  : 'Disconnected'}
             </span>
           </div>
         </div>
 
         {/* Center: Mode Switcher (Explorer vs Workbench) */}
-        <div className="flex items-center bg-[#18181d] border border-zinc-700/80 rounded-lg p-0.5 shadow-inner">
+        <div className="flex items-center bg-slate-100 dark:bg-[#18181d] border border-slate-200 dark:border-zinc-700/80 rounded-lg p-0.5 shadow-inner">
           <button
             type="button"
             onClick={() => setWorkspaceMode('explorer')}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
-              workspaceMode === 'explorer'
-                ? 'bg-blue-600 text-white shadow-sm'
-                : 'text-zinc-400 hover:text-zinc-200'
-            }`}
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${workspaceMode === 'explorer'
+              ? 'bg-blue-600 text-white shadow-sm'
+              : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
+              }`}
           >
             <FolderTree className="w-3.5 h-3.5" />
             <span>Keys Explorer</span>
@@ -1019,11 +1015,10 @@ export const RedisWorkspace: React.FC<RedisWorkspaceProps> = ({
           <button
             type="button"
             onClick={() => setWorkspaceMode('workbench')}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${
-              workspaceMode === 'workbench'
-                ? 'bg-blue-600 text-white shadow-sm'
-                : 'text-zinc-400 hover:text-zinc-200'
-            }`}
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer ${workspaceMode === 'workbench'
+              ? 'bg-blue-600 text-white shadow-sm'
+              : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
+              }`}
           >
             <Terminal className="w-3.5 h-3.5" />
             <span>Workbench / CLI</span>
@@ -1037,10 +1032,10 @@ export const RedisWorkspace: React.FC<RedisWorkspaceProps> = ({
             <button
               type="button"
               onClick={() => setIsServerInfoOpen(true)}
-              className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium text-zinc-300 hover:text-zinc-100 bg-[#1b1b20] hover:bg-zinc-700/50 border border-zinc-800 transition-colors cursor-pointer"
+              className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium text-slate-700 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-zinc-100 bg-slate-100 hover:bg-slate-200 dark:bg-[#1b1b20] dark:hover:bg-zinc-700/50 border border-slate-200 dark:border-zinc-800 transition-colors cursor-pointer"
               title="Server Info"
             >
-              <Server className="w-3.5 h-3.5 text-blue-400" />
+              <Server className="w-3.5 h-3.5 text-blue-500 dark:text-blue-400" />
               <span>v{serverInfo.redisVersion || 'unknown'}</span>
             </button>
           )}
@@ -1071,7 +1066,7 @@ export const RedisWorkspace: React.FC<RedisWorkspaceProps> = ({
               setEditingConn(activeConn);
               setIsConnModalOpen(true);
             }}
-            className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors cursor-pointer"
+            className="p-1.5 rounded-lg text-slate-400 dark:text-zinc-400 hover:text-slate-700 dark:hover:text-zinc-200 hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
             title="Edit Connection Settings"
           >
             <Edit2 className="w-4 h-4" />
@@ -1082,7 +1077,7 @@ export const RedisWorkspace: React.FC<RedisWorkspaceProps> = ({
             type="button"
             disabled={!isConnected || keys.length === 0}
             onClick={() => setIsFlushConfirmOpen(true)}
-            className="p-1.5 rounded-lg text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+            className="p-1.5 rounded-lg text-slate-400 dark:text-zinc-400 hover:text-rose-500 hover:bg-rose-500/10 transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
             title="Flush Current Database"
           >
             <Trash2 className="w-4 h-4" />
@@ -1099,446 +1094,441 @@ export const RedisWorkspace: React.FC<RedisWorkspaceProps> = ({
       ) : (
         /* Main Body: Left Sidebar + Divider + Center Tabs / Content */
         <div className="flex-1 flex overflow-hidden">
-        {/* =========================================================================
+          {/* =========================================================================
             STANDARDIZED RESIZABLE LEFT EXPLORER
            ========================================================================= */}
-        <div
-          style={{ width: sidebarWidth }}
-          className="flex flex-col bg-[#111114] border-r border-[#242429] flex-shrink-0 overflow-hidden select-none"
-        >
-          {/* Explorer Header */}
-          <div className="p-3 border-b border-zinc-800/80 flex items-center justify-between bg-[#141418]/60">
-            <div className="flex items-center gap-2">
-              <Layers className="w-4 h-4 text-blue-400" />
-              <span className="text-xs font-bold uppercase tracking-wider text-zinc-300">
-                Explorer
-              </span>
-              <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-zinc-800 text-zinc-400">
-                {keys.length}
-              </span>
-            </div>
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => handleConnect()}
-                disabled={isLoadingKeys}
-                className="p-1 rounded-md text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors cursor-pointer"
-                title="Refresh Keys"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${isLoadingKeys ? 'animate-spin text-blue-400' : ''}`} />
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setEditingConn(null);
-                  setIsConnModalOpen(true);
-                }}
-                className="p-1 rounded-md text-zinc-400 hover:text-blue-400 hover:bg-zinc-800 transition-colors cursor-pointer"
-                title="New Redis Connection"
-              >
-                <Plus className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </div>
-
-          {/* Search Bar & View Mode Toggle */}
-          <div className="p-2.5 border-b border-zinc-800/80 space-y-2 bg-[#121215]">
-            <div className="relative">
-              <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={searchPattern}
-                onChange={(e) => setSearchPattern(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    loadKeys(activeConn, searchPattern);
-                  }
-                }}
-                placeholder="Search keys (e.g. users:*)"
-                className="w-full pl-8 pr-7 py-1.5 bg-[#18181c] border border-zinc-700/60 focus:border-blue-500 rounded-lg text-xs font-mono text-zinc-200 placeholder:text-zinc-600 outline-none transition-all"
-              />
-              {searchPattern !== '*' && (
+          <div
+            style={{ width: sidebarWidth }}
+            className="flex flex-col bg-white dark:bg-[#111114] border-r border-slate-200 dark:border-[#242429] flex-shrink-0 overflow-hidden select-none transition-colors"
+          >
+            {/* Explorer Header */}
+            <div className="p-3 border-b border-slate-200 dark:border-zinc-800/80 flex items-center justify-between bg-slate-50/70 dark:bg-[#141418]/60">
+              <div className="flex items-center gap-2">
+                <Layers className="w-4 h-4 text-blue-500 dark:text-blue-400" />
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-zinc-300">
+                  Explorer
+                </span>
+                <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400">
+                  {keys.length}
+                </span>
+              </div>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => handleConnect()}
+                  disabled={isLoadingKeys}
+                  className="p-1 rounded-md text-slate-400 dark:text-zinc-400 hover:text-slate-700 dark:hover:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+                  title="Refresh Keys"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isLoadingKeys ? 'animate-spin text-blue-500 dark:text-blue-400' : ''}`} />
+                </button>
                 <button
                   type="button"
                   onClick={() => {
-                    setSearchPattern('*');
-                    loadKeys(activeConn, '*');
+                    setEditingConn(null);
+                    setIsConnModalOpen(true);
                   }}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
+                  className="p-1 rounded-md text-slate-400 dark:text-zinc-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+                  title="New Redis Connection"
                 >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
-
-            <div className="flex items-center justify-between pt-0.5">
-              <div className="flex items-center bg-[#18181c] border border-zinc-800 p-0.5 rounded-md">
-                <button
-                  type="button"
-                  onClick={() => setViewMode('tree')}
-                  className={`flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium transition-colors cursor-pointer ${
-                    viewMode === 'tree'
-                      ? 'bg-blue-600/30 text-blue-300 border border-blue-500/40'
-                      : 'text-zinc-400 hover:text-zinc-200'
-                  }`}
-                >
-                  <FolderTree className="w-3 h-3" />
-                  <span>Tree</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setViewMode('flat')}
-                  className={`flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium transition-colors cursor-pointer ${
-                    viewMode === 'flat'
-                      ? 'bg-blue-600/30 text-blue-300 border border-blue-500/40'
-                      : 'text-zinc-400 hover:text-zinc-200'
-                  }`}
-                >
-                  <List className="w-3 h-3" />
-                  <span>Flat</span>
+                  <Plus className="w-3.5 h-3.5" />
                 </button>
               </div>
-              <span className="text-[10px] text-zinc-500 font-mono">
-                {keys.length} key{keys.length === 1 ? '' : 's'}
-              </span>
+            </div>
+
+            {/* Search Bar & View Mode Toggle */}
+            <div className="p-2.5 border-b border-slate-200 dark:border-zinc-800/80 space-y-2 bg-slate-50/50 dark:bg-[#121215]">
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 text-slate-400 dark:text-zinc-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={searchPattern}
+                  onChange={(e) => setSearchPattern(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      loadKeys(activeConn, searchPattern);
+                    }
+                  }}
+                  placeholder="Search keys (e.g. users:*)"
+                  className="w-full pl-8 pr-7 py-1.5 bg-white dark:bg-[#18181c] border border-slate-200 dark:border-zinc-700/60 focus:border-blue-500 rounded-lg text-xs font-mono text-slate-900 dark:text-zinc-200 placeholder:text-slate-400 dark:placeholder:text-zinc-600 outline-none transition-all"
+                />
+                {searchPattern !== '*' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchPattern('*');
+                      loadKeys(activeConn, '*');
+                    }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 dark:text-zinc-500 hover:text-slate-700 dark:hover:text-zinc-300"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between pt-0.5">
+                <div className="flex items-center bg-slate-100 dark:bg-[#18181c] border border-slate-200 dark:border-zinc-800 p-0.5 rounded-md">
+                  <button
+                    type="button"
+                    onClick={() => setViewMode('tree')}
+                    className={`flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium transition-colors cursor-pointer ${viewMode === 'tree'
+                      ? 'bg-blue-600/15 dark:bg-blue-600/30 text-blue-700 dark:text-blue-300 border border-blue-500/40'
+                      : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
+                      }`}
+                  >
+                    <FolderTree className="w-3 h-3" />
+                    <span>Tree</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setViewMode('flat')}
+                    className={`flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium transition-colors cursor-pointer ${viewMode === 'flat'
+                      ? 'bg-blue-600/15 dark:bg-blue-600/30 text-blue-700 dark:text-blue-300 border border-blue-500/40'
+                      : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
+                      }`}
+                  >
+                    <List className="w-3 h-3" />
+                    <span>Flat</span>
+                  </button>
+                </div>
+                <span className="text-[10px] text-slate-500 dark:text-zinc-500 font-mono">
+                  {keys.length} key{keys.length === 1 ? '' : 's'}
+                </span>
+              </div>
+            </div>
+
+            {/* Keys Tree / Flat List */}
+            <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
+              {isLoadingKeys ? (
+                <div className="flex flex-col items-center justify-center py-12 text-slate-400 dark:text-zinc-500 space-y-2">
+                  <Loader2 className="w-5 h-5 animate-spin text-blue-500 dark:text-blue-400" />
+                  <span className="text-xs">Scanning keys...</span>
+                </div>
+              ) : keys.length === 0 ? (
+                <div className="text-center py-10 px-4 text-slate-400 dark:text-zinc-500 space-y-2">
+                  <FolderOpen className="w-8 h-8 mx-auto text-slate-400 dark:text-zinc-600 opacity-50" />
+                  <p className="text-xs font-medium text-slate-700 dark:text-zinc-400">No keys found</p>
+                  <p className="text-[11px] text-slate-400 dark:text-zinc-600">
+                    {searchPattern !== '*' ? 'Try another filter pattern' : 'Database is currently empty'}
+                  </p>
+                </div>
+              ) : viewMode === 'tree' ? (
+                renderTreeNode(keyTree)
+              ) : (
+                // Flat view
+                <div className="space-y-0.5">
+                  {keys.map((k) => {
+                    const isTabActive = activeTabKey === k.key;
+                    const isTabOpen = tabs.some((t) => t.key === k.key);
+                    return (
+                      <div
+                        key={k.key}
+                        onClick={() => handleOpenKeyInTab(k.key)}
+                        className={`w-full px-2.5 py-1.5 rounded-lg flex items-center justify-between text-left transition-all cursor-pointer group select-none ${isTabActive
+                          ? 'bg-blue-50 dark:bg-blue-600/20 text-blue-900 dark:text-white font-medium border-l-2 border-blue-500 dark:border-blue-400 shadow-sm'
+                          : isTabOpen
+                            ? 'bg-slate-100 dark:bg-zinc-800/40 text-blue-700 dark:text-blue-300'
+                            : 'text-slate-700 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-zinc-100 hover:bg-slate-100 dark:hover:bg-[#1a1a1e]'
+                          }`}
+                      >
+                        <div className="flex items-center gap-1.5 truncate min-w-0 pr-1">
+                          <Key className="w-3.5 h-3.5 text-blue-500 dark:text-blue-400 flex-shrink-0" />
+                          <span className="text-xs font-mono truncate text-slate-800 dark:text-zinc-200">{k.key}</span>
+                        </div>
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          {renderTypeBadge(k.type)}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteKey(k.key);
+                            }}
+                            className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 dark:text-zinc-500 hover:text-rose-500 dark:hover:text-rose-400 hover:bg-slate-200 dark:hover:bg-zinc-800 rounded transition-all cursor-pointer"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Keys Tree / Flat List */}
-          <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
-            {isLoadingKeys ? (
-              <div className="flex flex-col items-center justify-center py-12 text-zinc-500 space-y-2">
-                <Loader2 className="w-5 h-5 animate-spin text-blue-400" />
-                <span className="text-xs">Scanning keys...</span>
-              </div>
-            ) : keys.length === 0 ? (
-              <div className="text-center py-10 px-4 text-zinc-500 space-y-2">
-                <FolderOpen className="w-8 h-8 mx-auto text-zinc-600 opacity-50" />
-                <p className="text-xs font-medium text-zinc-400">No keys found</p>
-                <p className="text-[11px] text-zinc-600">
-                  {searchPattern !== '*' ? 'Try another filter pattern' : 'Database is currently empty'}
-                </p>
-              </div>
-            ) : viewMode === 'tree' ? (
-              renderTreeNode(keyTree)
-            ) : (
-              // Flat view
-              <div className="space-y-0.5">
-                {keys.map((k) => {
-                  const isTabActive = activeTabKey === k.key;
-                  const isTabOpen = tabs.some((t) => t.key === k.key);
+          {/* Resizable Handle Divider */}
+          <div
+            onMouseDown={startResizing}
+            className={`w-1 hover:w-1.5 cursor-col-resize select-none transition-colors ${isResizing ? 'bg-blue-500 w-1.5' : 'bg-slate-200 dark:bg-zinc-800/80 hover:bg-blue-500/50'
+              }`}
+          />
+
+          {/* =========================================================================
+            MAIN CENTER PANEL WITH MULTI-TAB ARCHITECTURE
+           ========================================================================= */}
+          <div className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-[#0d0d10] overflow-hidden transition-colors">
+            {/* Top Multi-Tab Bar */}
+            {tabs.length > 0 && (
+              <div className="h-10 border-b border-slate-200 dark:border-[#242429] bg-slate-100/70 dark:bg-[#121216] flex items-center px-2 gap-1 overflow-x-auto select-none flex-shrink-0">
+                {tabs.map((tab) => {
+                  const isActive = tab.key === activeTabKey;
                   return (
                     <div
-                      key={k.key}
-                      onClick={() => handleOpenKeyInTab(k.key)}
-                      className={`w-full px-2.5 py-1.5 rounded-lg flex items-center justify-between text-left transition-all cursor-pointer group select-none ${
-                        isTabActive
-                          ? 'bg-blue-600/20 text-white font-medium border-l-2 border-blue-400 shadow-sm'
-                          : isTabOpen
-                          ? 'bg-zinc-800/40 text-blue-300'
-                          : 'text-zinc-300 hover:text-zinc-100 hover:bg-[#1a1a1e]'
-                      }`}
+                      key={tab.key}
+                      onClick={() => setActiveTabKey(tab.key)}
+                      className={`group flex items-center gap-2 px-3 py-1.5 rounded-t-lg text-xs font-mono cursor-pointer transition-all border-b-2 max-w-[220px] flex-shrink-0 ${isActive
+                        ? 'bg-white dark:bg-[#18181d] text-slate-900 dark:text-zinc-100 border-blue-500 font-semibold shadow-sm'
+                        : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-200/60 dark:hover:bg-zinc-800/40 border-transparent'
+                        }`}
                     >
-                      <div className="flex items-center gap-1.5 truncate min-w-0 pr-1">
-                        <Key className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />
-                        <span className="text-xs font-mono truncate text-zinc-200">{k.key}</span>
-                      </div>
-                      <div className="flex items-center gap-1 flex-shrink-0">
-                        {renderTypeBadge(k.type)}
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteKey(k.key);
-                          }}
-                          className="opacity-0 group-hover:opacity-100 p-1 text-zinc-500 hover:text-rose-400 hover:bg-zinc-800 rounded transition-all cursor-pointer"
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </button>
-                      </div>
+                      {renderTypeBadge(tab.type)}
+                      <span className="truncate flex-1" title={tab.key}>
+                        {tab.key}
+                      </span>
+                      {tab.isDirty && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500 dark:bg-blue-400 flex-shrink-0" />
+                      )}
+                      <button
+                        type="button"
+                        onClick={(e) => handleCloseTab(tab.key, e)}
+                        className="p-0.5 rounded text-slate-400 dark:text-zinc-500 hover:text-slate-800 dark:hover:text-zinc-200 hover:bg-slate-200 dark:hover:bg-zinc-700/50 opacity-60 group-hover:opacity-100 transition-opacity"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
                     </div>
                   );
                 })}
               </div>
             )}
-          </div>
-        </div>
 
-        {/* Resizable Handle Divider */}
-        <div
-          onMouseDown={startResizing}
-          className={`w-1 hover:w-1.5 cursor-col-resize select-none transition-colors ${
-            isResizing ? 'bg-blue-500 w-1.5' : 'bg-zinc-800/80 hover:bg-blue-500/50'
-          }`}
-        />
-
-        {/* =========================================================================
-            MAIN CENTER PANEL WITH MULTI-TAB ARCHITECTURE
-           ========================================================================= */}
-        <div className="flex-1 flex flex-col h-full bg-[#0d0d10] overflow-hidden">
-          {/* Top Multi-Tab Bar */}
-          {tabs.length > 0 && (
-            <div className="h-10 border-b border-[#242429] bg-[#121216] flex items-center px-2 gap-1 overflow-x-auto select-none flex-shrink-0">
-              {tabs.map((tab) => {
-                const isActive = tab.key === activeTabKey;
-                return (
-                  <div
-                    key={tab.key}
-                    onClick={() => setActiveTabKey(tab.key)}
-                    className={`group flex items-center gap-2 px-3 py-1.5 rounded-t-lg text-xs font-mono cursor-pointer transition-all border-b-2 max-w-[220px] flex-shrink-0 ${
-                      isActive
-                        ? 'bg-[#18181d] text-zinc-100 border-blue-500 font-semibold shadow-sm'
-                        : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/40 border-transparent'
-                    }`}
-                  >
-                    {renderTypeBadge(tab.type)}
-                    <span className="truncate flex-1" title={tab.key}>
-                      {tab.key}
-                    </span>
-                    {tab.isDirty && (
-                      <span className="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0" />
-                    )}
-                    <button
-                      type="button"
-                      onClick={(e) => handleCloseTab(tab.key, e)}
-                      className="p-0.5 rounded text-zinc-500 hover:text-zinc-200 hover:bg-zinc-700/50 opacity-60 group-hover:opacity-100 transition-opacity"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Tab Content / Zero State */}
-          {!activeTab ? (
-            <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-zinc-500">
-              <div className="w-16 h-16 rounded-2xl bg-zinc-800/40 border border-zinc-700/40 flex items-center justify-center text-zinc-500 mb-4 shadow-inner">
-                <FolderTree className="w-8 h-8" />
+            {/* Tab Content / Zero State */}
+            {!activeTab ? (
+              <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-slate-500 dark:text-zinc-500">
+                <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-zinc-800/40 border border-slate-200 dark:border-zinc-700/40 flex items-center justify-center text-slate-400 dark:text-zinc-500 mb-4 shadow-inner">
+                  <FolderTree className="w-8 h-8" />
+                </div>
+                <h3 className="text-sm font-semibold text-slate-800 dark:text-zinc-300 mb-1">No Key Selected</h3>
+                <p className="text-xs text-slate-500 dark:text-zinc-500 max-w-sm mb-4">
+                  Select a key from the left explorer to view and edit its value, inspect TTL, or create a new key.
+                </p>
+                <button
+                  type="button"
+                  disabled={!isConnected}
+                  onClick={() => setIsNewKeyModalOpen(true)}
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-white dark:bg-zinc-800 hover:bg-slate-100 dark:hover:bg-zinc-700 text-xs font-semibold text-slate-800 dark:text-zinc-200 border border-slate-200 dark:border-zinc-700/80 transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  <Plus className="w-3.5 h-3.5 text-blue-500 dark:text-blue-400" />
+                  <span>Create Key</span>
+                </button>
               </div>
-              <h3 className="text-sm font-semibold text-zinc-300 mb-1">No Key Selected</h3>
-              <p className="text-xs text-zinc-500 max-w-sm mb-4">
-                Select a key from the left explorer to view and edit its value, inspect TTL, or create a new key.
-              </p>
-              <button
-                type="button"
-                disabled={!isConnected}
-                onClick={() => setIsNewKeyModalOpen(true)}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-xs font-semibold text-zinc-200 border border-zinc-700/80 transition-colors cursor-pointer disabled:opacity-50"
-              >
-                <Plus className="w-3.5 h-3.5 text-blue-400" />
-                <span>Create Key</span>
-              </button>
-            </div>
-          ) : activeTab.isLoading ? (
-            <div className="flex-1 flex flex-col items-center justify-center py-20 text-zinc-500 space-y-2">
-              <Loader2 className="w-6 h-6 animate-spin text-blue-400" />
-              <span className="text-xs font-mono">Loading "{activeTab.key}"...</span>
-            </div>
-          ) : (
-            <div className="flex-1 flex flex-col overflow-hidden">
-              {/* Key Meta Action Header */}
-              <div className="p-4 border-b border-[#242429] bg-[#141418] flex flex-wrap items-center justify-between gap-4 flex-shrink-0">
-                <div className="flex items-center gap-3 min-w-0 flex-1">
-                  <div className="p-2 rounded-xl bg-blue-600/10 border border-blue-500/20 text-blue-400 flex-shrink-0">
-                    <Key className="w-5 h-5" />
+            ) : activeTab.isLoading ? (
+              <div className="flex-1 flex flex-col items-center justify-center py-20 text-slate-400 dark:text-zinc-500 space-y-2">
+                <Loader2 className="w-6 h-6 animate-spin text-blue-500 dark:text-blue-400" />
+                <span className="text-xs font-mono">Loading "{activeTab.key}"...</span>
+              </div>
+            ) : (
+              <div className="flex-1 flex flex-col overflow-hidden">
+                {/* Key Meta Action Header */}
+                <div className="p-4 border-b border-slate-200 dark:border-[#242429] bg-white dark:bg-[#141418] flex flex-wrap items-center justify-between gap-4 flex-shrink-0">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div className="p-2 rounded-xl bg-blue-500/10 dark:bg-blue-600/10 border border-blue-500/20 text-blue-600 dark:text-blue-400 flex-shrink-0">
+                      <Key className="w-5 h-5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-mono font-bold text-slate-900 dark:text-zinc-100 truncate">
+                          {activeTab.key}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard.writeText(activeTab.key);
+                            setIsCopied(true);
+                            setTimeout(() => setIsCopied(false), 1500);
+                          }}
+                          className="p-1 rounded text-slate-400 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+                          title="Copy Key Name"
+                        >
+                          {isCopied ? <Check className="w-3.5 h-3.5 text-emerald-500 dark:text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                        </button>
+                      </div>
+                      <div className="flex items-center gap-2 mt-1">
+                        {renderTypeBadge(activeTab.type)}
+                        {activeTab.detail && (
+                          <span className="text-[11px] text-slate-500 dark:text-zinc-400 font-mono">
+                            Size: {formatBytes(activeTab.detail.memoryUsage)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-mono font-bold text-zinc-100 truncate">
-                        {activeTab.key}
-                      </span>
+
+                  {/* Right: TTL Editor & Save Action */}
+                  <div className="flex items-center gap-2">
+                    {/* TTL Button */}
+                    <div className="relative">
                       <button
                         type="button"
-                        onClick={() => {
-                          navigator.clipboard.writeText(activeTab.key);
-                          setIsCopied(true);
-                          setTimeout(() => setIsCopied(false), 1500);
-                        }}
-                        className="p-1 rounded text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors"
-                        title="Copy Key Name"
+                        onClick={() => setIsEditingTTL(!isEditingTTL)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-[#1a1a1f] border border-slate-200 dark:border-zinc-700/80 hover:border-slate-400 dark:hover:border-zinc-500 text-xs font-mono text-slate-700 dark:text-zinc-200 transition-colors cursor-pointer"
                       >
-                        {isCopied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                      </button>
-                    </div>
-                    <div className="flex items-center gap-2 mt-1">
-                      {renderTypeBadge(activeTab.type)}
-                      {activeTab.detail && (
-                        <span className="text-[11px] text-zinc-400 font-mono">
-                          Size: {formatBytes(activeTab.detail.memoryUsage)}
+                        <Clock className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
+                        <span>
+                          TTL:{' '}
+                          {activeTab.detail?.ttl === -1 || activeTab.detail?.ttl === undefined
+                            ? 'Persistent (-1)'
+                            : activeTab.detail.ttl === -2
+                              ? 'Expired'
+                              : `${activeTab.detail.ttl}s`}
                         </span>
+                      </button>
+
+                      {/* Quick TTL Dropdown */}
+                      {isEditingTTL && (
+                        <div className="absolute right-0 mt-1 w-48 bg-white dark:bg-[#18181c] border border-slate-200 dark:border-zinc-700 rounded-xl shadow-2xl p-2 z-50 space-y-1.5 animate-in fade-in zoom-in-95">
+                          <div className="text-[10px] font-bold uppercase text-slate-400 dark:text-zinc-400 px-1">
+                            Set Expiration
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateTTL(-1)}
+                            className="w-full text-left px-2 py-1 rounded text-xs text-slate-700 dark:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800"
+                          >
+                            Persistent (-1)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateTTL(60)}
+                            className="w-full text-left px-2 py-1 rounded text-xs text-slate-700 dark:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800"
+                          >
+                            1 Minute (60s)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateTTL(3600)}
+                            className="w-full text-left px-2 py-1 rounded text-xs text-slate-700 dark:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800"
+                          >
+                            1 Hour (3600s)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateTTL(86400)}
+                            className="w-full text-left px-2 py-1 rounded text-xs text-slate-700 dark:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800"
+                          >
+                            1 Day (86400s)
+                          </button>
+                          <div className="flex gap-1 pt-1 border-t border-slate-200 dark:border-zinc-800">
+                            <input
+                              type="number"
+                              value={customTTLInput}
+                              onChange={(e) => setCustomTTLInput(e.target.value)}
+                              placeholder="Secs"
+                              className="w-full px-2 py-0.5 bg-slate-100 dark:bg-[#121215] border border-slate-200 dark:border-zinc-700 rounded text-xs text-slate-900 dark:text-zinc-100 font-mono outline-none"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const val = parseInt(customTTLInput);
+                                if (!isNaN(val)) handleUpdateTTL(val);
+                              }}
+                              className="px-2 py-0.5 bg-blue-600 hover:bg-blue-500 rounded text-xs text-white"
+                            >
+                              Set
+                            </button>
+                          </div>
+                        </div>
                       )}
                     </div>
+
+                    {/* Delete Key */}
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteKey(activeTab.key)}
+                      className="p-2 rounded-lg text-slate-400 dark:text-zinc-400 hover:text-rose-500 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                      title="Delete Key"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+
+                    {/* Save Key Changes */}
+                    <button
+                      type="button"
+                      onClick={handleSaveActiveTabKey}
+                      disabled={isSaving}
+                      className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-md shadow-blue-600/20 transition-all cursor-pointer disabled:opacity-50"
+                    >
+                      {isSaving ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Save className="w-3.5 h-3.5" />
+                      )}
+                      <span>Save Changes</span>
+                    </button>
                   </div>
                 </div>
 
-                {/* Right: TTL Editor & Save Action */}
-                <div className="flex items-center gap-2">
-                  {/* TTL Button */}
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => setIsEditingTTL(!isEditingTTL)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1a1a1f] border border-zinc-700/80 hover:border-zinc-500 text-xs font-mono text-zinc-200 transition-colors cursor-pointer"
-                    >
-                      <Clock className="w-3.5 h-3.5 text-amber-400" />
-                      <span>
-                        TTL:{' '}
-                        {activeTab.detail?.ttl === -1 || activeTab.detail?.ttl === undefined
-                          ? 'Persistent (-1)'
-                          : activeTab.detail.ttl === -2
-                          ? 'Expired'
-                          : `${activeTab.detail.ttl}s`}
-                      </span>
-                    </button>
-
-                    {/* Quick TTL Dropdown */}
-                    {isEditingTTL && (
-                      <div className="absolute right-0 mt-1 w-48 bg-[#18181c] border border-zinc-700 rounded-xl shadow-2xl p-2 z-50 space-y-1.5 animate-in fade-in zoom-in-95">
-                        <div className="text-[10px] font-bold uppercase text-zinc-400 px-1">
-                          Set Expiration
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => handleUpdateTTL(-1)}
-                          className="w-full text-left px-2 py-1 rounded text-xs text-zinc-200 hover:bg-zinc-800"
-                        >
-                          Persistent (-1)
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleUpdateTTL(60)}
-                          className="w-full text-left px-2 py-1 rounded text-xs text-zinc-200 hover:bg-zinc-800"
-                        >
-                          1 Minute (60s)
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleUpdateTTL(3600)}
-                          className="w-full text-left px-2 py-1 rounded text-xs text-zinc-200 hover:bg-zinc-800"
-                        >
-                          1 Hour (3600s)
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleUpdateTTL(86400)}
-                          className="w-full text-left px-2 py-1 rounded text-xs text-zinc-200 hover:bg-zinc-800"
-                        >
-                          1 Day (86400s)
-                        </button>
-                        <div className="flex gap-1 pt-1 border-t border-zinc-800">
-                          <input
-                            type="number"
-                            value={customTTLInput}
-                            onChange={(e) => setCustomTTLInput(e.target.value)}
-                            placeholder="Secs"
-                            className="w-full px-2 py-0.5 bg-[#121215] border border-zinc-700 rounded text-xs text-zinc-100 font-mono outline-none"
-                          />
+                {/* Value Editor Body */}
+                <div className="flex-1 overflow-hidden p-4">
+                  {activeTab.type === 'string' ? (
+                    <div className="flex flex-col h-full bg-white dark:bg-[#141418] border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden shadow-sm">
+                      <div className="p-2 border-b border-slate-200 dark:border-zinc-800 flex items-center justify-between bg-slate-50/80 dark:bg-[#18181c]/50">
+                        <span className="text-xs font-semibold text-slate-600 dark:text-zinc-400">Value (String / JSON)</span>
+                        <div className="flex items-center gap-1.5">
                           <button
                             type="button"
-                            onClick={() => {
-                              const val = parseInt(customTTLInput);
-                              if (!isNaN(val)) handleUpdateTTL(val);
-                            }}
-                            className="px-2 py-0.5 bg-blue-600 hover:bg-blue-500 rounded text-xs text-white"
+                            onClick={handlePrettifyJSON}
+                            className="px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-[11px] text-slate-700 dark:text-zinc-200 border border-slate-200 dark:border-zinc-700 cursor-pointer"
                           >
-                            Set
+                            Prettify JSON
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleMinifyJSON}
+                            className="px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-[11px] text-slate-700 dark:text-zinc-200 border border-slate-200 dark:border-zinc-700 cursor-pointer"
+                          >
+                            Minify JSON
                           </button>
                         </div>
                       </div>
-                    )}
-                  </div>
-
-                  {/* Delete Key */}
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteKey(activeTab.key)}
-                    className="p-2 rounded-lg text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
-                    title="Delete Key"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-
-                  {/* Save Key Changes */}
-                  <button
-                    type="button"
-                    onClick={handleSaveActiveTabKey}
-                    disabled={isSaving}
-                    className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-md shadow-blue-600/20 transition-all cursor-pointer disabled:opacity-50"
-                  >
-                    {isSaving ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <Save className="w-3.5 h-3.5" />
-                    )}
-                    <span>Save Changes</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Value Editor Body */}
-              <div className="flex-1 overflow-hidden p-4">
-                {activeTab.type === 'string' ? (
-                  <div className="flex flex-col h-full bg-[#141418] border border-zinc-800 rounded-xl overflow-hidden">
-                    <div className="p-2 border-b border-zinc-800 flex items-center justify-between bg-[#18181c]/50">
-                      <span className="text-xs font-semibold text-zinc-400">Value (String / JSON)</span>
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          type="button"
-                          onClick={handlePrettifyJSON}
-                          className="px-2 py-0.5 rounded bg-zinc-800 hover:bg-zinc-700 text-[11px] text-zinc-200 border border-zinc-700"
-                        >
-                          Prettify JSON
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleMinifyJSON}
-                          className="px-2 py-0.5 rounded bg-zinc-800 hover:bg-zinc-700 text-[11px] text-zinc-200 border border-zinc-700"
-                        >
-                          Minify JSON
-                        </button>
+                      <div className="flex-1 min-h-0 bg-white dark:bg-[#141416]">
+                        <Editor
+                          height="100%"
+                          language="json"
+                          theme={monacoTheme}
+                          beforeMount={(monaco) => defineOctaTheme(monaco)}
+                          value={activeTab.draftString}
+                          onChange={(val) => {
+                            setTabs((prev) =>
+                              prev.map((t) =>
+                                t.key === activeTab.key
+                                  ? { ...t, draftString: val || '', isDirty: true }
+                                  : t
+                              )
+                            );
+                          }}
+                          options={{
+                            minimap: { enabled: false },
+                            fontSize: 12,
+                            lineNumbers: 'on',
+                            wordWrap: 'on',
+                            automaticLayout: true,
+                          }}
+                        />
                       </div>
                     </div>
-                    <div className="flex-1 min-h-0 bg-white dark:bg-[#141416]">
-                      <Editor
-                        height="100%"
-                        language="json"
-                        theme={monacoTheme}
-                        beforeMount={(monaco) => defineOctaTheme(monaco)}
-                        value={activeTab.draftString}
-                        onChange={(val) => {
-                          setTabs((prev) =>
-                            prev.map((t) =>
-                              t.key === activeTab.key
-                                ? { ...t, draftString: val || '', isDirty: true }
-                                : t
-                            )
-                          );
-                        }}
-                        options={{
-                          minimap: { enabled: false },
-                          fontSize: 12,
-                          lineNumbers: 'on',
-                          wordWrap: 'on',
-                          automaticLayout: true,
-                        }}
-                      />
-                    </div>
-                  </div>
-                ) : activeTab.type === 'hash' ? (
-                  <div className="flex flex-col h-full bg-[#141418] border border-zinc-800 rounded-xl overflow-hidden p-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-zinc-300">
-                        Hash Fields ({activeTab.draftHash.length})
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setTabs((prev) =>
-                            prev.map((t) =>
-                              t.key === activeTab.key
-                                ? {
+                  ) : activeTab.type === 'hash' ? (
+                    <div className="flex flex-col h-full bg-white dark:bg-[#141418] border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden p-4 space-y-3 shadow-sm">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-slate-700 dark:text-zinc-300">
+                          Hash Fields ({activeTab.draftHash.length})
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setTabs((prev) =>
+                              prev.map((t) =>
+                                t.key === activeTab.key
+                                  ? {
                                     ...t,
                                     draftHash: [
                                       ...t.draftHash,
@@ -1546,297 +1536,297 @@ export const RedisWorkspace: React.FC<RedisWorkspaceProps> = ({
                                     ],
                                     isDirty: true,
                                   }
-                                : t
-                            )
-                          );
-                        }}
-                        className="flex items-center gap-1 px-2.5 py-1 rounded bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 text-xs font-semibold"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        <span>Add Field</span>
-                      </button>
+                                  : t
+                              )
+                            );
+                          }}
+                          className="flex items-center gap-1 px-2.5 py-1 rounded bg-blue-50 dark:bg-blue-600/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-600/30 text-xs font-semibold cursor-pointer"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Add Field</span>
+                        </button>
+                      </div>
+                      <div className="flex-1 overflow-y-auto space-y-2">
+                        {activeTab.draftHash.map((item, idx) => (
+                          <div key={idx} className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              value={item.field}
+                              onChange={(e) => {
+                                const newField = e.target.value;
+                                setTabs((prev) =>
+                                  prev.map((t) => {
+                                    if (t.key !== activeTab.key) return t;
+                                    const nextHash = [...t.draftHash];
+                                    nextHash[idx] = { ...nextHash[idx], field: newField };
+                                    return { ...t, draftHash: nextHash, isDirty: true };
+                                  })
+                                );
+                              }}
+                              placeholder="Field Name"
+                              className="w-1/3 px-2.5 py-1.5 bg-slate-50 dark:bg-[#1a1a1f] border border-slate-200 dark:border-zinc-700/80 rounded-lg text-xs font-mono text-slate-900 dark:text-zinc-100 outline-none focus:border-blue-500"
+                            />
+                            <input
+                              type="text"
+                              value={item.value}
+                              onChange={(e) => {
+                                const newVal = e.target.value;
+                                setTabs((prev) =>
+                                  prev.map((t) => {
+                                    if (t.key !== activeTab.key) return t;
+                                    const nextHash = [...t.draftHash];
+                                    nextHash[idx] = { ...nextHash[idx], value: newVal };
+                                    return { ...t, draftHash: nextHash, isDirty: true };
+                                  })
+                                );
+                              }}
+                              placeholder="Value"
+                              className="flex-1 px-2.5 py-1.5 bg-slate-50 dark:bg-[#1a1a1f] border border-slate-200 dark:border-zinc-700/80 rounded-lg text-xs font-mono text-slate-900 dark:text-zinc-100 outline-none focus:border-blue-500"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setTabs((prev) =>
+                                  prev.map((t) => {
+                                    if (t.key !== activeTab.key) return t;
+                                    return {
+                                      ...t,
+                                      draftHash: t.draftHash.filter((_, i) => i !== idx),
+                                      isDirty: true,
+                                    };
+                                  })
+                                );
+                              }}
+                              className="p-1.5 rounded text-slate-400 dark:text-zinc-500 hover:text-rose-500 dark:hover:text-rose-400 hover:bg-slate-100 dark:hover:bg-zinc-800 cursor-pointer"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                    <div className="flex-1 overflow-y-auto space-y-2">
-                      {activeTab.draftHash.map((item, idx) => (
-                        <div key={idx} className="flex items-center gap-2">
-                          <input
-                            type="text"
-                            value={item.field}
-                            onChange={(e) => {
-                              const newField = e.target.value;
-                              setTabs((prev) =>
-                                prev.map((t) => {
-                                  if (t.key !== activeTab.key) return t;
-                                  const nextHash = [...t.draftHash];
-                                  nextHash[idx] = { ...nextHash[idx], field: newField };
-                                  return { ...t, draftHash: nextHash, isDirty: true };
-                                })
-                              );
-                            }}
-                            placeholder="Field Name"
-                            className="w-1/3 px-2.5 py-1.5 bg-[#1a1a1f] border border-zinc-700/80 rounded-lg text-xs font-mono text-zinc-100"
-                          />
-                          <input
-                            type="text"
-                            value={item.value}
-                            onChange={(e) => {
-                              const newVal = e.target.value;
-                              setTabs((prev) =>
-                                prev.map((t) => {
-                                  if (t.key !== activeTab.key) return t;
-                                  const nextHash = [...t.draftHash];
-                                  nextHash[idx] = { ...nextHash[idx], value: newVal };
-                                  return { ...t, draftHash: nextHash, isDirty: true };
-                                })
-                              );
-                            }}
-                            placeholder="Value"
-                            className="flex-1 px-2.5 py-1.5 bg-[#1a1a1f] border border-zinc-700/80 rounded-lg text-xs font-mono text-zinc-100"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setTabs((prev) =>
-                                prev.map((t) => {
-                                  if (t.key !== activeTab.key) return t;
-                                  return {
-                                    ...t,
-                                    draftHash: t.draftHash.filter((_, i) => i !== idx),
-                                    isDirty: true,
-                                  };
-                                })
-                              );
-                            }}
-                            className="p-1.5 rounded text-zinc-500 hover:text-rose-400 hover:bg-zinc-800"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      ))}
+                  ) : activeTab.type === 'list' ? (
+                    <div className="flex flex-col h-full bg-white dark:bg-[#141418] border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden p-4 space-y-3 shadow-sm">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-slate-700 dark:text-zinc-300">
+                          List Elements ({activeTab.draftList.length})
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setTabs((prev) =>
+                              prev.map((t) =>
+                                t.key === activeTab.key
+                                  ? { ...t, draftList: [...t.draftList, ''], isDirty: true }
+                                  : t
+                              )
+                            );
+                          }}
+                          className="flex items-center gap-1 px-2.5 py-1 rounded bg-blue-50 dark:bg-blue-600/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-600/30 text-xs font-semibold cursor-pointer"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Push Item</span>
+                        </button>
+                      </div>
+                      <div className="flex-1 overflow-y-auto space-y-2">
+                        {activeTab.draftList.map((item, idx) => (
+                          <div key={idx} className="flex items-center gap-2">
+                            <span className="text-xs font-mono text-slate-400 dark:text-zinc-500 w-8">{idx}</span>
+                            <input
+                              type="text"
+                              value={item}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setTabs((prev) =>
+                                  prev.map((t) => {
+                                    if (t.key !== activeTab.key) return t;
+                                    const nextList = [...t.draftList];
+                                    nextList[idx] = val;
+                                    return { ...t, draftList: nextList, isDirty: true };
+                                  })
+                                );
+                              }}
+                              className="flex-1 px-2.5 py-1.5 bg-slate-50 dark:bg-[#1a1a1f] border border-slate-200 dark:border-zinc-700/80 rounded-lg text-xs font-mono text-slate-900 dark:text-zinc-100 outline-none focus:border-blue-500"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setTabs((prev) =>
+                                  prev.map((t) => {
+                                    if (t.key !== activeTab.key) return t;
+                                    return {
+                                      ...t,
+                                      draftList: t.draftList.filter((_, i) => i !== idx),
+                                      isDirty: true,
+                                    };
+                                  })
+                                );
+                              }}
+                              className="p-1.5 rounded text-slate-400 dark:text-zinc-500 hover:text-rose-500 dark:hover:text-rose-400 hover:bg-slate-100 dark:hover:bg-zinc-800 cursor-pointer"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                ) : activeTab.type === 'list' ? (
-                  <div className="flex flex-col h-full bg-[#141418] border border-zinc-800 rounded-xl overflow-hidden p-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-zinc-300">
-                        List Elements ({activeTab.draftList.length})
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setTabs((prev) =>
-                            prev.map((t) =>
-                              t.key === activeTab.key
-                                ? { ...t, draftList: [...t.draftList, ''], isDirty: true }
-                                : t
-                            )
-                          );
-                        }}
-                        className="flex items-center gap-1 px-2.5 py-1 rounded bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 text-xs font-semibold"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        <span>Push Item</span>
-                      </button>
+                  ) : activeTab.type === 'set' ? (
+                    <div className="flex flex-col h-full bg-white dark:bg-[#141418] border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden p-4 space-y-3 shadow-sm">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-slate-700 dark:text-zinc-300">
+                          Set Members ({activeTab.draftSet.length})
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setTabs((prev) =>
+                              prev.map((t) =>
+                                t.key === activeTab.key
+                                  ? { ...t, draftSet: [...t.draftSet, ''], isDirty: true }
+                                  : t
+                              )
+                            );
+                          }}
+                          className="flex items-center gap-1 px-2.5 py-1 rounded bg-blue-50 dark:bg-blue-600/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-600/30 text-xs font-semibold cursor-pointer"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Add Member</span>
+                        </button>
+                      </div>
+                      <div className="flex-1 overflow-y-auto space-y-2">
+                        {activeTab.draftSet.map((item, idx) => (
+                          <div key={idx} className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              value={item}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setTabs((prev) =>
+                                  prev.map((t) => {
+                                    if (t.key !== activeTab.key) return t;
+                                    const nextSet = [...t.draftSet];
+                                    nextSet[idx] = val;
+                                    return { ...t, draftSet: nextSet, isDirty: true };
+                                  })
+                                );
+                              }}
+                              className="flex-1 px-2.5 py-1.5 bg-slate-50 dark:bg-[#1a1a1f] border border-slate-200 dark:border-zinc-700/80 rounded-lg text-xs font-mono text-slate-900 dark:text-zinc-100 outline-none focus:border-blue-500"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setTabs((prev) =>
+                                  prev.map((t) => {
+                                    if (t.key !== activeTab.key) return t;
+                                    return {
+                                      ...t,
+                                      draftSet: t.draftSet.filter((_, i) => i !== idx),
+                                      isDirty: true,
+                                    };
+                                  })
+                                );
+                              }}
+                              className="p-1.5 rounded text-slate-400 dark:text-zinc-500 hover:text-rose-500 dark:hover:text-rose-400 hover:bg-slate-100 dark:hover:bg-zinc-800 cursor-pointer"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                    <div className="flex-1 overflow-y-auto space-y-2">
-                      {activeTab.draftList.map((item, idx) => (
-                        <div key={idx} className="flex items-center gap-2">
-                          <span className="text-xs font-mono text-zinc-500 w-8">{idx}</span>
-                          <input
-                            type="text"
-                            value={item}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setTabs((prev) =>
-                                prev.map((t) => {
-                                  if (t.key !== activeTab.key) return t;
-                                  const nextList = [...t.draftList];
-                                  nextList[idx] = val;
-                                  return { ...t, draftList: nextList, isDirty: true };
-                                })
-                              );
-                            }}
-                            className="flex-1 px-2.5 py-1.5 bg-[#1a1a1f] border border-zinc-700/80 rounded-lg text-xs font-mono text-zinc-100"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setTabs((prev) =>
-                                prev.map((t) => {
-                                  if (t.key !== activeTab.key) return t;
-                                  return {
-                                    ...t,
-                                    draftList: t.draftList.filter((_, i) => i !== idx),
-                                    isDirty: true,
-                                  };
-                                })
-                              );
-                            }}
-                            className="p-1.5 rounded text-zinc-500 hover:text-rose-400 hover:bg-zinc-800"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : activeTab.type === 'set' ? (
-                  <div className="flex flex-col h-full bg-[#141418] border border-zinc-800 rounded-xl overflow-hidden p-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-zinc-300">
-                        Set Members ({activeTab.draftSet.length})
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setTabs((prev) =>
-                            prev.map((t) =>
-                              t.key === activeTab.key
-                                ? { ...t, draftSet: [...t.draftSet, ''], isDirty: true }
-                                : t
-                            )
-                          );
-                        }}
-                        className="flex items-center gap-1 px-2.5 py-1 rounded bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 text-xs font-semibold"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        <span>Add Member</span>
-                      </button>
-                    </div>
-                    <div className="flex-1 overflow-y-auto space-y-2">
-                      {activeTab.draftSet.map((item, idx) => (
-                        <div key={idx} className="flex items-center gap-2">
-                          <input
-                            type="text"
-                            value={item}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setTabs((prev) =>
-                                prev.map((t) => {
-                                  if (t.key !== activeTab.key) return t;
-                                  const nextSet = [...t.draftSet];
-                                  nextSet[idx] = val;
-                                  return { ...t, draftSet: nextSet, isDirty: true };
-                                })
-                              );
-                            }}
-                            className="flex-1 px-2.5 py-1.5 bg-[#1a1a1f] border border-zinc-700/80 rounded-lg text-xs font-mono text-zinc-100"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setTabs((prev) =>
-                                prev.map((t) => {
-                                  if (t.key !== activeTab.key) return t;
-                                  return {
-                                    ...t,
-                                    draftSet: t.draftSet.filter((_, i) => i !== idx),
-                                    isDirty: true,
-                                  };
-                                })
-                              );
-                            }}
-                            className="p-1.5 rounded text-zinc-500 hover:text-rose-400 hover:bg-zinc-800"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : (
-                  // ZSET View
-                  <div className="flex flex-col h-full bg-[#141418] border border-zinc-800 rounded-xl overflow-hidden p-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-zinc-300">
-                        Sorted Set Members ({activeTab.draftZSet.length})
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setTabs((prev) =>
-                            prev.map((t) =>
-                              t.key === activeTab.key
-                                ? {
+                  ) : (
+                    // ZSET View
+                    <div className="flex flex-col h-full bg-white dark:bg-[#141418] border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden p-4 space-y-3 shadow-sm">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-slate-700 dark:text-zinc-300">
+                          Sorted Set Members ({activeTab.draftZSet.length})
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setTabs((prev) =>
+                              prev.map((t) =>
+                                t.key === activeTab.key
+                                  ? {
                                     ...t,
                                     draftZSet: [...t.draftZSet, { member: '', score: 1 }],
                                     isDirty: true,
                                   }
-                                : t
-                            )
-                          );
-                        }}
-                        className="flex items-center gap-1 px-2.5 py-1 rounded bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 text-xs font-semibold"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        <span>Add Member</span>
-                      </button>
+                                  : t
+                              )
+                            );
+                          }}
+                          className="flex items-center gap-1 px-2.5 py-1 rounded bg-blue-50 dark:bg-blue-600/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-600/30 text-xs font-semibold cursor-pointer"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Add Member</span>
+                        </button>
+                      </div>
+                      <div className="flex-1 overflow-y-auto space-y-2">
+                        {activeTab.draftZSet.map((item, idx) => (
+                          <div key={idx} className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              value={item.score}
+                              onChange={(e) => {
+                                const score = parseFloat(e.target.value) || 0;
+                                setTabs((prev) =>
+                                  prev.map((t) => {
+                                    if (t.key !== activeTab.key) return t;
+                                    const nextZ = [...t.draftZSet];
+                                    nextZ[idx] = { ...nextZ[idx], score };
+                                    return { ...t, draftZSet: nextZ, isDirty: true };
+                                  })
+                                );
+                              }}
+                              placeholder="Score"
+                              className="w-24 px-2.5 py-1.5 bg-slate-50 dark:bg-[#1a1a1f] border border-slate-200 dark:border-zinc-700/80 rounded-lg text-xs font-mono text-slate-900 dark:text-zinc-100 outline-none focus:border-blue-500"
+                            />
+                            <input
+                              type="text"
+                              value={item.member}
+                              onChange={(e) => {
+                                const member = e.target.value;
+                                setTabs((prev) =>
+                                  prev.map((t) => {
+                                    if (t.key !== activeTab.key) return t;
+                                    const nextZ = [...t.draftZSet];
+                                    nextZ[idx] = { ...nextZ[idx], member };
+                                    return { ...t, draftZSet: nextZ, isDirty: true };
+                                  })
+                                );
+                              }}
+                              placeholder="Member"
+                              className="flex-1 px-2.5 py-1.5 bg-slate-50 dark:bg-[#1a1a1f] border border-slate-200 dark:border-zinc-700/80 rounded-lg text-xs font-mono text-slate-900 dark:text-zinc-100 outline-none focus:border-blue-500"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setTabs((prev) =>
+                                  prev.map((t) => {
+                                    if (t.key !== activeTab.key) return t;
+                                    return {
+                                      ...t,
+                                      draftZSet: t.draftZSet.filter((_, i) => i !== idx),
+                                      isDirty: true,
+                                    };
+                                  })
+                                );
+                              }}
+                              className="p-1.5 rounded text-slate-400 dark:text-zinc-500 hover:text-rose-500 dark:hover:text-rose-400 hover:bg-slate-100 dark:hover:bg-zinc-800 cursor-pointer"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                    <div className="flex-1 overflow-y-auto space-y-2">
-                      {activeTab.draftZSet.map((item, idx) => (
-                        <div key={idx} className="flex items-center gap-2">
-                          <input
-                            type="number"
-                            value={item.score}
-                            onChange={(e) => {
-                              const score = parseFloat(e.target.value) || 0;
-                              setTabs((prev) =>
-                                prev.map((t) => {
-                                  if (t.key !== activeTab.key) return t;
-                                  const nextZ = [...t.draftZSet];
-                                  nextZ[idx] = { ...nextZ[idx], score };
-                                  return { ...t, draftZSet: nextZ, isDirty: true };
-                                })
-                              );
-                            }}
-                            placeholder="Score"
-                            className="w-24 px-2.5 py-1.5 bg-[#1a1a1f] border border-zinc-700/80 rounded-lg text-xs font-mono text-zinc-100"
-                          />
-                          <input
-                            type="text"
-                            value={item.member}
-                            onChange={(e) => {
-                              const member = e.target.value;
-                              setTabs((prev) =>
-                                prev.map((t) => {
-                                  if (t.key !== activeTab.key) return t;
-                                  const nextZ = [...t.draftZSet];
-                                  nextZ[idx] = { ...nextZ[idx], member };
-                                  return { ...t, draftZSet: nextZ, isDirty: true };
-                                })
-                              );
-                            }}
-                            placeholder="Member"
-                            className="flex-1 px-2.5 py-1.5 bg-[#1a1a1f] border border-zinc-700/80 rounded-lg text-xs font-mono text-zinc-100"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setTabs((prev) =>
-                                prev.map((t) => {
-                                  if (t.key !== activeTab.key) return t;
-                                  return {
-                                    ...t,
-                                    draftZSet: t.draftZSet.filter((_, i) => i !== idx),
-                                    isDirty: true,
-                                  };
-                                })
-                              );
-                            }}
-                            className="p-1.5 rounded text-zinc-500 hover:text-rose-400 hover:bg-zinc-800"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
-      </div>
       )}
 
       {/* =========================================================================
@@ -1855,39 +1845,39 @@ export const RedisWorkspace: React.FC<RedisWorkspaceProps> = ({
 
       {/* New Key Modal */}
       {isNewKeyModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in">
-          <div className="bg-[#141416] border border-zinc-800 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800 bg-[#18181b]/60">
-              <h3 className="text-base font-semibold text-zinc-100">Create New Redis Key</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="bg-white dark:bg-[#141416] border border-slate-200 dark:border-zinc-800 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-zinc-800 bg-slate-50/80 dark:bg-[#18181b]/60">
+              <h3 className="text-base font-semibold text-slate-900 dark:text-zinc-100">Create New Redis Key</h3>
               <button
                 type="button"
                 onClick={() => setIsNewKeyModalOpen(false)}
-                className="text-zinc-400 hover:text-zinc-200"
+                className="text-slate-400 dark:text-zinc-400 hover:text-slate-700 dark:hover:text-zinc-200 cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
             <form onSubmit={handleCreateKeySubmit} className="p-6 space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-zinc-300 mb-1.5">Key Name</label>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1.5">Key Name</label>
                 <input
                   type="text"
                   required
                   value={newKeyForm.key}
                   onChange={(e) => setNewKeyForm({ ...newKeyForm, key: e.target.value })}
                   placeholder="e.g. users:session:102"
-                  className="w-full px-3 py-2 bg-[#1a1a1d] border border-zinc-700/80 rounded-lg text-xs font-mono text-zinc-100 outline-none focus:border-blue-500"
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-[#1a1a1d] border border-slate-200 dark:border-zinc-700/80 rounded-lg text-xs font-mono text-slate-900 dark:text-zinc-100 outline-none focus:border-blue-500"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-zinc-300 mb-1.5">Data Type</label>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1.5">Data Type</label>
                 <select
                   value={newKeyForm.type}
                   onChange={(e) =>
                     setNewKeyForm({ ...newKeyForm, type: e.target.value as RedisKeyType })
                   }
-                  className="w-full px-3 py-2 bg-[#1a1a1d] border border-zinc-700/80 rounded-lg text-xs font-semibold text-zinc-100 outline-none"
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-[#1a1a1d] border border-slate-200 dark:border-zinc-700/80 rounded-lg text-xs font-semibold text-slate-900 dark:text-zinc-100 outline-none cursor-pointer"
                 >
                   <option value="string">STRING</option>
                   <option value="hash">HASH</option>
@@ -1898,7 +1888,7 @@ export const RedisWorkspace: React.FC<RedisWorkspaceProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-zinc-300 mb-1.5">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1.5">
                   TTL in Seconds (-1 for Persistent)
                 </label>
                 <input
@@ -1907,7 +1897,7 @@ export const RedisWorkspace: React.FC<RedisWorkspaceProps> = ({
                   onChange={(e) =>
                     setNewKeyForm({ ...newKeyForm, ttl: parseInt(e.target.value) || -1 })
                   }
-                  className="w-full px-3 py-2 bg-[#1a1a1d] border border-zinc-700/80 rounded-lg text-xs font-mono text-zinc-100 outline-none"
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-[#1a1a1d] border border-slate-200 dark:border-zinc-700/80 rounded-lg text-xs font-mono text-slate-900 dark:text-zinc-100 outline-none"
                 />
               </div>
 
@@ -1915,13 +1905,13 @@ export const RedisWorkspace: React.FC<RedisWorkspaceProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsNewKeyModalOpen(false)}
-                  className="px-4 py-2 rounded-lg text-xs font-medium text-zinc-400 hover:text-zinc-200"
+                  className="px-4 py-2 rounded-lg text-xs font-medium text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-md"
+                  className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-md cursor-pointer"
                 >
                   Create Key
                 </button>
@@ -1933,20 +1923,20 @@ export const RedisWorkspace: React.FC<RedisWorkspaceProps> = ({
 
       {/* Namespace Delete Confirmation Modal */}
       {namespaceDeleteModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in">
-          <div className="bg-[#141416] border border-zinc-800 rounded-2xl w-full max-w-md shadow-2xl p-6 space-y-4">
-            <div className="flex items-center gap-3 text-rose-400">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="bg-white dark:bg-[#141416] border border-slate-200 dark:border-zinc-800 rounded-2xl w-full max-w-md shadow-2xl p-6 space-y-4">
+            <div className="flex items-center gap-3 text-rose-500 dark:text-rose-400">
               <AlertTriangle className="w-6 h-6 flex-shrink-0" />
-              <h3 className="text-base font-bold text-zinc-100">Delete Namespace?</h3>
+              <h3 className="text-base font-bold text-slate-900 dark:text-zinc-100">Delete Namespace?</h3>
             </div>
-            <p className="text-xs text-zinc-300 leading-relaxed">
-              Are you sure you want to delete all <span className="font-bold text-rose-400 font-mono">{namespaceDeleteModal.keys.length} keys</span> inside namespace <span className="font-bold text-zinc-100 font-mono">"{namespaceDeleteModal.namespace}"</span>?
+            <p className="text-xs text-slate-600 dark:text-zinc-300 leading-relaxed">
+              Are you sure you want to delete all <span className="font-bold text-rose-600 dark:text-rose-400 font-mono">{namespaceDeleteModal.keys.length} keys</span> inside namespace <span className="font-bold text-slate-900 dark:text-zinc-100 font-mono">"{namespaceDeleteModal.namespace}"</span>?
             </p>
             <div className="flex justify-end gap-2 pt-2">
               <button
                 type="button"
                 onClick={() => setNamespaceDeleteModal(null)}
-                className="px-4 py-2 rounded-lg text-xs font-medium text-zinc-400 hover:text-zinc-200"
+                className="px-4 py-2 rounded-lg text-xs font-medium text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 cursor-pointer"
               >
                 Cancel
               </button>
@@ -1954,7 +1944,7 @@ export const RedisWorkspace: React.FC<RedisWorkspaceProps> = ({
                 type="button"
                 disabled={isDeletingNamespace}
                 onClick={handleDeleteNamespace}
-                className="px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold shadow-md disabled:opacity-50"
+                className="px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold shadow-md disabled:opacity-50 cursor-pointer"
               >
                 {isDeletingNamespace ? 'Deleting...' : 'Delete All Keys'}
               </button>
@@ -1965,27 +1955,27 @@ export const RedisWorkspace: React.FC<RedisWorkspaceProps> = ({
 
       {/* Flush DB Confirmation */}
       {isFlushConfirmOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in">
-          <div className="bg-[#141416] border border-zinc-800 rounded-2xl w-full max-w-md shadow-2xl p-6 space-y-4">
-            <div className="flex items-center gap-3 text-rose-400">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="bg-white dark:bg-[#141416] border border-slate-200 dark:border-zinc-800 rounded-2xl w-full max-w-md shadow-2xl p-6 space-y-4">
+            <div className="flex items-center gap-3 text-rose-500 dark:text-rose-400">
               <AlertTriangle className="w-6 h-6 flex-shrink-0" />
-              <h3 className="text-base font-bold text-zinc-100">Flush Database {activeDb}?</h3>
+              <h3 className="text-base font-bold text-slate-900 dark:text-zinc-100">Flush Database {activeDb}?</h3>
             </div>
-            <p className="text-xs text-zinc-300 leading-relaxed">
-              This will permanently remove all keys in <span className="font-bold text-rose-400 font-mono">db{activeDb}</span>. This action cannot be undone.
+            <p className="text-xs text-slate-600 dark:text-zinc-300 leading-relaxed">
+              This will permanently remove all keys in <span className="font-bold text-rose-600 dark:text-rose-400 font-mono">db{activeDb}</span>. This action cannot be undone.
             </p>
             <div className="flex justify-end gap-2 pt-2">
               <button
                 type="button"
                 onClick={() => setIsFlushConfirmOpen(false)}
-                className="px-4 py-2 rounded-lg text-xs font-medium text-zinc-400 hover:text-zinc-200"
+                className="px-4 py-2 rounded-lg text-xs font-medium text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={handleFlushDB}
-                className="px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold shadow-md"
+                className="px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold shadow-md cursor-pointer"
               >
                 Flush DB {activeDb}
               </button>
@@ -1996,44 +1986,44 @@ export const RedisWorkspace: React.FC<RedisWorkspaceProps> = ({
 
       {/* Server Info Modal */}
       {isServerInfoOpen && serverInfo && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in">
-          <div className="bg-[#141416] border border-zinc-800 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800 bg-[#18181b]/60">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="bg-white dark:bg-[#141416] border border-slate-200 dark:border-zinc-800 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-zinc-800 bg-slate-50/80 dark:bg-[#18181b]/60">
               <div className="flex items-center gap-2.5">
-                <Server className="w-5 h-5 text-blue-400" />
-                <h3 className="text-base font-semibold text-zinc-100">Redis Server Statistics</h3>
+                <Server className="w-5 h-5 text-blue-500 dark:text-blue-400" />
+                <h3 className="text-base font-semibold text-slate-900 dark:text-zinc-100">Redis Server Statistics</h3>
               </div>
               <button
                 type="button"
                 onClick={() => setIsServerInfoOpen(false)}
-                className="text-zinc-400 hover:text-zinc-200"
+                className="text-slate-400 dark:text-zinc-400 hover:text-slate-700 dark:hover:text-zinc-200 cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
             <div className="p-6 space-y-4 overflow-y-auto">
               <div className="grid grid-cols-2 gap-3">
-                <div className="p-3 bg-[#1a1a1f] border border-zinc-800 rounded-xl">
-                  <div className="text-[11px] text-zinc-400">Redis Version</div>
-                  <div className="text-sm font-bold text-zinc-100 mt-0.5">
+                <div className="p-3 bg-slate-50 dark:bg-[#1a1a1f] border border-slate-200 dark:border-zinc-800 rounded-xl">
+                  <div className="text-[11px] text-slate-500 dark:text-zinc-400">Redis Version</div>
+                  <div className="text-sm font-bold text-slate-900 dark:text-zinc-100 mt-0.5">
                     v{serverInfo.redisVersion || 'unknown'}
                   </div>
                 </div>
-                <div className="p-3 bg-[#1a1a1f] border border-zinc-800 rounded-xl">
-                  <div className="text-[11px] text-zinc-400">Connected Clients</div>
-                  <div className="text-sm font-bold text-zinc-100 mt-0.5">
+                <div className="p-3 bg-slate-50 dark:bg-[#1a1a1f] border border-slate-200 dark:border-zinc-800 rounded-xl">
+                  <div className="text-[11px] text-slate-500 dark:text-zinc-400">Connected Clients</div>
+                  <div className="text-sm font-bold text-slate-900 dark:text-zinc-100 mt-0.5">
                     {serverInfo.connectedClients}
                   </div>
                 </div>
-                <div className="p-3 bg-[#1a1a1f] border border-zinc-800 rounded-xl">
-                  <div className="text-[11px] text-zinc-400">Memory Usage</div>
-                  <div className="text-sm font-bold text-blue-400 mt-0.5">
+                <div className="p-3 bg-slate-50 dark:bg-[#1a1a1f] border border-slate-200 dark:border-zinc-800 rounded-xl">
+                  <div className="text-[11px] text-slate-500 dark:text-zinc-400">Memory Usage</div>
+                  <div className="text-sm font-bold text-blue-600 dark:text-blue-400 mt-0.5">
                     {serverInfo.usedMemoryHuman || '0 B'}
                   </div>
                 </div>
-                <div className="p-3 bg-[#1a1a1f] border border-zinc-800 rounded-xl">
-                  <div className="text-[11px] text-zinc-400">Total Keys</div>
-                  <div className="text-sm font-bold text-emerald-400 mt-0.5">
+                <div className="p-3 bg-slate-50 dark:bg-[#1a1a1f] border border-slate-200 dark:border-zinc-800 rounded-xl">
+                  <div className="text-[11px] text-slate-500 dark:text-zinc-400">Total Keys</div>
+                  <div className="text-sm font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">
                     {serverInfo.totalKeys}
                   </div>
                 </div>

@@ -114,11 +114,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <button
               type="button"
               onClick={() => setActiveTab('general')}
-              className={`w-full px-3 py-2 rounded-xl text-xs font-medium text-left flex items-center gap-2.5 transition-all cursor-pointer ${
-                activeTab === 'general'
+              className={`w-full px-3 py-2 rounded-xl text-xs font-medium text-left flex items-center gap-2.5 transition-all cursor-pointer ${activeTab === 'general'
                   ? 'bg-brand-600/10 dark:bg-brand-600/15 text-brand-600 dark:text-brand-400 border border-brand-500/30 font-semibold shadow-xs'
                   : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-200/50 dark:hover:bg-zinc-800/60'
-              }`}
+                }`}
             >
               <Layout className="w-4 h-4" />
               <span>General</span>
@@ -127,11 +126,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <button
               type="button"
               onClick={() => setActiveTab('shortcuts')}
-              className={`w-full px-3 py-2 rounded-xl text-xs font-medium text-left flex items-center gap-2.5 transition-all cursor-pointer ${
-                activeTab === 'shortcuts'
+              className={`w-full px-3 py-2 rounded-xl text-xs font-medium text-left flex items-center gap-2.5 transition-all cursor-pointer ${activeTab === 'shortcuts'
                   ? 'bg-brand-600/10 dark:bg-brand-600/15 text-brand-600 dark:text-brand-400 border border-brand-500/30 font-semibold shadow-xs'
                   : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-200/50 dark:hover:bg-zinc-800/60'
-              }`}
+                }`}
             >
               <Command className="w-4 h-4" />
               <span>Keyboard Shortcuts</span>
@@ -140,11 +138,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <button
               type="button"
               onClick={() => setActiveTab('about')}
-              className={`w-full px-3 py-2 rounded-xl text-xs font-medium text-left flex items-center gap-2.5 transition-all cursor-pointer ${
-                activeTab === 'about'
+              className={`w-full px-3 py-2 rounded-xl text-xs font-medium text-left flex items-center gap-2.5 transition-all cursor-pointer ${activeTab === 'about'
                   ? 'bg-brand-600/10 dark:bg-brand-600/15 text-brand-600 dark:text-brand-400 border border-brand-500/30 font-semibold shadow-xs'
                   : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-200/50 dark:hover:bg-zinc-800/60'
-              }`}
+                }`}
             >
               <Info className="w-4 h-4" />
               <span>About Octa</span>
@@ -170,11 +167,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     <button
                       type="button"
                       onClick={() => handleThemeChange('dark')}
-                      className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer relative flex flex-col justify-between ${
-                        theme === 'dark'
+                      className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer relative flex flex-col justify-between ${theme === 'dark'
                           ? 'bg-brand-600/10 border-brand-500 text-slate-900 dark:text-zinc-100 ring-2 ring-brand-500/20 shadow-sm'
                           : 'bg-slate-50 dark:bg-[#18181c] border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 hover:border-slate-300 dark:hover:border-zinc-700'
-                      }`}
+                        }`}
                     >
                       <div>
                         <div className="flex items-center justify-between mb-2">
@@ -196,11 +192,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     <button
                       type="button"
                       onClick={() => handleThemeChange('light')}
-                      className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer relative flex flex-col justify-between ${
-                        theme === 'light'
+                      className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer relative flex flex-col justify-between ${theme === 'light'
                           ? 'bg-brand-600/10 border-brand-500 text-slate-900 dark:text-zinc-100 ring-2 ring-brand-500/20 shadow-sm'
                           : 'bg-slate-50 dark:bg-[#18181c] border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 hover:border-slate-300 dark:hover:border-zinc-700'
-                      }`}
+                        }`}
                     >
                       <div>
                         <div className="flex items-center justify-between mb-2">
@@ -222,11 +217,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     <button
                       type="button"
                       onClick={() => handleThemeChange('system')}
-                      className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer relative flex flex-col justify-between ${
-                        theme === 'system'
+                      className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer relative flex flex-col justify-between ${theme === 'system'
                           ? 'bg-brand-600/10 border-brand-500 text-slate-900 dark:text-zinc-100 ring-2 ring-brand-500/20 shadow-sm'
                           : 'bg-slate-50 dark:bg-[#18181c] border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 hover:border-slate-300 dark:hover:border-zinc-700'
-                      }`}
+                        }`}
                     >
                       <div>
                         <div className="flex items-center justify-between mb-2">
@@ -259,11 +253,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     {/* Option 1: Reopen Last Project */}
                     <div
                       onClick={() => handleStartupChange('last_project')}
-                      className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-start gap-3 ${
-                        settings.onStartup === 'last_project'
+                      className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-start gap-3 ${settings.onStartup === 'last_project'
                           ? 'bg-brand-600/10 border-brand-500/40 text-slate-900 dark:text-zinc-100 ring-1 ring-brand-500/30'
                           : 'bg-slate-50 dark:bg-[#18181c] border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 hover:border-slate-300 dark:hover:border-zinc-700'
-                      }`}
+                        }`}
                     >
                       <input
                         type="radio"
@@ -296,11 +289,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     {/* Option 2: Always Welcome Screen */}
                     <div
                       onClick={() => handleStartupChange('welcome_screen')}
-                      className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-start gap-3 ${
-                        settings.onStartup === 'welcome_screen'
+                      className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-start gap-3 ${settings.onStartup === 'welcome_screen'
                           ? 'bg-brand-600/10 border-brand-500/40 text-slate-900 dark:text-zinc-100 ring-1 ring-brand-500/30'
                           : 'bg-slate-50 dark:bg-[#18181c] border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 hover:border-slate-300 dark:hover:border-zinc-700'
-                      }`}
+                        }`}
                     >
                       <input
                         type="radio"
