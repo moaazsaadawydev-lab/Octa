@@ -5,21 +5,25 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"sync"
 	"time"
 
 	"github.com/UserExistsError/conpty"
+	"github.com/google/uuid"
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // TerminalSession encapsulates an active Windows ConPTY pseudo-console process.
 type TerminalSession struct {
-	ID        string
-	Cpty      *conpty.ConPty
-	WorkDir   string
-	CreatedAt time.Time
-	closed    bool
-	mu        sync.Mutex
+	ID              string
+	InstanceID      string
+	Cpty            *conpty.ConPty
+	WorkDir         string
+	CreatedAt       time.Time
+	closed          bool
+	closedByService bool
+	mu              sync.Mutex
 }
 
 // TerminalService manages multiple concurrent ConPTY sessions.
@@ -46,10 +50,11 @@ func (s *TerminalService) StartTerminalSession(sessionID string, workDir string,
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	// If session already exists and is active, close old one first
+	// If session already exists, mark as closedByService and close old handles cleanly
 	if old, exists := s.sessions[sessionID]; exists {
 		old.mu.Lock()
-		if !old.closed {
+		old.closedByService = true
+		if !old.closed && old.Cpty != nil {
 			_ = old.Cpty.Close()
 			old.closed = true
 		}
@@ -57,7 +62,7 @@ func (s *TerminalService) StartTerminalSession(sessionID string, workDir string,
 		delete(s.sessions, sessionID)
 	}
 
-	// Determine working directory
+	// Validate working directory; fall back safely to user home dir if non-existent
 	targetWorkDir := workDir
 	if targetWorkDir == "" {
 		homeDir, err := os.UserHomeDir()
@@ -67,9 +72,20 @@ func (s *TerminalService) StartTerminalSession(sessionID string, workDir string,
 			cwd, _ := os.Getwd()
 			targetWorkDir = cwd
 		}
+	} else {
+		stat, err := os.Stat(targetWorkDir)
+		if err != nil || !stat.IsDir() {
+			homeDir, _ := os.UserHomeDir()
+			if homeDir != "" {
+				targetWorkDir = homeDir
+			} else {
+				cwd, _ := os.Getwd()
+				targetWorkDir = cwd
+			}
+		}
 	}
 
-	// Default dimensions if invalid
+	// Default dimensions
 	if cols <= 0 {
 		cols = 120
 	}
@@ -77,27 +93,42 @@ func (s *TerminalService) StartTerminalSession(sessionID string, workDir string,
 		rows = 30
 	}
 
-	// Start ConPTY with powershell.exe
+	// Resolve powershell.exe path
+	psExe := "powershell.exe"
+	if p, err := exec.LookPath("powershell.exe"); err == nil && p != "" {
+		psExe = p
+	}
+
+	// Spawn persistent interactive powershell with -NoLogo
+	cmdLine := fmt.Sprintf(`"%s" -NoLogo`, psExe)
+	instanceID := uuid.NewString()
+
+	fmt.Printf("[DEBUG TerminalService] Starting ConPTY session %s [%s] (workDir: %s, cols: %d, rows: %d)\n", sessionID, instanceID[:8], targetWorkDir, cols, rows)
+
+	// Start ConPTY
 	cpty, err := conpty.Start(
-		"powershell.exe",
+		cmdLine,
 		conpty.ConPtyDimensions(cols, rows),
 		conpty.ConPtyWorkDir(targetWorkDir),
 	)
 	if err != nil {
+		fmt.Printf("[DEBUG TerminalService ERROR] Failed to start ConPTY: %v\n", err)
 		return fmt.Errorf("failed to start ConPTY powershell: %w", err)
 	}
 
 	session := &TerminalSession{
-		ID:        sessionID,
-		Cpty:      cpty,
-		WorkDir:   targetWorkDir,
-		CreatedAt: time.Now(),
-		closed:    false,
+		ID:              sessionID,
+		InstanceID:      instanceID,
+		Cpty:            cpty,
+		WorkDir:         targetWorkDir,
+		CreatedAt:       time.Now(),
+		closed:          false,
+		closedByService: false,
 	}
 
 	s.sessions[sessionID] = session
 
-	// Launch background reader goroutine to stream ConPTY output to Wails frontend
+	// Launch background reader goroutine
 	go s.readLoop(session)
 
 	return nil
@@ -125,22 +156,30 @@ func (s *TerminalService) readLoop(session *TerminalSession) {
 
 		if err != nil {
 			if err != io.EOF {
-				fmt.Printf("[TerminalService] Read ended for session %s: %v\n", session.ID, err)
+				session.mu.Lock()
+				isClosedByService := session.closedByService
+				session.mu.Unlock()
+				if !isClosedByService {
+					fmt.Printf("[DEBUG TerminalService] Read ended for session %s: %v\n", session.ID, err)
+				}
 			}
 			break
 		}
 	}
 
-	// Cleanup session upon process termination / EOF
-	s.mu.Lock()
-	delete(s.sessions, session.ID)
-	s.mu.Unlock()
-
 	session.mu.Lock()
+	wasClosedByService := session.closedByService
 	session.closed = true
 	session.mu.Unlock()
 
-	if s.ctx != nil {
+	s.mu.Lock()
+	if cur, exists := s.sessions[session.ID]; exists && cur.InstanceID == session.InstanceID {
+		delete(s.sessions, session.ID)
+	}
+	s.mu.Unlock()
+
+	// Only emit exit event if process exited naturally and was not closed by service
+	if !wasClosedByService && s.ctx != nil {
 		wailsRuntime.EventsEmit(s.ctx, "terminal:exit:"+session.ID, nil)
 	}
 }
@@ -152,18 +191,19 @@ func (s *TerminalService) WriteTerminalSession(sessionID string, data string) er
 	s.mu.RUnlock()
 
 	if !exists || session == nil {
-		return fmt.Errorf("terminal session %s not found or already closed", sessionID)
+		return fmt.Errorf("terminal session %s not found", sessionID)
 	}
 
 	session.mu.Lock()
 	defer session.mu.Unlock()
 
-	if session.closed {
+	if session.closed || session.Cpty == nil {
 		return fmt.Errorf("terminal session %s is closed", sessionID)
 	}
 
 	_, err := session.Cpty.Write([]byte(data))
 	if err != nil {
+		fmt.Printf("[DEBUG TerminalService Write Error]: %v\n", err)
 		return fmt.Errorf("failed to write to terminal session: %w", err)
 	}
 
@@ -187,7 +227,7 @@ func (s *TerminalService) ResizeTerminalSession(sessionID string, cols int, rows
 	session.mu.Lock()
 	defer session.mu.Unlock()
 
-	if session.closed {
+	if session.closed || session.Cpty == nil {
 		return fmt.Errorf("terminal session %s is closed", sessionID)
 	}
 
@@ -215,7 +255,8 @@ func (s *TerminalService) CloseTerminalSession(sessionID string) error {
 	session.mu.Lock()
 	defer session.mu.Unlock()
 
-	if !session.closed {
+	session.closedByService = true
+	if !session.closed && session.Cpty != nil {
 		session.closed = true
 		_ = session.Cpty.Close()
 	}
@@ -235,7 +276,8 @@ func (s *TerminalService) CloseAllTerminalSessions() {
 
 	for _, sess := range active {
 		sess.mu.Lock()
-		if !sess.closed {
+		sess.closedByService = true
+		if !sess.closed && sess.Cpty != nil {
 			sess.closed = true
 			_ = sess.Cpty.Close()
 		}

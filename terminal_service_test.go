@@ -22,8 +22,7 @@ func TestTerminalServiceLifecycle(t *testing.T) {
 	}
 
 	// 3. Write input to Terminal Session
-	err = service.WriteTerminalSession(sessionID, "Get-Process -Id $PID
-")
+	err = service.WriteTerminalSession(sessionID, "Get-Process -Id $PID\r\n")
 	if err != nil {
 		t.Errorf("Failed to write to terminal session: %v", err)
 	}
@@ -38,8 +37,7 @@ func TestTerminalServiceLifecycle(t *testing.T) {
 	}
 
 	// 5. Verify writing to closed session errors
-	err = service.WriteTerminalSession(sessionID, "exit
-")
+	err = service.WriteTerminalSession(sessionID, "exit\r\n")
 	if err == nil {
 		t.Errorf("Expected error writing to closed session, got nil")
 	}

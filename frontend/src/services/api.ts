@@ -28,6 +28,10 @@ import {
   SaveSqlQueriesData,
   LoadSqlQueriesData,
   ExecuteHttpRequest,
+  StartTerminalSession,
+  WriteTerminalSession,
+  ResizeTerminalSession,
+  CloseTerminalSession,
 } from '../../wailsjs/go/main/App';
 import { main } from '../../wailsjs/go/models';
 import {
@@ -992,3 +996,85 @@ export async function wipeLegacyStorage(): Promise<boolean> {
   }
   return false;
 }
+
+// ============================================================================
+// TERMINAL DOMAIN (Wails Native ConPTY Bindings)
+// ============================================================================
+
+export async function startTerminalSession(
+  sessionId: string,
+  workDir: string = '',
+  cols: number = 120,
+  rows: number = 30
+): Promise<boolean> {
+  try {
+    if (typeof StartTerminalSession === 'function') {
+      await StartTerminalSession(sessionId, workDir, cols, rows);
+      return true;
+    }
+    const w = window as any;
+    if (w?.go?.main?.App?.StartTerminalSession) {
+      await w.go.main.App.StartTerminalSession(sessionId, workDir, cols, rows);
+      return true;
+    }
+  } catch (e) {
+    console.error('[Terminal Start Error]:', e);
+  }
+  return false;
+}
+
+export async function writeTerminalSession(sessionId: string, data: string): Promise<boolean> {
+  try {
+    if (typeof WriteTerminalSession === 'function') {
+      await WriteTerminalSession(sessionId, data);
+      return true;
+    }
+    const w = window as any;
+    if (w?.go?.main?.App?.WriteTerminalSession) {
+      await w.go.main.App.WriteTerminalSession(sessionId, data);
+      return true;
+    }
+  } catch (e) {
+    console.error('[Terminal Write Error]:', e);
+  }
+  return false;
+}
+
+export async function resizeTerminalSession(
+  sessionId: string,
+  cols: number,
+  rows: number
+): Promise<boolean> {
+  try {
+    if (typeof ResizeTerminalSession === 'function') {
+      await ResizeTerminalSession(sessionId, cols, rows);
+      return true;
+    }
+    const w = window as any;
+    if (w?.go?.main?.App?.ResizeTerminalSession) {
+      await w.go.main.App.ResizeTerminalSession(sessionId, cols, rows);
+      return true;
+    }
+  } catch (e) {
+    console.warn('[Terminal Resize Error]:', e);
+  }
+  return false;
+}
+
+export async function closeTerminalSession(sessionId: string): Promise<boolean> {
+  try {
+    if (typeof CloseTerminalSession === 'function') {
+      await CloseTerminalSession(sessionId);
+      return true;
+    }
+    const w = window as any;
+    if (w?.go?.main?.App?.CloseTerminalSession) {
+      await w.go.main.App.CloseTerminalSession(sessionId);
+      return true;
+    }
+  } catch (e) {
+    console.warn('[Terminal Close Error]:', e);
+  }
+  return false;
+}
+

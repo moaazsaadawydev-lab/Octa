@@ -14,6 +14,10 @@ export function CloseProjectConnections() {
   return window['go']['main']['App']['CloseProjectConnections']();
 }
 
+export function CloseTerminalSession(arg1) {
+  return window['go']['main']['App']['CloseTerminalSession'](arg1);
+}
+
 export function ConnectRedis(arg1) {
   return window['go']['main']['App']['ConnectRedis'](arg1);
 }
@@ -142,6 +146,10 @@ export function RenameColumn(arg1, arg2, arg3, arg4, arg5) {
   return window['go']['main']['App']['RenameColumn'](arg1, arg2, arg3, arg4, arg5);
 }
 
+export function ResizeTerminalSession(arg1, arg2, arg3) {
+  return window['go']['main']['App']['ResizeTerminalSession'](arg1, arg2, arg3);
+}
+
 export function SaveConnection(arg1) {
   return window['go']['main']['App']['SaveConnection'](arg1);
 }
@@ -182,6 +190,10 @@ export function SetRedisTTL(arg1, arg2, arg3) {
   return window['go']['main']['App']['SetRedisTTL'](arg1, arg2, arg3);
 }
 
+export function StartTerminalSession(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['StartTerminalSession'](arg1, arg2, arg3, arg4);
+}
+
 export function TestConnection(arg1) {
   return window['go']['main']['App']['TestConnection'](arg1);
 }
@@ -200,4 +212,8 @@ export function UpdateTableRows(arg1, arg2, arg3, arg4, arg5) {
 
 export function WipeLegacyStorage() {
   return window['go']['main']['App']['WipeLegacyStorage']();
+}
+
+export function WriteTerminalSession(arg1, arg2) {
+  return window['go']['main']['App']['WriteTerminalSession'](arg1, arg2);
 }

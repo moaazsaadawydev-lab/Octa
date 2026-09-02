@@ -8,6 +8,7 @@ import { QueryPlayground } from './components/database/QueryPlayground';
 import { ErdVisualizer } from './components/database/ErdVisualizer';
 import { RedisWorkspace } from './components/redis/RedisWorkspace';
 import { HttpClientWorkspace } from './components/http/HttpClientWorkspace';
+import { TerminalWorkspace } from './components/terminal';
 import { SettingsView } from './components/layout/SettingsView';
 import { NewConnectionModal } from './components/database/NewConnectionModal';
 import { ImportSqlModal } from './components/database/ImportSqlModal';
@@ -663,6 +664,9 @@ export function App() {
         } else if (e.key === '3' && activeProject) {
           e.preventDefault();
           setActiveModule('http');
+        } else if (e.key === '4' && activeProject) {
+          e.preventDefault();
+          setActiveModule('terminal');
         } else if (e.key === ',') {
           e.preventDefault();
           setIsSettingsModalOpen(true);
@@ -724,6 +728,12 @@ export function App() {
             onUpdateData={(newData) => {
               setHttpData(newData);
             }}
+            showToast={showToast}
+          />
+        ) : activeModule === 'terminal' ? (
+          <TerminalWorkspace
+            activeProject={activeProject}
+            projectFilePath={projectFilePath}
             showToast={showToast}
           />
         ) : activeModule === 'settings' ? (
