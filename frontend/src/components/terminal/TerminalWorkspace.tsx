@@ -3,15 +3,12 @@ import {
   Terminal as TerminalIcon,
   Plus,
   X,
-  RotateCcw,
-  Folder,
-  Columns2,
-  Rows2,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { TerminalTab, TerminalPane, SplitDirection } from '../../types/terminal';
 import { ProjectWorkspace } from '../../types/project';
 import { XTermInstance } from './XTermInstance';
+import { TabsHeader } from './TabsHeader';
 import { closeTerminalSession } from '../../services/api';
 
 interface TerminalWorkspaceProps {
@@ -65,8 +62,8 @@ export const TerminalWorkspace: React.FC<TerminalWorkspaceProps> = ({
     } catch (e) {
       console.warn('Failed to parse saved terminal tabs:', e);
     }
-    const initialTabId = 'tab-' + Date.now();
-    const initialPaneId = 'pane-' + Date.now();
+    const initialTabId = 'tab-initial-1';
+    const initialPaneId = 'pane-initial-1';
     return [
       {
         id: initialTabId,
@@ -93,10 +90,6 @@ export const TerminalWorkspace: React.FC<TerminalWorkspaceProps> = ({
       ? savedActiveId
       : tabs[0]?.id || null;
   });
-
-  // Inline Tab Rename State
-  const [editingTabId, setEditingTabId] = useState<string | null>(null);
-  const [editingTitle, setEditingTitle] = useState('');
 
   // Persist Tabs in localStorage
   useEffect(() => {
@@ -166,86 +159,103 @@ export const TerminalWorkspace: React.FC<TerminalWorkspaceProps> = ({
     [activeTabId, tabs]
   );
 
-  // Split Active Tab (Horizontal or Vertical)
-  const handleSplitTab = (direction: 'horizontal' | 'vertical') => {
-    if (!activeTabId) return;
-
+  // Rename Tab (updates metadata without modifying session IDs or recreating PTY instances)
+  const handleRenameTab = useCallback((tabId: string, newTitle: string) => {
     setTabs((prev) =>
-      prev.map((tab) => {
-        if (tab.id !== activeTabId) return tab;
+      prev.map((tab) =>
+        tab.id === tabId ? { ...tab, title: newTitle.trim() || tab.title } : tab
+      )
+    );
+  }, []);
 
-        // If already 2 panes, just switch direction
-        if (tab.panes.length >= 2) {
+  // Split Active Tab (Horizontal or Vertical)
+  const handleSplitTab = useCallback(
+    (direction: 'horizontal' | 'vertical') => {
+      if (!activeTabId) return;
+
+      setTabs((prev) =>
+        prev.map((tab) => {
+          if (tab.id !== activeTabId) return tab;
+
+          // If already 2 panes, switch direction
+          if (tab.panes.length >= 2) {
+            return {
+              ...tab,
+              splitDirection: direction,
+            };
+          }
+
+          // Add 2nd pane with persistent ID
+          const newPaneId = 'pane-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6);
+          const newPane: TerminalPane = {
+            id: newPaneId,
+            title: tab.title + ' (Pane 2)',
+            workDir: tab.workDir || defaultWorkDir,
+            createdAt: Date.now(),
+          };
+
           return {
             ...tab,
             splitDirection: direction,
+            panes: [...tab.panes, newPane],
+            activePaneId: newPaneId,
           };
-        }
-
-        // Add 2nd pane
-        const newPaneId = 'pane-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6);
-        const newPane: TerminalPane = {
-          id: newPaneId,
-          title: tab.title + ' (Pane 2)',
-          workDir: tab.workDir || defaultWorkDir,
-          createdAt: Date.now(),
-        };
-
-        return {
-          ...tab,
-          splitDirection: direction,
-          panes: [...tab.panes, newPane],
-          activePaneId: newPaneId,
-        };
-      })
-    );
-
-    if (showToast) {
-      showToast(
-        direction === 'horizontal' ? 'Split terminal horizontally' : 'Split terminal vertically',
-        'info'
+        })
       );
-    }
-  };
+
+      if (showToast) {
+        showToast(
+          direction === 'horizontal' ? 'Split terminal horizontally' : 'Split terminal vertically',
+          'info'
+        );
+      }
+    },
+    [activeTabId, defaultWorkDir, showToast]
+  );
 
   // Close Single Pane
-  const handleClosePane = (tabId: string, paneId: string, e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
+  const handleClosePane = useCallback(
+    (tabId: string, paneId: string, e?: React.MouseEvent) => {
+      if (e) e.stopPropagation();
 
-    closeTerminalSession(paneId);
+      closeTerminalSession(paneId);
 
-    setTabs((prev) =>
-      prev.map((tab) => {
-        if (tab.id !== tabId) return tab;
+      setTabs((prev) =>
+        prev.map((tab) => {
+          if (tab.id !== tabId) return tab;
 
-        const nextPanes = tab.panes.filter((p) => p.id !== paneId);
-        if (nextPanes.length <= 1) {
+          const nextPanes = tab.panes.filter((p) => p.id !== paneId);
+          if (nextPanes.length <= 1) {
+            return {
+              ...tab,
+              splitDirection: 'none',
+              panes: nextPanes,
+              activePaneId: nextPanes[0]?.id || tab.id,
+            };
+          }
+
           return {
             ...tab,
-            splitDirection: 'none',
             panes: nextPanes,
-            activePaneId: nextPanes[0]?.id || tab.id,
+            activePaneId: tab.activePaneId === paneId ? nextPanes[0].id : tab.activePaneId,
           };
-        }
+        })
+      );
+    },
+    []
+  );
 
-        return {
-          ...tab,
-          panes: nextPanes,
-          activePaneId: tab.activePaneId === paneId ? nextPanes[0].id : tab.activePaneId,
-        };
-      })
-    );
-  };
-
-  // Set Focused Pane
-  const handleSelectPane = (tabId: string, paneId: string) => {
-    setTabs((prev) =>
-      prev.map((t) => (t.id === tabId ? { ...t, activePaneId: paneId } : t))
-    );
-  };
+  // Set Focused Pane (guarded against redundant state updates)
+  const handleSelectPane = useCallback((tabId: string, paneId: string) => {
+    setTabs((prev) => {
+      const tab = prev.find((t) => t.id === tabId);
+      if (!tab || tab.activePaneId === paneId) return prev;
+      return prev.map((t) => (t.id === tabId ? { ...t, activePaneId: paneId } : t));
+    });
+  }, []);
 
   // Restart Active Pane Session
-  const handleRestartSession = () => {
+  const handleRestartSession = useCallback(() => {
     if (!activeTabId) return;
     const curTab = tabs.find((t) => t.id === activeTabId);
     if (!curTab) return;
@@ -270,25 +280,7 @@ export const TerminalWorkspace: React.FC<TerminalWorkspaceProps> = ({
     );
 
     if (showToast) showToast('Restarted terminal session', 'info');
-  };
-
-  // Start Rename Tab
-  const handleStartRename = (tab: TerminalTab, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setEditingTabId(tab.id);
-    setEditingTitle(tab.title);
-  };
-
-  // Save Rename Tab
-  const handleSaveRename = (tabId: string) => {
-    if (editingTitle.trim()) {
-      setTabs((prev) =>
-        prev.map((t) => (t.id === tabId ? { ...t, title: editingTitle.trim() } : t))
-      );
-    }
-    setEditingTabId(null);
-    setEditingTitle('');
-  };
+  }, [activeTabId, tabs, showToast]);
 
   // Global Keyboard Shortcuts (Ctrl+Shift+T, Ctrl+Shift+W)
   useEffect(() => {
@@ -306,8 +298,6 @@ export const TerminalWorkspace: React.FC<TerminalWorkspaceProps> = ({
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleAddTab, handleCloseTab, activeTabId]);
-
-  const activeTab = tabs.find((t) => t.id === activeTabId);
 
   return (
     <div className="flex-1 flex flex-col h-full w-full min-h-0 min-w-0 bg-slate-50 dark:bg-[#090a0f] text-slate-900 dark:text-zinc-100 overflow-hidden select-none font-sans relative transition-colors">
@@ -332,151 +322,17 @@ export const TerminalWorkspace: React.FC<TerminalWorkspaceProps> = ({
         </div>
       ) : (
         <div className="flex-1 flex flex-col w-full h-full min-h-0 min-w-0 overflow-hidden">
-          {/* 1. Top Multi-Tab Header Bar */}
-          <div className="bg-white dark:bg-[#0c0d12] border-b border-slate-200 dark:border-zinc-800 flex items-center justify-between pl-2 pr-4 flex-shrink-0 select-none min-h-[38px] z-30 transition-colors">
-            {/* Scrollable Tabs List */}
-            <div className="flex items-center gap-1 overflow-x-auto no-scrollbar flex-1 py-1.5">
-              {tabs.map((tab) => {
-                const isActive = tab.id === activeTabId;
-                const isEditing = editingTabId === tab.id;
-
-                return (
-                  <div
-                    key={tab.id}
-                    onClick={() => setActiveTabId(tab.id)}
-                    onAuxClick={(e) => {
-                      if (e.button === 1) handleCloseTab(tab.id, e);
-                    }}
-                    title={tab.title}
-                    className={clsx(
-                      'group/tab relative flex items-center gap-2 px-3 py-1 rounded-lg text-xs transition-all cursor-pointer border max-w-[240px]',
-                      isActive
-                        ? 'bg-white dark:bg-zinc-800 text-slate-900 dark:text-white border-slate-300 dark:border-zinc-700/80 shadow-sm font-medium'
-                        : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-100 dark:hover:bg-[#18181c] border-transparent'
-                    )}
-                  >
-                    <TerminalIcon
-                      className={clsx(
-                        'w-3.5 h-3.5 flex-shrink-0',
-                        isActive
-                          ? 'text-brand-500 dark:text-brand-400'
-                          : 'text-slate-400 dark:text-zinc-500 group-hover/tab:text-zinc-300'
-                      )}
-                    />
-
-                    {/* Tab Title or Inline Editing */}
-                    {isEditing ? (
-                      <form
-                        onSubmit={(e) => {
-                          e.preventDefault();
-                          handleSaveRename(tab.id);
-                        }}
-                        onClick={(e) => e.stopPropagation()}
-                        className="flex items-center"
-                      >
-                        <input
-                          type="text"
-                          autoFocus
-                          value={editingTitle}
-                          onChange={(e) => setEditingTitle(e.target.value)}
-                          onBlur={() => handleSaveRename(tab.id)}
-                          className="bg-white dark:bg-zinc-900 border border-brand-500 text-slate-900 dark:text-white px-1 py-0.5 rounded text-xs outline-none font-mono w-28"
-                        />
-                      </form>
-                    ) : (
-                      <span
-                        onDoubleClick={(e) => handleStartRename(tab, e)}
-                        className="truncate font-mono text-[11px] flex-1"
-                      >
-                        {tab.title}
-                        {tab.panes.length > 1 && (
-                          <span className="ml-1 text-[10px] text-slate-400 dark:text-zinc-500 font-sans">
-                            ({tab.panes.length})
-                          </span>
-                        )}
-                      </span>
-                    )}
-
-                    {/* Close Tab Button */}
-                    <button
-                      type="button"
-                      onClick={(e) => handleCloseTab(tab.id, e)}
-                      title="Close Tab (Ctrl+Shift+W)"
-                      className="opacity-0 group-hover/tab:opacity-100 p-0.5 rounded text-slate-400 hover:text-rose-500 dark:text-zinc-500 dark:hover:text-zinc-200 hover:bg-slate-200 dark:hover:bg-zinc-700/60 transition-all cursor-pointer"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </div>
-                );
-              })}
-
-              {/* Add Terminal Tab Button */}
-              <button
-                type="button"
-                onClick={handleAddTab}
-                title="New PowerShell Terminal Tab (Ctrl+Shift+T)"
-                className="p-1 rounded-lg text-slate-500 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-slate-200/60 dark:hover:bg-zinc-800 transition-colors cursor-pointer ml-1"
-              >
-                <Plus className="w-3.5 h-3.5" />
-              </button>
-            </div>
-
-            {/* Right Toolbar Actions */}
-            <div className="flex items-center gap-1.5">
-              {activeTab && (
-                <>
-                  {/* Split Right (Horizontal) Button */}
-                  <button
-                    type="button"
-                    onClick={() => handleSplitTab('horizontal')}
-                    title="Split Terminal Right (Side by side)"
-                    className={clsx(
-                      'p-1.5 rounded-lg border transition-colors cursor-pointer',
-                      activeTab.splitDirection === 'horizontal'
-                        ? 'bg-brand-50 dark:bg-brand-950/40 text-brand-600 dark:text-brand-400 border-brand-300 dark:border-brand-800/80'
-                        : 'text-slate-600 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-slate-100 dark:hover:bg-zinc-800 border-slate-200 dark:border-zinc-800'
-                    )}
-                  >
-                    <Columns2 className="w-3.5 h-3.5" />
-                  </button>
-
-                  {/* Split Down (Vertical) Button */}
-                  <button
-                    type="button"
-                    onClick={() => handleSplitTab('vertical')}
-                    title="Split Terminal Down (Stacked)"
-                    className={clsx(
-                      'p-1.5 rounded-lg border transition-colors cursor-pointer',
-                      activeTab.splitDirection === 'vertical'
-                        ? 'bg-brand-50 dark:bg-brand-950/40 text-brand-600 dark:text-brand-400 border-brand-300 dark:border-brand-800/80'
-                        : 'text-slate-600 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-slate-100 dark:hover:bg-zinc-800 border-slate-200 dark:border-zinc-800'
-                    )}
-                  >
-                    <Rows2 className="w-3.5 h-3.5" />
-                  </button>
-
-                  {/* Working Directory Indicator */}
-                  <div
-                    className="hidden lg:flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-slate-100 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-[11px] text-slate-600 dark:text-zinc-400 font-mono max-w-[220px] truncate"
-                    title={activeTab.workDir || 'Home Directory'}
-                  >
-                    <Folder className="w-3 h-3 text-amber-500 dark:text-amber-400 flex-shrink-0" />
-                    <span className="truncate">{activeTab.workDir || '~'}</span>
-                  </div>
-
-                  {/* Restart Active Session */}
-                  <button
-                    type="button"
-                    onClick={handleRestartSession}
-                    title="Restart PowerShell Session"
-                    className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-slate-100 dark:hover:bg-zinc-800 border border-slate-200 dark:border-zinc-800 transition-colors cursor-pointer"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5" />
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
+          {/* 1. Top Multi-Tab Header Bar with Inline Rename & Context Menu */}
+          <TabsHeader
+            tabs={tabs}
+            activeTabId={activeTabId}
+            onSelectTab={setActiveTabId}
+            onAddTab={handleAddTab}
+            onCloseTab={handleCloseTab}
+            onRenameTab={handleRenameTab}
+            onSplitTab={handleSplitTab}
+            onRestartSession={handleRestartSession}
+          />
 
           {/* 2. Main Terminal Viewport Area */}
           <div className="flex-1 relative w-full h-full min-h-0 min-w-0 overflow-hidden bg-slate-50 dark:bg-[#090a0f] transition-colors">
@@ -544,7 +400,6 @@ export const TerminalWorkspace: React.FC<TerminalWorkspaceProps> = ({
                                 sessionId={pane.id}
                                 workDir={pane.workDir}
                                 isActive={isTabActive && isPaneActive}
-                                onFocus={() => handleSelectPane(tab.id, pane.id)}
                               />
                             </div>
                           </div>
@@ -559,7 +414,6 @@ export const TerminalWorkspace: React.FC<TerminalWorkspaceProps> = ({
                           sessionId={tab.panes[0].id}
                           workDir={tab.panes[0].workDir}
                           isActive={isTabActive}
-                          onFocus={() => handleSelectPane(tab.id, tab.panes[0].id)}
                         />
                       )}
                     </div>

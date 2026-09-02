@@ -83,6 +83,13 @@ export const XTermInstance: React.FC<XTermInstanceProps> = ({
   const webglAddonRef = useRef<WebglAddon | null>(null);
   const { resolvedTheme } = useTheme();
 
+  // Stable refs for callbacks & props to avoid effect re-triggers
+  const onFocusRef = useRef(onFocus);
+  onFocusRef.current = onFocus;
+
+  const workDirRef = useRef(workDir);
+  workDirRef.current = workDir;
+
   // Multi-line Paste Modal State
   const [pasteModalText, setPasteModalText] = useState<string | null>(null);
 
@@ -138,10 +145,10 @@ export const XTermInstance: React.FC<XTermInstanceProps> = ({
     termRef.current?.focus();
   };
 
-  // 1. Terminal Lifecycle Setup
+  // 1. Terminal Lifecycle Setup (STRICTLY dependent on sessionId only)
   useEffect(() => {
     const container = containerRef.current;
-    if (!container) return;
+    if (!container || !sessionId) return;
 
     // Create xterm Terminal with GPU acceleration support
     const term = new Terminal({
@@ -187,8 +194,8 @@ export const XTermInstance: React.FC<XTermInstanceProps> = ({
     term.attachCustomKeyEventHandler((event: KeyboardEvent) => {
       const isCtrlOrCmd = event.ctrlKey || event.metaKey;
 
-      if (onFocus) {
-        onFocus();
+      if (onFocusRef.current) {
+        onFocusRef.current();
       }
 
       // 1. Paste: Ctrl + V or Ctrl + Shift + V (handled manually; suppressed from browser and xterm)
@@ -247,7 +254,7 @@ export const XTermInstance: React.FC<XTermInstanceProps> = ({
     // Right-Click Context Menu Handling (Copy if selected, Paste if no selection)
     const handleContextMenu = async (e: MouseEvent) => {
       e.preventDefault();
-      if (onFocus) onFocus();
+      if (onFocusRef.current) onFocusRef.current();
 
       if (term.hasSelection()) {
         const selection = term.getSelection();
@@ -289,7 +296,7 @@ export const XTermInstance: React.FC<XTermInstanceProps> = ({
     const initialCols = term.cols || 120;
     const initialRows = term.rows || 30;
 
-    startTerminalSession(sessionId, workDir, initialCols, initialRows);
+    startTerminalSession(sessionId, workDirRef.current || '', initialCols, initialRows);
     term.focus();
 
     // Wire input streaming
@@ -341,7 +348,7 @@ export const XTermInstance: React.FC<XTermInstanceProps> = ({
       termRef.current = null;
       fitAddonRef.current = null;
     };
-  }, [sessionId, workDir, copyToClipboard, pasteFromClipboard, onFocus]);
+  }, [sessionId]);
 
   // 2. Synchronize Theme Changes
   useEffect(() => {
@@ -371,7 +378,7 @@ export const XTermInstance: React.FC<XTermInstanceProps> = ({
   }, [isActive, sessionId]);
 
   const handleContainerClick = () => {
-    if (onFocus) onFocus();
+    if (onFocusRef.current) onFocusRef.current();
     if (termRef.current) {
       termRef.current.focus();
     }
