@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   ScrollText,
   Search,
@@ -14,9 +14,16 @@ import {
   Network,
   Layers,
   AlertTriangle,
-  X,
+  ChevronUp,
+  ChevronDown,
 } from 'lucide-react';
 import clsx from 'clsx';
+import { Terminal } from '@xterm/xterm';
+import { FitAddon } from '@xterm/addon-fit';
+import { WebglAddon } from '@xterm/addon-webgl';
+import { SearchAddon } from '@xterm/addon-search';
+import '@xterm/xterm/css/xterm.css';
+
 import { DockerContainer } from '../../types/docker';
 import {
   startDockerContainer,
@@ -39,15 +46,25 @@ export const DockerLogViewer: React.FC<DockerLogViewerProps> = ({
   onRefreshList,
   showToast,
 }) => {
-  const [logs, setLogs] = useState<string[]>([]);
-  const [searchFilter, setSearchFilter] = useState('');
   const [autoScroll, setAutoScroll] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
   const [copiedId, setCopiedId] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  const logsEndRef = useRef<HTMLDivElement>(null);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const termRef = useRef<Terminal | null>(null);
+  const fitAddonRef = useRef<FitAddon | null>(null);
+  const searchAddonRef = useRef<SearchAddon | null>(null);
+  const autoScrollRef = useRef(autoScroll);
+
+  // Keep autoScrollRef in sync
+  useEffect(() => {
+    autoScrollRef.current = autoScroll;
+    if (autoScroll && termRef.current) {
+      termRef.current.scrollToBottom();
+    }
+  }, [autoScroll]);
 
   // Copy Container ID
   const handleCopyId = async () => {
@@ -120,30 +137,146 @@ export const DockerLogViewer: React.FC<DockerLogViewerProps> = ({
     }
   };
 
-  // Real-time Live Log Streaming
+  // Clear Terminal Output
+  const handleClear = () => {
+    if (termRef.current) {
+      termRef.current.clear();
+    }
+  };
+
+  // Search Navigation
+  const handleSearchChange = (value: string) => {
+    setSearchTerm(value);
+    if (!searchAddonRef.current) return;
+    if (value.trim()) {
+      searchAddonRef.current.findNext(value, { incremental: true });
+    } else {
+      searchAddonRef.current.clearDecorations();
+    }
+  };
+
+  const handleFindNext = () => {
+    if (searchAddonRef.current && searchTerm.trim()) {
+      searchAddonRef.current.findNext(searchTerm);
+    }
+  };
+
+  const handleFindPrevious = () => {
+    if (searchAddonRef.current && searchTerm.trim()) {
+      searchAddonRef.current.findPrevious(searchTerm);
+    }
+  };
+
+  // Initialize Read-Only XTerm Instance & Stream Subscription
   useEffect(() => {
-    if (!container?.id) {
-      setLogs([]);
+    if (!container?.id || !containerRef.current) {
       return;
     }
 
-    setLogs([]);
-    const eventName = 'docker:logs:' + container.id;
+    const containerId = container.id;
+    const domNode = containerRef.current;
 
+    // 1. Create configured Read-Only XTerm terminal
+    const term = new Terminal({
+      disableStdin: true,
+      cursorBlink: false,
+      cursorStyle: 'underline',
+      convertEol: true,
+      fontSize: 12,
+      fontFamily: 'Consolas, "Cascadia Code", "Fira Code", monospace',
+      theme: {
+        background: '#090a0f',
+        foreground: '#d4d4d8',
+        black: '#18181b',
+        red: '#ef4444',
+        green: '#22c55e',
+        yellow: '#eab308',
+        blue: '#3b82f6',
+        magenta: '#a855f7',
+        cyan: '#06b6d4',
+        white: '#f4f4f5',
+        brightBlack: '#71717a',
+        brightRed: '#f87171',
+        brightGreen: '#4ade80',
+        brightYellow: '#fde047',
+        brightBlue: '#60a5fa',
+        brightMagenta: '#c084fc',
+        brightCyan: '#22d3ee',
+        brightWhite: '#ffffff',
+      },
+      scrollback: 10000,
+    });
+
+    const fitAddon = new FitAddon();
+    const searchAddon = new SearchAddon();
+
+    term.loadAddon(fitAddon);
+    term.loadAddon(searchAddon);
+
+    term.open(domNode);
+
+    // Load WebGL Addon with graceful fallback
+    try {
+      const webglAddon = new WebglAddon();
+      webglAddon.onContextLoss(() => {
+        webglAddon.dispose();
+      });
+      term.loadAddon(webglAddon);
+    } catch {
+      // Fallback silently to default renderer
+    }
+
+    // Initial fit
+    requestAnimationFrame(() => {
+      try {
+        fitAddon.fit();
+      } catch {
+        // Ignore initial measurement race
+      }
+    });
+
+    termRef.current = term;
+    fitAddonRef.current = fitAddon;
+    searchAddonRef.current = searchAddon;
+
+    // Detect user manual scroll up vs bottom
+    const scrollDisposable = term.onScroll(() => {
+      const buffer = term.buffer.active;
+      const isBottom = buffer.viewportY >= buffer.baseY;
+      if (!isBottom && autoScrollRef.current) {
+        setAutoScroll(false);
+      } else if (isBottom && !autoScrollRef.current) {
+        setAutoScroll(true);
+      }
+    });
+
+    // Resize Observer to handle layout changes
+    const resizeObserver = new ResizeObserver(() => {
+      requestAnimationFrame(() => {
+        try {
+          fitAddon.fit();
+        } catch {
+          // Ignore
+        }
+      });
+    });
+    resizeObserver.observe(domNode);
+
+    // Subscribe to live log chunks via Wails Events
+    const eventName = 'docker:logs:' + containerId;
     let unsubscribe: (() => void) | undefined;
+
     if (runtime && typeof runtime.EventsOn === 'function') {
       unsubscribe = runtime.EventsOn(eventName, (chunk: string) => {
         if (!chunk) return;
-        const newLines = chunk.split('\n').filter((l) => l.length > 0);
-        setLogs((prev) => {
-          const combined = [...prev, ...newLines];
-          // Keep last 2500 lines in memory
-          return combined.length > 2500 ? combined.slice(combined.length - 2500) : combined;
-        });
+        term.write(chunk);
+        if (autoScrollRef.current) {
+          term.scrollToBottom();
+        }
       });
     }
 
-    startDockerLogStream(container.id);
+    startDockerLogStream(containerId);
 
     return () => {
       if (typeof unsubscribe === 'function') {
@@ -151,35 +284,15 @@ export const DockerLogViewer: React.FC<DockerLogViewerProps> = ({
       } else if (runtime && typeof runtime.EventsOff === 'function') {
         runtime.EventsOff(eventName);
       }
-      stopDockerLogStream(container.id);
+      stopDockerLogStream(containerId);
+      scrollDisposable.dispose();
+      resizeObserver.disconnect();
+      term.dispose();
+      termRef.current = null;
+      fitAddonRef.current = null;
+      searchAddonRef.current = null;
     };
   }, [container?.id]);
-
-  // Auto-Scroll to bottom
-  useEffect(() => {
-    if (autoScroll && logsEndRef.current) {
-      logsEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [logs, autoScroll]);
-
-  // Handle user manual scroll up (disables auto-scroll if user scrolled up)
-  const handleScroll = () => {
-    if (!scrollContainerRef.current) return;
-    const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
-    const isAtBottom = scrollHeight - scrollTop - clientHeight < 40;
-    if (!isAtBottom && autoScroll) {
-      setAutoScroll(false);
-    } else if (isAtBottom && !autoScroll) {
-      setAutoScroll(true);
-    }
-  };
-
-  // Filtered Logs
-  const filteredLogs = useMemo(() => {
-    if (!searchFilter.trim()) return logs;
-    const q = searchFilter.toLowerCase();
-    return logs.filter((l) => l.toLowerCase().includes(q));
-  }, [logs, searchFilter]);
 
   if (!container) {
     return (
@@ -337,25 +450,50 @@ export const DockerLogViewer: React.FC<DockerLogViewerProps> = ({
       {/* 2. Logs Sub-Toolbar */}
       <div className="px-4 py-2 bg-slate-100/70 dark:bg-[#08090d] border-b border-slate-200 dark:border-zinc-800 flex items-center justify-between gap-3 flex-shrink-0 select-none">
         {/* Search in Logs */}
-        <div className="flex items-center gap-2 flex-1 max-w-sm">
+        <div className="flex items-center gap-1.5 flex-1 max-w-sm">
           <div className="relative w-full">
             <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-zinc-500 pointer-events-none" />
             <input
               type="text"
-              placeholder="Filter logs..."
-              value={searchFilter}
-              onChange={(e) => setSearchFilter(e.target.value)}
-              className="w-full pl-8 pr-3 py-1 rounded-lg bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-500 outline-none focus:border-brand-500 font-mono transition-colors"
+              placeholder="Search logs..."
+              value={searchTerm}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  if (e.shiftKey) {
+                    handleFindPrevious();
+                  } else {
+                    handleFindNext();
+                  }
+                }
+              }}
+              className="w-full pl-8 pr-16 py-1 rounded-lg bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-500 outline-none focus:border-brand-500 font-mono transition-colors"
             />
+            {searchTerm && (
+              <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+                <button
+                  type="button"
+                  onClick={handleFindPrevious}
+                  title="Find Previous (Shift+Enter)"
+                  className="p-0.5 rounded text-slate-400 hover:text-slate-800 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-slate-100 dark:hover:bg-zinc-800 cursor-pointer"
+                >
+                  <ChevronUp className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleFindNext}
+                  title="Find Next (Enter)"
+                  className="p-0.5 rounded text-slate-400 hover:text-slate-800 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-slate-100 dark:hover:bg-zinc-800 cursor-pointer"
+                >
+                  <ChevronDown className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Right Tools: Line Count, AutoScroll, Clear */}
+        {/* Right Tools: AutoScroll, Clear */}
         <div className="flex items-center gap-2 text-xs">
-          <span className="text-[11px] text-slate-500 dark:text-zinc-500 font-mono">
-            {filteredLogs.length} lines
-          </span>
-
           <button
             type="button"
             onClick={() => setAutoScroll(!autoScroll)}
@@ -372,7 +510,7 @@ export const DockerLogViewer: React.FC<DockerLogViewerProps> = ({
 
           <button
             type="button"
-            onClick={() => setLogs([])}
+            onClick={handleClear}
             title="Clear Log Stream Buffer"
             className="px-2.5 py-1 rounded-lg text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100 hover:bg-slate-200 dark:hover:bg-zinc-800 border border-slate-200 dark:border-zinc-800 transition-colors cursor-pointer"
           >
@@ -381,27 +519,12 @@ export const DockerLogViewer: React.FC<DockerLogViewerProps> = ({
         </div>
       </div>
 
-      {/* 3. Live Logs Stream Terminal Viewport */}
-      <div
-        ref={scrollContainerRef}
-        onScroll={handleScroll}
-        className="flex-1 w-full h-full min-h-0 min-w-0 overflow-y-auto bg-[#06070a] text-zinc-300 p-4 font-mono text-xs leading-relaxed select-text shadow-inner"
-      >
-        {filteredLogs.length === 0 ? (
-          <div className="h-full flex items-center justify-center text-center text-zinc-600 font-sans text-xs">
-            {searchFilter ? 'No log lines matched your filter' : 'Waiting for container log output...'}
-          </div>
-        ) : (
-          filteredLogs.map((line, idx) => (
-            <div
-              key={idx}
-              className="whitespace-pre-wrap break-all hover:bg-white/5 px-1 rounded transition-colors"
-            >
-              {line}
-            </div>
-          ))
-        )}
-        <div ref={logsEndRef} />
+      {/* 3. Live Logs Stream Terminal Viewport (Read-Only XTerm Instance) */}
+      <div className="flex-1 w-full h-full min-h-0 min-w-0 bg-[#090a0f] p-3 overflow-hidden relative">
+        <div
+          ref={containerRef}
+          className="w-full h-full min-h-0 min-w-0 overflow-hidden"
+        />
       </div>
 
       {/* Delete Confirmation Modal */}

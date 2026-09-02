@@ -667,10 +667,10 @@ export function App() {
           setActiveModule('http');
         } else if (e.key === '4' && activeProject) {
           e.preventDefault();
-          setActiveModule('terminal');
+          setActiveModule('docker');
         } else if (e.key === '5' && activeProject) {
           e.preventDefault();
-          setActiveModule('docker');
+          setActiveModule('terminal');
         } else if (e.key === ',') {
           e.preventDefault();
           setIsSettingsModalOpen(true);

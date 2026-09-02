@@ -23,6 +23,7 @@ interface DockerContainerListProps {
   setOnlyRunning: (val: boolean) => void;
   onRefresh: () => void;
   isRefreshing: boolean;
+  width?: number;
   showToast?: (message: string, type?: 'success' | 'error' | 'info') => void;
 }
 
@@ -36,6 +37,7 @@ export const DockerContainerList: React.FC<DockerContainerListProps> = ({
   setOnlyRunning,
   onRefresh,
   isRefreshing,
+  width,
   showToast,
 }) => {
   // Collapsed Project Groups state (default: all expanded)
@@ -96,7 +98,13 @@ export const DockerContainerList: React.FC<DockerContainerListProps> = ({
   const totalRunningCount = groups.reduce((acc, g) => acc + g.runningContainers, 0);
 
   return (
-    <div className="w-80 h-full flex flex-col bg-white dark:bg-[#0c0d12] border-r border-slate-200 dark:border-zinc-800 flex-shrink-0 select-none font-sans transition-colors">
+    <div
+      style={width ? { width: `${width}px`, minWidth: '240px', maxWidth: '600px' } : undefined}
+      className={clsx(
+        "h-full flex flex-col bg-white dark:bg-[#0c0d12] border-r border-slate-200 dark:border-zinc-800 flex-shrink-0 select-none font-sans transition-colors",
+        !width && "w-80"
+      )}
+    >
       {/* 1. Header Toolbar */}
       <div className="p-3 border-b border-slate-200 dark:border-zinc-800 space-y-2.5">
         <div className="flex items-center justify-between">

@@ -88,31 +88,12 @@ export const ActivityBar: React.FC<ActivityBarProps> = ({
           <Globe className="w-5 h-5" />
         </button>
 
-        {/* 4. Terminal Workspace */}
-        <button
-          type="button"
-          disabled={!hasProject}
-          onClick={() => setActiveModule('terminal')}
-          title={hasProject ? "Terminal / PowerShell (Ctrl+4)" : "Open a project to use Terminal"}
-          className={`relative w-10 h-10 rounded-lg flex items-center justify-center transition-all ${!hasProject
-              ? 'opacity-30 cursor-not-allowed text-slate-400 dark:text-zinc-600'
-              : activeModule === 'terminal'
-                ? 'bg-slate-200 dark:bg-zinc-800 text-brand-600 dark:text-brand-400 font-medium shadow-sm cursor-pointer'
-                : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-200/60 dark:hover:bg-zinc-800/60 cursor-pointer'
-            }`}
-        >
-          {hasProject && activeModule === 'terminal' && (
-            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-brand-500 dark:bg-brand-400 rounded-r shadow-[0_0_8px_rgba(56,189,248,0.8)]" />
-          )}
-          <Terminal className="w-5 h-5" />
-        </button>
-
-        {/* 5. Docker Manager Workspace */}
+        {/* 4. Docker Manager Workspace */}
         <button
           type="button"
           disabled={!hasProject}
           onClick={() => setActiveModule('docker')}
-          title={hasProject ? "Docker Manager (Containers, Compose, Live Logs) (Ctrl+5)" : "Open a project to use Docker Manager"}
+          title={hasProject ? "Docker Manager (Containers, Compose, Live Logs) (Ctrl+4)" : "Open a project to use Docker Manager"}
           className={`relative w-10 h-10 rounded-lg flex items-center justify-center transition-all ${!hasProject
               ? 'opacity-30 cursor-not-allowed text-slate-400 dark:text-zinc-600'
               : activeModule === 'docker'
@@ -124,6 +105,25 @@ export const ActivityBar: React.FC<ActivityBarProps> = ({
             <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-brand-500 dark:bg-brand-400 rounded-r shadow-[0_0_8px_rgba(56,189,248,0.8)]" />
           )}
           <Boxes className="w-5 h-5" />
+        </button>
+
+        {/* 5. Terminal Workspace */}
+        <button
+          type="button"
+          disabled={!hasProject}
+          onClick={() => setActiveModule('terminal')}
+          title={hasProject ? "Terminal / PowerShell (Ctrl+5)" : "Open a project to use Terminal"}
+          className={`relative w-10 h-10 rounded-lg flex items-center justify-center transition-all ${!hasProject
+              ? 'opacity-30 cursor-not-allowed text-slate-400 dark:text-zinc-600'
+              : activeModule === 'terminal'
+                ? 'bg-slate-200 dark:bg-zinc-800 text-brand-600 dark:text-brand-400 font-medium shadow-sm cursor-pointer'
+                : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-200/60 dark:hover:bg-zinc-800/60 cursor-pointer'
+            }`}
+        >
+          {hasProject && activeModule === 'terminal' && (
+            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-brand-500 dark:bg-brand-400 rounded-r shadow-[0_0_8px_rgba(56,189,248,0.8)]" />
+          )}
+          <Terminal className="w-5 h-5" />
         </button>
       </div>
 
