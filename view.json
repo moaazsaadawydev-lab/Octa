@@ -1,0 +1,692 @@
+{
+  "createdAt": "2026-09-01T16:17:08+03:00",
+  "databases": [
+    {
+      "database": "postgres",
+      "host": "localhost",
+      "id": "conn-1788292236901",
+      "name": "Local Postgres",
+      "password": "624562",
+      "port": 5433,
+      "ssl": false,
+      "type": "postgres",
+      "username": "postgres"
+    }
+  ],
+  "httpClient": {
+    "activeEnvironmentId": "env-1788296492425",
+    "collections": [
+      {
+        "id": "req1",
+        "isOpen": false,
+        "items": [],
+        "name": "Get Users",
+        "type": "collection"
+      },
+      {
+        "id": "col-1788358480341-49-q9mwv",
+        "isOpen": false,
+        "items": [
+          {
+            "id": "folder-1788358480341-48-m5bz3",
+            "isOpen": true,
+            "items": [
+              {
+                "id": "folder-1788358480341-36-j3itf",
+                "isOpen": false,
+                "items": [
+                  {
+                    "id": "folder-1788358480341-16-wwsk4",
+                    "isOpen": false,
+                    "items": [
+                      {
+                        "id": "folder-1788358480340-9-jid69",
+                        "isOpen": false,
+                        "items": [
+                          {
+                            "id": "folder-1788358480340-7-gslr1",
+                            "isOpen": false,
+                            "items": [
+                              {
+                                "bodyContent": "{\r\n    \"email\": \"moaazseadawy@gmail.com\"\r\n}",
+                                "bodyFormData": [],
+                                "bodyType": "json",
+                                "bodyUrlEncoded": [],
+                                "disabledAutoHeaders": [],
+                                "headers": [],
+                                "id": "req-1788358480340-5-wq6g3",
+                                "isDirty": false,
+                                "method": "POST",
+                                "name": "Reset code",
+                                "params": [],
+                                "type": "request",
+                                "url": "{{baseURL}}/auth/users/password/forgot"
+                              },
+                              {
+                                "bodyContent": "{\r\n  \"email\": \"moaazseadawy@gmail.com\",\r\n  \"otp\": \"496074\",\r\n  \"newPassword\": \"123456789@\",\r\n  \"confirmPassword\": \"123456789@\"\r\n}",
+                                "bodyFormData": [],
+                                "bodyType": "json",
+                                "bodyUrlEncoded": [],
+                                "disabledAutoHeaders": [],
+                                "headers": [],
+                                "id": "req-1788358480340-6-yo9sl",
+                                "isDirty": false,
+                                "method": "POST",
+                                "name": "Reset password",
+                                "params": [],
+                                "type": "request",
+                                "url": "{{baseURL}}/auth/users/password/reset"
+                              }
+                            ],
+                            "name": "Forget password",
+                            "type": "folder"
+                          },
+                          {
+                            "bodyContent": "{\r\n    \"oldPassword\": \"624562\",\r\n    \"newPassword\": \"123456789\",\r\n    \"confirmPassword\": \"123456789\"\r\n}",
+                            "bodyFormData": [],
+                            "bodyType": "json",
+                            "bodyUrlEncoded": [],
+                            "disabledAutoHeaders": [],
+                            "headers": [
+                              {
+                                "enabled": true,
+                                "key": "Authorization",
+                                "value": "Bearer {{bearer_token_11lx}}"
+                              }
+                            ],
+                            "id": "req-1788358480340-8-og55k",
+                            "isDirty": false,
+                            "method": "PATCH",
+                            "name": "Update password",
+                            "params": [],
+                            "type": "request",
+                            "url": "{{baseURL}}/api/v1/auth/users/password/change"
+                          }
+                        ],
+                        "name": "password",
+                        "type": "folder"
+                      },
+                      {
+                        "id": "folder-1788358480341-12-ljzu1",
+                        "isOpen": true,
+                        "items": [
+                          {
+                            "bodyContent": "{\r\n    \"currentPassword\": \"624562\",\r\n    \"newEmail\": \"moaz787557@gmail.com\"\r\n}",
+                            "bodyFormData": [],
+                            "bodyType": "json",
+                            "bodyUrlEncoded": [],
+                            "disabledAutoHeaders": [],
+                            "headers": [
+                              {
+                                "enabled": true,
+                                "key": "Authorization",
+                                "value": "Bearer {{bearer_token_10mg}}"
+                              }
+                            ],
+                            "id": "req-1788358480341-10-n1mpb",
+                            "isDirty": false,
+                            "method": "POST",
+                            "name": "Email change request",
+                            "params": [],
+                            "type": "request",
+                            "url": "{{baseURL}}/auth/users/email/change/request"
+                          },
+                          {
+                            "bodyContent": "{\r\n    \"code\": \"408453\"\r\n}",
+                            "bodyFormData": [],
+                            "bodyType": "json",
+                            "bodyUrlEncoded": [],
+                            "disabledAutoHeaders": [],
+                            "headers": [
+                              {
+                                "enabled": true,
+                                "key": "Authorization",
+                                "value": "Bearer {{json_web_token_17sy}}"
+                              }
+                            ],
+                            "id": "req-1788358480341-11-4h8a0",
+                            "isDirty": false,
+                            "method": "POST",
+                            "name": "Confirm",
+                            "params": [],
+                            "type": "request",
+                            "url": "{{baseURL}}/auth/users/email/change/confirm"
+                          }
+                        ],
+                        "name": "Email",
+                        "type": "folder"
+                      },
+                      {
+                        "id": "folder-1788358480341-14-oh9cf",
+                        "isOpen": true,
+                        "items": [
+                          {
+                            "bodyContent": "{\r\n    \"status\": \"BLOCKED\"\r\n}",
+                            "bodyFormData": [],
+                            "bodyType": "json",
+                            "bodyUrlEncoded": [],
+                            "disabledAutoHeaders": [],
+                            "headers": [
+                              {
+                                "enabled": true,
+                                "key": "Authorization",
+                                "value": "Bearer {{bearer_token_0s1e}}"
+                              }
+                            ],
+                            "id": "req-1788358480341-13-3jec9",
+                            "isDirty": false,
+                            "method": "PATCH",
+                            "name": "New Request",
+                            "params": [],
+                            "type": "request",
+                            "url": "{{baseURL}}/admin/users/:id/status"
+                          }
+                        ],
+                        "name": "Status",
+                        "type": "folder"
+                      },
+                      {
+                        "bodyContent": "",
+                        "bodyFormData": [],
+                        "bodyType": "form-data",
+                        "bodyUrlEncoded": [],
+                        "disabledAutoHeaders": [],
+                        "headers": [
+                          {
+                            "enabled": true,
+                            "key": "Authorization",
+                            "value": "Bearer {{supabase_service_role_api_key_0wth}}"
+                          }
+                        ],
+                        "id": "req-1788358480341-15-vnppl",
+                        "isDirty": false,
+                        "method": "PATCH",
+                        "name": "Update user",
+                        "params": [],
+                        "type": "request",
+                        "url": "{{baseURL}}/api/v1/auth/users/profile/update"
+                      }
+                    ],
+                    "name": "Update",
+                    "type": "folder"
+                  },
+                  {
+                    "bodyContent": "",
+                    "bodyFormData": [
+                      {
+                        "enabled": true,
+                        "id": "fd-1788358480341-17-s5z0d",
+                        "key": "name",
+                        "type": "text",
+                        "value": "Moaz Saadawy"
+                      },
+                      {
+                        "enabled": true,
+                        "id": "fd-1788358480341-18-339ig",
+                        "key": "email",
+                        "type": "text",
+                        "value": "moaazseadawy@gmail.com"
+                      },
+                      {
+                        "enabled": true,
+                        "id": "fd-1788358480341-19-4j05h",
+                        "key": "age",
+                        "type": "text",
+                        "value": "18"
+                      },
+                      {
+                        "enabled": true,
+                        "id": "fd-1788358480341-20-8ersw",
+                        "key": "gender",
+                        "type": "text",
+                        "value": "male"
+                      },
+                      {
+                        "enabled": true,
+                        "id": "fd-1788358480341-21-yrun9",
+                        "key": "country",
+                        "type": "text",
+                        "value": "Egypt"
+                      },
+                      {
+                        "enabled": true,
+                        "fileName": "postman-cloud:///1f140277-69a4-4540-89a3-d7cb50abdd7e",
+                        "id": "fd-1788358480341-22-z5avq",
+                        "key": "avatar",
+                        "type": "file",
+                        "value": ""
+                      },
+                      {
+                        "enabled": true,
+                        "id": "fd-1788358480341-23-zfruv",
+                        "key": "password",
+                        "type": "text",
+                        "value": "624562"
+                      },
+                      {
+                        "enabled": true,
+                        "id": "fd-1788358480341-24-vid7r",
+                        "key": "cropX",
+                        "type": "text",
+                        "value": "0"
+                      },
+                      {
+                        "enabled": true,
+                        "id": "fd-1788358480341-25-pflxg",
+                        "key": "cropY",
+                        "type": "text",
+                        "value": "445"
+                      },
+                      {
+                        "enabled": true,
+                        "id": "fd-1788358480341-26-zww0a",
+                        "key": "cropWidth",
+                        "type": "text",
+                        "value": "1800"
+                      },
+                      {
+                        "enabled": true,
+                        "id": "fd-1788358480341-27-wutxd",
+                        "key": "cropHeight",
+                        "type": "text",
+                        "value": "1800"
+                      },
+                      {
+                        "enabled": true,
+                        "id": "fd-1788358480341-28-sxi22",
+                        "key": "cropZoom",
+                        "type": "text",
+                        "value": "1"
+                      }
+                    ],
+                    "bodyType": "form-data",
+                    "bodyUrlEncoded": [],
+                    "disabledAutoHeaders": [],
+                    "headers": [],
+                    "id": "req-1788358480341-29-8l7na",
+                    "isDirty": false,
+                    "method": "POST",
+                    "name": "Register new user",
+                    "params": [],
+                    "type": "request",
+                    "url": "{{baseURL}}/users/auth/register"
+                  },
+                  {
+                    "bodyContent": "{\r\n    \"email\": \"moaazseadawy@gmail.com\",\r\n    \"code\": \"440679\"\r\n}\r\n",
+                    "bodyFormData": [],
+                    "bodyType": "json",
+                    "bodyUrlEncoded": [],
+                    "disabledAutoHeaders": [],
+                    "headers": [],
+                    "id": "req-1788358480341-30-hjvnn",
+                    "isDirty": false,
+                    "method": "POST",
+                    "name": "Verify email",
+                    "params": [],
+                    "type": "request",
+                    "url": "{{baseURL}}/users/auth/verify"
+                  },
+                  {
+                    "bodyContent": "{\r\n    \"email\": \"customer.pay.1787602590956@test.com\",\r\n    \"password\": \"Password123!\"\r\n}\r\n",
+                    "bodyFormData": [],
+                    "bodyType": "json",
+                    "bodyUrlEncoded": [],
+                    "disabledAutoHeaders": [],
+                    "headers": [],
+                    "id": "req-1788358480341-31-p2wwz",
+                    "isDirty": false,
+                    "method": "POST",
+                    "name": "Login",
+                    "params": [],
+                    "type": "request",
+                    "url": "{{baseURL}}/users/auth/login"
+                  },
+                  {
+                    "bodyContent": "",
+                    "bodyFormData": [],
+                    "bodyType": "none",
+                    "bodyUrlEncoded": [],
+                    "disabledAutoHeaders": [],
+                    "headers": [
+                      {
+                        "enabled": true,
+                        "key": "Authorization",
+                        "value": "Bearer {{supabase_service_role_api_key_19p8}}"
+                      }
+                    ],
+                    "id": "req-1788358480341-32-8lt2i",
+                    "isDirty": false,
+                    "method": "GET",
+                    "name": "CurrentUser",
+                    "params": [],
+                    "type": "request",
+                    "url": "{{baseURL}}/users/profile"
+                  },
+                  {
+                    "bodyContent": "",
+                    "bodyFormData": [],
+                    "bodyType": "none",
+                    "bodyUrlEncoded": [],
+                    "disabledAutoHeaders": [],
+                    "headers": [],
+                    "id": "req-1788358480341-33-6viuy",
+                    "isDirty": false,
+                    "method": "POST",
+                    "name": "RefreshToken",
+                    "params": [],
+                    "type": "request",
+                    "url": "{{baseURL}}/users/auth/refresh"
+                  },
+                  {
+                    "bodyContent": "{\r\n    \"email\": \"moaazseadawy@gmail.com\"\r\n}",
+                    "bodyFormData": [],
+                    "bodyType": "json",
+                    "bodyUrlEncoded": [],
+                    "disabledAutoHeaders": [],
+                    "headers": [],
+                    "id": "req-1788358480341-34-6mhre",
+                    "isDirty": false,
+                    "method": "POST",
+                    "name": "Resend verification code",
+                    "params": [],
+                    "type": "request",
+                    "url": "{{baseURL}}/auth/users/account/resend-verification"
+                  },
+                  {
+                    "bodyContent": "{\r\n  \"token\": \"666e72bb6c5335facd4806f3d28be5e54143a01bb5356f1791e0d3e394e5b8f0\",\r\n  \"password\": \"582641\"\r\n}",
+                    "bodyFormData": [],
+                    "bodyType": "json",
+                    "bodyUrlEncoded": [],
+                    "disabledAutoHeaders": [],
+                    "headers": [],
+                    "id": "req-1788358480341-35-pec8o",
+                    "isDirty": false,
+                    "method": "POST",
+                    "name": "New Request",
+                    "params": [],
+                    "type": "request",
+                    "url": "http://localhost:3000/api/v1/auth/setup-password"
+                  }
+                ],
+                "name": "Users",
+                "type": "folder"
+              },
+              {
+                "id": "folder-1788358480341-45-w6utn",
+                "isOpen": false,
+                "items": [
+                  {
+                    "bodyContent": "",
+                    "bodyFormData": [],
+                    "bodyType": "none",
+                    "bodyUrlEncoded": [],
+                    "disabledAutoHeaders": [],
+                    "headers": [],
+                    "id": "req-1788358480341-37-2p7po",
+                    "isDirty": false,
+                    "method": "GET",
+                    "name": "Get genres",
+                    "params": [],
+                    "type": "request",
+                    "url": "{{baseURL}}/movies/genres"
+                  },
+                  {
+                    "bodyContent": "{\r\n    \"title\": \"Interstaller\",\r\n    \"description\": \"When Earth becomes uninhabitable in the future, a farmer and ex-NASA pilot, Joseph Cooper, is tasked to pilot a spacecraft, along with a team of researchers, to find a new planet for humans.\",\r\n    \"durationMinutes\": 169,\r\n    \"releaseDate\": \"2014-11-07\",\r\n    \"ageRating\": \"PG_13\",\r\n    \"status\": \"NOW_SHOWING\",\r\n    \"originalLanguage\": \"en\",\r\n    \"spokenLanguages\": [\r\n        \"en\",\r\n        \"ja\"\r\n    ],\r\n    \"subtitles\": [\r\n        \"ar\",\r\n        \"en\"\r\n    ],\r\n    \"directors\": [\r\n        \"Christopher Nolan\"\r\n    ],\r\n    \"cast\": [\r\n        \"Leonardo DiCaprio\",\r\n        \"Joseph Gordon-Levitt\"\r\n    ],\r\n    \"genreIds\": [\r\n        \"c1d8884f-9e1b-46f3-933a-bbe8aabc1d27\",\r\n        \"38aaaf1d-2bfd-4e16-a494-816905e44514\",\r\n        \"5122cdf4-4f18-4006-ac9a-a0224fd93820\"\r\n    ],\r\n    \"posterUrl\": \"https://m.media-amazon.com/images/M/MV5BYzdjMDAxZGItMjI2My00ODA1LTlkNzItOWFjMDU5ZDJlYWY3XkEyXkFqcGc@._V1_.jpg\",\r\n    \"bannerUrl\": \"https://image.tmdb.org/t/p/original/xJHokMbljvjADYdit5fK5VQsXEG.jpg\",\r\n    \"trailerUrl\": \"https://www.youtube.com/watch?v=zSWdZVtXT7E\",\r\n    \"galleryUrls\": [\r\n        \"https://image.tmdb.org/t/p/original/rAiYTsqzbmuVoGR1PRozo0giMwO.jpg\",\r\n        \"https://image.tmdb.org/t/p/original/pbrkL804c8yAv3zBZR4QPEafpAR.jpg\",\r\n        \"https://image.tmdb.org/t/p/original/7nO5DUMnZqH85g7XGev82b53xW6.jpg\"\r\n    ]\r\n}",
+                    "bodyFormData": [],
+                    "bodyType": "json",
+                    "bodyUrlEncoded": [],
+                    "disabledAutoHeaders": [],
+                    "headers": [
+                      {
+                        "enabled": true,
+                        "key": "Authorization",
+                        "value": "Bearer {{json_web_token_05ot}}"
+                      }
+                    ],
+                    "id": "req-1788358480341-38-a6onf",
+                    "isDirty": false,
+                    "method": "POST",
+                    "name": "Create movie",
+                    "params": [],
+                    "type": "request",
+                    "url": "http://localhost:3000/api/v1/movies"
+                  },
+                  {
+                    "bodyContent": "{\r\n  \"name\": \"Grand Cinema Cairo\",\r\n  \"city\": \"Cairo\",\r\n  \"address\": \"Downtown, Mall of Cairo\",\r\n  \"latitude\": 30.0444,\r\n  \"longitude\": 31.2357,\r\n  \"phoneNumber\": \"+201000000000\",\r\n  \"facilities\": [\"Parking\", \"VIP Lounge\", \"Food Court\"]\r\n}",
+                    "bodyFormData": [],
+                    "bodyType": "json",
+                    "bodyUrlEncoded": [],
+                    "disabledAutoHeaders": [],
+                    "headers": [
+                      {
+                        "enabled": true,
+                        "key": "Authorization",
+                        "value": "Bearer {{supabase_service_role_api_key_0t3v}}"
+                      }
+                    ],
+                    "id": "req-1788358480341-39-ccghd",
+                    "isDirty": false,
+                    "method": "POST",
+                    "name": "Create cinema",
+                    "params": [],
+                    "type": "request",
+                    "url": "{{baseURL}}/cinemas"
+                  },
+                  {
+                    "bodyContent": "{\r\n  \"name\": \"Screen 1 - IMAX\",\r\n  \"experienceType\": \"IMAX_3D\",\r\n  \"soundSystem\": \"Dolby Atmos 7.1\",\r\n  \"totalRows\": 5,\r\n  \"totalColumns\": 8\r\n}",
+                    "bodyFormData": [],
+                    "bodyType": "json",
+                    "bodyUrlEncoded": [],
+                    "disabledAutoHeaders": [],
+                    "headers": [
+                      {
+                        "enabled": true,
+                        "key": "Authorization",
+                        "value": "Bearer {{json_web_token_0t3v}}"
+                      }
+                    ],
+                    "id": "req-1788358480341-40-9a4c9",
+                    "isDirty": false,
+                    "method": "POST",
+                    "name": "create auditorium",
+                    "params": [],
+                    "type": "request",
+                    "url": "{{baseURL}}/cinemas/:id/auditoriums"
+                  },
+                  {
+                    "bodyContent": "{\n  \"key\": \"value\"\n}",
+                    "bodyFormData": [],
+                    "bodyType": "json",
+                    "bodyUrlEncoded": [],
+                    "disabledAutoHeaders": [],
+                    "headers": [
+                      {
+                        "enabled": false,
+                        "key": "Authorization",
+                        "value": "Bearer {{supabase_service_role_api_key_0t3v}}"
+                      }
+                    ],
+                    "id": "req-1788358480341-41-cdjs7",
+                    "isDirty": false,
+                    "method": "GET",
+                    "name": "Get seats and auditorium",
+                    "params": [],
+                    "type": "request",
+                    "url": "{{baseURL}}/seats/auditorium/:id"
+                  },
+                  {
+                    "bodyContent": "{\r\n  \"movieId\": \"9e32d0a8-adaa-476f-a968-d9b4aece1c40\",\r\n  \"auditoriumId\": \"87fe2c33-ba2f-4a8b-adbe-e67300fb5818\",\r\n  \"startTime\": \"2026-09-01T18:00:00.000Z\",\r\n  \"endTime\": \"2026-09-01T20:30:00.000Z\",\r\n  \"experienceType\": \"IMAX_3D\",\r\n  \"basePrice\": 120.00\r\n}",
+                    "bodyFormData": [],
+                    "bodyType": "json",
+                    "bodyUrlEncoded": [],
+                    "disabledAutoHeaders": [],
+                    "headers": [
+                      {
+                        "enabled": true,
+                        "key": "Authorization",
+                        "value": "Bearer {{json_web_token_02k4}}"
+                      }
+                    ],
+                    "id": "req-1788358480341-42-11njs",
+                    "isDirty": false,
+                    "method": "POST",
+                    "name": "Create show time",
+                    "params": [],
+                    "type": "request",
+                    "url": "{{baseURL}}/showtimes"
+                  },
+                  {
+                    "bodyContent": "{\r\n  \"pricings\": [\r\n    { \"seatType\": \"REGULAR\", \"price\": 120.00 },\r\n    { \"seatType\": \"VIP\", \"price\": 180.00 },\r\n    { \"seatType\": \"PREMIUM\", \"price\": 150.00 }\r\n  ]\r\n}",
+                    "bodyFormData": [],
+                    "bodyType": "json",
+                    "bodyUrlEncoded": [],
+                    "disabledAutoHeaders": [],
+                    "headers": [
+                      {
+                        "enabled": true,
+                        "key": "Authorization",
+                        "value": "Bearer {{json_web_token_02k4}}"
+                      }
+                    ],
+                    "id": "req-1788358480341-43-2lo9m",
+                    "isDirty": false,
+                    "method": "PUT",
+                    "name": "Set Custom Tier Pricing",
+                    "params": [],
+                    "type": "request",
+                    "url": "{{baseURL}}/showtimes/c28a5043-a191-45dc-aa07-f601273e5e5a/pricing"
+                  },
+                  {
+                    "bodyContent": "",
+                    "bodyFormData": [],
+                    "bodyType": "none",
+                    "bodyUrlEncoded": [],
+                    "disabledAutoHeaders": [],
+                    "headers": [],
+                    "id": "req-1788358480341-44-awmir",
+                    "isDirty": false,
+                    "method": "GET",
+                    "name": "New Request",
+                    "params": [
+                      {
+                        "enabled": true,
+                        "key": "movieId",
+                        "value": "9e32d0a8-adaa-476f-a968-d9b4aece1c40"
+                      },
+                      {
+                        "enabled": true,
+                        "key": "date",
+                        "value": "2026-09-01"
+                      }
+                    ],
+                    "type": "request",
+                    "url": "{{baseURL}}/showtimes/grouped?movieId=9e32d0a8-adaa-476f-a968-d9b4aece1c40\u0026date=2026-09-01"
+                  }
+                ],
+                "name": "Catalog",
+                "type": "folder"
+              },
+              {
+                "id": "folder-1788358480341-47-m2k8v",
+                "isOpen": false,
+                "items": [
+                  {
+                    "bodyContent": "{\r\n  \"bookingId\": \"fb63117b-9731-4ba1-802f-0798a78e8565\",\r\n  \"amount\": 150.00,\r\n  \"currency\": \"EGP\",\r\n  \"method\": \"CARD\",\r\n  \"billingData\": {\r\n    \"first_name\": \"Moaz\",\r\n    \"last_name\": \"Saadawy\",\r\n    \"email\": \"customer@booking.local\",\r\n    \"phone_number\": \"+201012345678\",\r\n    \"city\": \"Cairo\",\r\n    \"country\": \"EG\"\r\n  }\r\n}",
+                    "bodyFormData": [],
+                    "bodyType": "json",
+                    "bodyUrlEncoded": [],
+                    "disabledAutoHeaders": [],
+                    "headers": [
+                      {
+                        "enabled": true,
+                        "key": "Authorization",
+                        "value": "{{bearer_token_15bj}}"
+                      }
+                    ],
+                    "id": "req-1788358480341-46-x4ghb",
+                    "isDirty": false,
+                    "method": "POST",
+                    "name": "New Request",
+                    "params": [],
+                    "type": "request",
+                    "url": "http://localhost:3000/api/v1/payments/initiate"
+                  }
+                ],
+                "name": "payment",
+                "type": "folder"
+              }
+            ],
+            "name": "Api-gateway",
+            "type": "folder"
+          }
+        ],
+        "name": "Booking system",
+        "type": "collection"
+      }
+    ],
+    "environments": [
+      {
+        "id": "env1",
+        "name": "Localhost",
+        "variables": [
+          {
+            "enabled": true,
+            "id": "v1",
+            "key": "baseURL",
+            "value": "http://localhost:3000"
+          }
+        ]
+      },
+      {
+        "id": "env-1788358480341",
+        "name": "Booking system Env",
+        "variables": [
+          {
+            "enabled": true,
+            "id": "var-1788358480340-1-gw0t6",
+            "key": "bearer_token_0j5g",
+            "type": "secret",
+            "value": ""
+          },
+          {
+            "enabled": true,
+            "id": "var-1788358480340-2-mwejb",
+            "key": "json_web_token_134u",
+            "type": "secret",
+            "value": ""
+          },
+          {
+            "enabled": true,
+            "id": "var-1788358480340-3-9ffd2",
+            "key": "bearer_token_0lg9",
+            "type": "secret",
+            "value": ""
+          },
+          {
+            "enabled": true,
+            "id": "var-1788358480340-4-qvs5a",
+            "key": "supabase_service_role_api_key_07i3",
+            "type": "secret",
+            "value": ""
+          }
+        ]
+      }
+    ],
+    "globalVariables": []
+  },
+  "id": "octa-8bcd4fcc-86a2-488d-a4ed-8e65756ea4ea",
+  "name": "my-workspace",
+  "redis": [
+    {
+      "db": 0,
+      "host": "127.0.0.1",
+      "id": "redis-1788294655333",
+      "name": "Local Redis",
+      "port": 6379,
+      "ssl": false
+    }
+  ],
+  "schemaVersion": 1,
+  "sqlQueries": [],
+  "updatedAt": "2026-09-02T15:35:32.008Z"
+}

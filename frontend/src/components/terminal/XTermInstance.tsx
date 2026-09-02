@@ -1,7 +1,8 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
+import { WebglAddon } from '@xterm/addon-webgl';
 import '@xterm/xterm/css/xterm.css';
 import { useTheme } from '../../context/ThemeContext';
 import {
@@ -11,11 +12,13 @@ import {
   closeTerminalSession,
 } from '../../services/api';
 import * as runtime from '../../../wailsjs/runtime/runtime';
+import { PasteConfirmModal } from './PasteConfirmModal';
 
 interface XTermInstanceProps {
   sessionId: string;
   workDir?: string;
   isActive: boolean;
+  onFocus?: () => void;
 }
 
 const DARK_THEME = {
@@ -72,17 +75,75 @@ export const XTermInstance: React.FC<XTermInstanceProps> = ({
   sessionId,
   workDir = '',
   isActive,
+  onFocus,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
+  const webglAddonRef = useRef<WebglAddon | null>(null);
   const { resolvedTheme } = useTheme();
+
+  // Multi-line Paste Modal State
+  const [pasteModalText, setPasteModalText] = useState<string | null>(null);
+
+  // Helper: Copy text to clipboard
+  const copyToClipboard = useCallback(async (text: string) => {
+    if (!text) return;
+    try {
+      if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+        await navigator.clipboard.writeText(text);
+      } else if (runtime && typeof runtime.ClipboardSetText === 'function') {
+        await runtime.ClipboardSetText(text);
+      }
+    } catch (err) {
+      console.warn('[Terminal] Failed to copy to clipboard:', err);
+    }
+  }, []);
+
+  // Helper: Paste text from clipboard with multi-line safety confirmation
+  const pasteFromClipboard = useCallback(async () => {
+    try {
+      let text = '';
+      if (navigator.clipboard && typeof navigator.clipboard.readText === 'function') {
+        text = await navigator.clipboard.readText();
+      } else if (runtime && typeof runtime.ClipboardGetText === 'function') {
+        text = await runtime.ClipboardGetText();
+      }
+      if (!text) return;
+
+      // Safe multi-line & character count check
+      const isMultiLine = text.includes('\n') || text.includes('\r');
+      const isLarge = text.length > 300;
+
+      if (isMultiLine || isLarge) {
+        setPasteModalText(text);
+      } else {
+        writeTerminalSession(sessionId, text);
+      }
+    } catch (err) {
+      console.warn('[Terminal] Failed to paste from clipboard:', err);
+    }
+  }, [sessionId]);
+
+  const handleConfirmPaste = () => {
+    if (pasteModalText) {
+      writeTerminalSession(sessionId, pasteModalText);
+      setPasteModalText(null);
+      termRef.current?.focus();
+    }
+  };
+
+  const handleCancelPaste = () => {
+    setPasteModalText(null);
+    termRef.current?.focus();
+  };
 
   // 1. Terminal Lifecycle Setup
   useEffect(() => {
-    if (!containerRef.current) return;
+    const container = containerRef.current;
+    if (!container) return;
 
-    // Create xterm Terminal
+    // Create xterm Terminal with GPU acceleration support
     const term = new Terminal({
       cursorBlink: true,
       cursorStyle: 'block',
@@ -90,6 +151,7 @@ export const XTermInstance: React.FC<XTermInstanceProps> = ({
       lineHeight: 1.2,
       fontFamily: "'MesloLGS NF', 'FiraCode Nerd Font', 'CaskaydiaCove Nerd Font', 'JetBrains Mono', Consolas, monospace",
       allowProposedApi: true,
+      allowTransparency: true,
       convertEol: true,
       theme: resolvedTheme === 'dark' ? DARK_THEME : LIGHT_THEME,
     });
@@ -99,10 +161,106 @@ export const XTermInstance: React.FC<XTermInstanceProps> = ({
 
     term.loadAddon(fitAddon);
     term.loadAddon(webLinksAddon);
-    term.open(containerRef.current);
+    term.open(container);
 
     termRef.current = term;
     fitAddonRef.current = fitAddon;
+
+    // Load WebGL Hardware Acceleration
+    let webglAddon: WebglAddon | null = null;
+    try {
+      webglAddon = new WebglAddon();
+      webglAddon.onContextLoss(() => {
+        console.warn('[Terminal] WebGL context lost, falling back to standard renderer.');
+        webglAddon?.dispose();
+        webglAddon = null;
+        webglAddonRef.current = null;
+      });
+      term.loadAddon(webglAddon);
+      webglAddonRef.current = webglAddon;
+      console.log('[Terminal] WebGL acceleration enabled successfully.');
+    } catch (err) {
+      console.warn('[Terminal] WebGL acceleration not available, using default renderer:', err);
+    }
+
+    // Attach Custom Key Event Handler for Clipboard Shortcuts
+    term.attachCustomKeyEventHandler((event: KeyboardEvent) => {
+      const isCtrlOrCmd = event.ctrlKey || event.metaKey;
+
+      if (onFocus) {
+        onFocus();
+      }
+
+      // 1. Paste: Ctrl + V or Ctrl + Shift + V (handled manually; suppressed from browser and xterm)
+      if (isCtrlOrCmd && (event.code === 'KeyV' || event.key === 'V' || event.key === 'v')) {
+        if (event.type === 'keydown') {
+          pasteFromClipboard();
+        }
+        event.preventDefault();
+        event.stopPropagation();
+        return false;
+      }
+
+      // 2. Copy: Ctrl + Shift + C
+      if (isCtrlOrCmd && event.shiftKey && (event.code === 'KeyC' || event.key === 'C' || event.key === 'c')) {
+        if (event.type === 'keydown') {
+          const selection = term.getSelection();
+          if (selection) {
+            copyToClipboard(selection);
+          }
+        }
+        event.preventDefault();
+        event.stopPropagation();
+        return false;
+      }
+
+      // 3. Smart Copy: Standard Ctrl + C when text is highlighted -> Copy text without sending SIGINT
+      if (isCtrlOrCmd && !event.shiftKey && (event.code === 'KeyC' || event.key === 'c')) {
+        if (term.hasSelection()) {
+          if (event.type === 'keydown') {
+            const selection = term.getSelection();
+            if (selection) {
+              copyToClipboard(selection);
+              term.clearSelection();
+            }
+          }
+          event.preventDefault();
+          event.stopPropagation();
+          return false;
+        }
+        // If no text selected, let Ctrl+C pass through to PowerShell as SIGINT / cancel command
+        return true;
+      }
+
+      return true;
+    });
+
+    // Suppress browser native paste events so they do not duplicate into onData
+    const handleNativePaste = (e: ClipboardEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+    };
+
+    container.addEventListener('paste', handleNativePaste, true);
+
+    // Right-Click Context Menu Handling (Copy if selected, Paste if no selection)
+    const handleContextMenu = async (e: MouseEvent) => {
+      e.preventDefault();
+      if (onFocus) onFocus();
+
+      if (term.hasSelection()) {
+        const selection = term.getSelection();
+        if (selection) {
+          await copyToClipboard(selection);
+          term.clearSelection();
+        }
+      } else {
+        await pasteFromClipboard();
+      }
+    };
+
+    container.addEventListener('contextmenu', handleContextMenu);
 
     // Subscribe to Wails event stream FIRST before starting the process
     const dataEventName = 'terminal:data:' + sessionId;
@@ -153,11 +311,11 @@ export const XTermInstance: React.FC<XTermInstanceProps> = ({
       }
     });
 
-    if (containerRef.current) {
-      resizeObserver.observe(containerRef.current);
-    }
+    resizeObserver.observe(container);
 
     return () => {
+      container.removeEventListener('paste', handleNativePaste, true);
+      container.removeEventListener('contextmenu', handleContextMenu);
       onDataDisposable.dispose();
       if (typeof unsubscribeData === 'function') {
         unsubscribeData();
@@ -171,11 +329,19 @@ export const XTermInstance: React.FC<XTermInstanceProps> = ({
       }
       resizeObserver.disconnect();
       closeTerminalSession(sessionId);
+      if (webglAddonRef.current) {
+        try {
+          webglAddonRef.current.dispose();
+        } catch (e) {
+          // ignore
+        }
+        webglAddonRef.current = null;
+      }
       term.dispose();
       termRef.current = null;
       fitAddonRef.current = null;
     };
-  }, [sessionId, workDir]);
+  }, [sessionId, workDir, copyToClipboard, pasteFromClipboard, onFocus]);
 
   // 2. Synchronize Theme Changes
   useEffect(() => {
@@ -205,6 +371,7 @@ export const XTermInstance: React.FC<XTermInstanceProps> = ({
   }, [isActive, sessionId]);
 
   const handleContainerClick = () => {
+    if (onFocus) onFocus();
     if (termRef.current) {
       termRef.current.focus();
     }
@@ -219,6 +386,16 @@ export const XTermInstance: React.FC<XTermInstanceProps> = ({
         ref={containerRef}
         className="absolute inset-0 p-2 overflow-hidden select-text"
       />
+
+      {/* Multi-Line Paste Confirmation Modal */}
+      {pasteModalText && (
+        <PasteConfirmModal
+          isOpen={true}
+          text={pasteModalText}
+          onConfirm={handleConfirmPaste}
+          onCancel={handleCancelPaste}
+        />
+      )}
     </div>
   );
 };

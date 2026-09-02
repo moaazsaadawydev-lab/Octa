@@ -5,9 +5,11 @@ import {
   X,
   RotateCcw,
   Folder,
+  Columns2,
+  Rows2,
 } from 'lucide-react';
 import clsx from 'clsx';
-import { TerminalTab } from '../../types/terminal';
+import { TerminalTab, TerminalPane, SplitDirection } from '../../types/terminal';
 import { ProjectWorkspace } from '../../types/project';
 import { XTermInstance } from './XTermInstance';
 import { closeTerminalSession } from '../../services/api';
@@ -28,25 +30,59 @@ export const TerminalWorkspace: React.FC<TerminalWorkspaceProps> = ({
     ? projectFilePath.substring(0, Math.max(projectFilePath.lastIndexOf('\\'), projectFilePath.lastIndexOf('/')))
     : '';
 
-  // Tabs State
+  // Tabs State (Migrating old single-session tabs to split-pane structure)
   const [tabs, setTabs] = useState<TerminalTab[]>(() => {
     try {
       const saved = localStorage.getItem('octa_terminal_tabs');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
+          return parsed.map((t: any, idx: number) => {
+            const tabId = t.id || 'tab-' + (Date.now() + idx);
+            const panes: TerminalPane[] =
+              Array.isArray(t.panes) && t.panes.length > 0
+                ? t.panes
+                : [
+                    {
+                      id: t.id || 'pane-' + (Date.now() + idx),
+                      title: t.title || 'PowerShell ' + (idx + 1),
+                      workDir: t.workDir || defaultWorkDir,
+                      createdAt: t.createdAt || Date.now(),
+                    },
+                  ];
+            return {
+              id: tabId,
+              title: t.title || 'PowerShell ' + (idx + 1),
+              workDir: t.workDir || defaultWorkDir,
+              createdAt: t.createdAt || Date.now(),
+              splitDirection: (t.splitDirection as SplitDirection) || 'none',
+              panes,
+              activePaneId: t.activePaneId || panes[0]?.id,
+            };
+          });
         }
       }
     } catch (e) {
       console.warn('Failed to parse saved terminal tabs:', e);
     }
+    const initialTabId = 'tab-' + Date.now();
+    const initialPaneId = 'pane-' + Date.now();
     return [
       {
-        id: 'term-' + Date.now(),
+        id: initialTabId,
         title: 'PowerShell 1',
         workDir: defaultWorkDir,
         createdAt: Date.now(),
+        splitDirection: 'none',
+        panes: [
+          {
+            id: initialPaneId,
+            title: 'PowerShell 1',
+            workDir: defaultWorkDir,
+            createdAt: Date.now(),
+          },
+        ],
+        activePaneId: initialPaneId,
       },
     ];
   });
@@ -79,27 +115,41 @@ export const TerminalWorkspace: React.FC<TerminalWorkspaceProps> = ({
 
   // Add New Tab
   const handleAddTab = useCallback(() => {
-    const newId = 'term-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6);
+    const newTabId = 'tab-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6);
+    const newPaneId = 'pane-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6);
     setTabs((prev) => {
       const newTabNum = prev.length + 1;
       const newTab: TerminalTab = {
-        id: newId,
+        id: newTabId,
         title: 'PowerShell ' + newTabNum,
         workDir: defaultWorkDir,
         createdAt: Date.now(),
+        splitDirection: 'none',
+        panes: [
+          {
+            id: newPaneId,
+            title: 'PowerShell ' + newTabNum,
+            workDir: defaultWorkDir,
+            createdAt: Date.now(),
+          },
+        ],
+        activePaneId: newPaneId,
       };
       return [...prev, newTab];
     });
-    setActiveTabId(newId);
+    setActiveTabId(newTabId);
     if (showToast) showToast('Opened new PowerShell terminal', 'info');
   }, [defaultWorkDir, showToast]);
 
-  // Close Tab
+  // Close Tab (closes all panes inside)
   const handleCloseTab = useCallback(
     (tabId: string, e?: React.MouseEvent) => {
       if (e) e.stopPropagation();
 
-      closeTerminalSession(tabId);
+      const tabToClose = tabs.find((t) => t.id === tabId);
+      if (tabToClose) {
+        tabToClose.panes.forEach((p) => closeTerminalSession(p.id));
+      }
 
       setTabs((prev) => {
         const nextTabs = prev.filter((t) => t.id !== tabId);
@@ -113,25 +163,113 @@ export const TerminalWorkspace: React.FC<TerminalWorkspaceProps> = ({
         return nextTabs;
       });
     },
-    [activeTabId]
+    [activeTabId, tabs]
   );
 
-  // Restart Active Session
+  // Split Active Tab (Horizontal or Vertical)
+  const handleSplitTab = (direction: 'horizontal' | 'vertical') => {
+    if (!activeTabId) return;
+
+    setTabs((prev) =>
+      prev.map((tab) => {
+        if (tab.id !== activeTabId) return tab;
+
+        // If already 2 panes, just switch direction
+        if (tab.panes.length >= 2) {
+          return {
+            ...tab,
+            splitDirection: direction,
+          };
+        }
+
+        // Add 2nd pane
+        const newPaneId = 'pane-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6);
+        const newPane: TerminalPane = {
+          id: newPaneId,
+          title: tab.title + ' (Pane 2)',
+          workDir: tab.workDir || defaultWorkDir,
+          createdAt: Date.now(),
+        };
+
+        return {
+          ...tab,
+          splitDirection: direction,
+          panes: [...tab.panes, newPane],
+          activePaneId: newPaneId,
+        };
+      })
+    );
+
+    if (showToast) {
+      showToast(
+        direction === 'horizontal' ? 'Split terminal horizontally' : 'Split terminal vertically',
+        'info'
+      );
+    }
+  };
+
+  // Close Single Pane
+  const handleClosePane = (tabId: string, paneId: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+
+    closeTerminalSession(paneId);
+
+    setTabs((prev) =>
+      prev.map((tab) => {
+        if (tab.id !== tabId) return tab;
+
+        const nextPanes = tab.panes.filter((p) => p.id !== paneId);
+        if (nextPanes.length <= 1) {
+          return {
+            ...tab,
+            splitDirection: 'none',
+            panes: nextPanes,
+            activePaneId: nextPanes[0]?.id || tab.id,
+          };
+        }
+
+        return {
+          ...tab,
+          panes: nextPanes,
+          activePaneId: tab.activePaneId === paneId ? nextPanes[0].id : tab.activePaneId,
+        };
+      })
+    );
+  };
+
+  // Set Focused Pane
+  const handleSelectPane = (tabId: string, paneId: string) => {
+    setTabs((prev) =>
+      prev.map((t) => (t.id === tabId ? { ...t, activePaneId: paneId } : t))
+    );
+  };
+
+  // Restart Active Pane Session
   const handleRestartSession = () => {
     if (!activeTabId) return;
     const curTab = tabs.find((t) => t.id === activeTabId);
     if (!curTab) return;
 
-    // Generate fresh session ID to trigger fresh ConPTY process
-    const newSessionId = 'term-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6);
-    closeTerminalSession(activeTabId);
+    const targetPaneId = curTab.activePaneId || curTab.panes[0]?.id;
+    if (!targetPaneId) return;
+
+    const newSessionId = 'pane-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6);
+    closeTerminalSession(targetPaneId);
 
     setTabs((prev) =>
-      prev.map((t) => (t.id === activeTabId ? { ...t, id: newSessionId } : t))
+      prev.map((t) => {
+        if (t.id !== activeTabId) return t;
+        return {
+          ...t,
+          panes: t.panes.map((p) =>
+            p.id === targetPaneId ? { ...p, id: newSessionId } : p
+          ),
+          activePaneId: t.activePaneId === targetPaneId ? newSessionId : t.activePaneId,
+        };
+      })
     );
-    setActiveTabId(newSessionId);
 
-    if (showToast) showToast('Restarted ' + curTab.title, 'info');
+    if (showToast) showToast('Restarted terminal session', 'info');
   };
 
   // Start Rename Tab
@@ -251,6 +389,11 @@ export const TerminalWorkspace: React.FC<TerminalWorkspaceProps> = ({
                         className="truncate font-mono text-[11px] flex-1"
                       >
                         {tab.title}
+                        {tab.panes.length > 1 && (
+                          <span className="ml-1 text-[10px] text-slate-400 dark:text-zinc-500 font-sans">
+                            ({tab.panes.length})
+                          </span>
+                        )}
                       </span>
                     )}
 
@@ -258,7 +401,7 @@ export const TerminalWorkspace: React.FC<TerminalWorkspaceProps> = ({
                     <button
                       type="button"
                       onClick={(e) => handleCloseTab(tab.id, e)}
-                      title="Close Terminal (Ctrl+Shift+W)"
+                      title="Close Tab (Ctrl+Shift+W)"
                       className="opacity-0 group-hover/tab:opacity-100 p-0.5 rounded text-slate-400 hover:text-rose-500 dark:text-zinc-500 dark:hover:text-zinc-200 hover:bg-slate-200 dark:hover:bg-zinc-700/60 transition-all cursor-pointer"
                     >
                       <X className="w-3 h-3" />
@@ -279,19 +422,49 @@ export const TerminalWorkspace: React.FC<TerminalWorkspaceProps> = ({
             </div>
 
             {/* Right Toolbar Actions */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               {activeTab && (
                 <>
+                  {/* Split Right (Horizontal) Button */}
+                  <button
+                    type="button"
+                    onClick={() => handleSplitTab('horizontal')}
+                    title="Split Terminal Right (Side by side)"
+                    className={clsx(
+                      'p-1.5 rounded-lg border transition-colors cursor-pointer',
+                      activeTab.splitDirection === 'horizontal'
+                        ? 'bg-brand-50 dark:bg-brand-950/40 text-brand-600 dark:text-brand-400 border-brand-300 dark:border-brand-800/80'
+                        : 'text-slate-600 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-slate-100 dark:hover:bg-zinc-800 border-slate-200 dark:border-zinc-800'
+                    )}
+                  >
+                    <Columns2 className="w-3.5 h-3.5" />
+                  </button>
+
+                  {/* Split Down (Vertical) Button */}
+                  <button
+                    type="button"
+                    onClick={() => handleSplitTab('vertical')}
+                    title="Split Terminal Down (Stacked)"
+                    className={clsx(
+                      'p-1.5 rounded-lg border transition-colors cursor-pointer',
+                      activeTab.splitDirection === 'vertical'
+                        ? 'bg-brand-50 dark:bg-brand-950/40 text-brand-600 dark:text-brand-400 border-brand-300 dark:border-brand-800/80'
+                        : 'text-slate-600 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-slate-100 dark:hover:bg-zinc-800 border-slate-200 dark:border-zinc-800'
+                    )}
+                  >
+                    <Rows2 className="w-3.5 h-3.5" />
+                  </button>
+
                   {/* Working Directory Indicator */}
                   <div
-                    className="hidden md:flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-slate-100 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-[11px] text-slate-600 dark:text-zinc-400 font-mono max-w-[280px] truncate"
+                    className="hidden lg:flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-slate-100 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-[11px] text-slate-600 dark:text-zinc-400 font-mono max-w-[220px] truncate"
                     title={activeTab.workDir || 'Home Directory'}
                   >
                     <Folder className="w-3 h-3 text-amber-500 dark:text-amber-400 flex-shrink-0" />
                     <span className="truncate">{activeTab.workDir || '~'}</span>
                   </div>
 
-                  {/* Restart Session */}
+                  {/* Restart Active Session */}
                   <button
                     type="button"
                     onClick={handleRestartSession}
@@ -307,21 +480,93 @@ export const TerminalWorkspace: React.FC<TerminalWorkspaceProps> = ({
 
           {/* 2. Main Terminal Viewport Area */}
           <div className="flex-1 relative w-full h-full min-h-0 min-w-0 overflow-hidden bg-slate-50 dark:bg-[#090a0f] transition-colors">
-            {tabs.map((tab) => (
-              <div
-                key={tab.id}
-                className={clsx(
-                  'absolute inset-0 w-full h-full min-h-0 min-w-0',
-                  tab.id === activeTabId ? 'block z-10' : 'hidden z-0 pointer-events-none'
-                )}
-              >
-                <XTermInstance
-                  sessionId={tab.id}
-                  workDir={tab.workDir}
-                  isActive={tab.id === activeTabId}
-                />
-              </div>
-            ))}
+            {tabs.map((tab) => {
+              const isTabActive = tab.id === activeTabId;
+              const isSplit = tab.splitDirection !== 'none' && tab.panes.length > 1;
+
+              return (
+                <div
+                  key={tab.id}
+                  className={clsx(
+                    'absolute inset-0 w-full h-full min-h-0 min-w-0',
+                    isTabActive ? 'block z-10' : 'hidden z-0 pointer-events-none'
+                  )}
+                >
+                  {isSplit ? (
+                    <div
+                      className={clsx(
+                        'w-full h-full min-h-0 min-w-0 flex',
+                        tab.splitDirection === 'horizontal' ? 'flex-row divide-x' : 'flex-col divide-y',
+                        'divide-slate-200 dark:divide-zinc-800'
+                      )}
+                    >
+                      {tab.panes.map((pane, pIdx) => {
+                        const isPaneActive = (tab.activePaneId || tab.panes[0]?.id) === pane.id;
+
+                        return (
+                          <div
+                            key={pane.id}
+                            onClick={() => handleSelectPane(tab.id, pane.id)}
+                            className={clsx(
+                              'flex-1 flex flex-col min-h-0 min-w-0 relative transition-all',
+                              tab.splitDirection === 'horizontal' ? 'w-1/2 h-full' : 'w-full h-1/2',
+                              isPaneActive
+                                ? 'bg-slate-50 dark:bg-[#090a0f]'
+                                : 'bg-slate-100/40 dark:bg-[#07080b]'
+                            )}
+                          >
+                            {/* Slim Pane Header */}
+                            <div className="h-6 bg-slate-100/80 dark:bg-[#0f1016] border-b border-slate-200 dark:border-zinc-800/80 flex items-center justify-between px-2 text-[10px] text-slate-500 dark:text-zinc-400 select-none flex-shrink-0">
+                              <div className="flex items-center gap-1.5">
+                                <span
+                                  className={clsx(
+                                    'w-1.5 h-1.5 rounded-full',
+                                    isPaneActive
+                                      ? 'bg-emerald-500 shadow-sm shadow-emerald-500/50'
+                                      : 'bg-slate-400 dark:bg-zinc-600'
+                                  )}
+                                />
+                                <span className="font-mono">{pane.title || 'Pane ' + (pIdx + 1)}</span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={(e) => handleClosePane(tab.id, pane.id, e)}
+                                title="Close Pane"
+                                className="p-0.5 rounded text-slate-400 hover:text-rose-500 dark:text-zinc-500 dark:hover:text-zinc-200 hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </div>
+
+                            {/* Pane Viewport */}
+                            <div className="flex-1 relative w-full h-full min-h-0 min-w-0 overflow-hidden">
+                              <XTermInstance
+                                sessionId={pane.id}
+                                workDir={pane.workDir}
+                                isActive={isTabActive && isPaneActive}
+                                onFocus={() => handleSelectPane(tab.id, pane.id)}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    /* Single Pane Viewport */
+                    <div className="w-full h-full min-h-0 min-w-0">
+                      {tab.panes[0] && (
+                        <XTermInstance
+                          sessionId={tab.panes[0].id}
+                          workDir={tab.panes[0].workDir}
+                          isActive={isTabActive}
+                          onFocus={() => handleSelectPane(tab.id, tab.panes[0].id)}
+                        />
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
