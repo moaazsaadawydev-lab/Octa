@@ -166,6 +166,113 @@ export namespace main {
 		    return a;
 		}
 	}
+	export class DockerPortMapping {
+	    privatePort: number;
+	    publicPort?: number;
+	    type: string;
+	    formatted: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new DockerPortMapping(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.privatePort = source["privatePort"];
+	        this.publicPort = source["publicPort"];
+	        this.type = source["type"];
+	        this.formatted = source["formatted"];
+	    }
+	}
+	export class DockerContainer {
+	    id: string;
+	    name: string;
+	    image: string;
+	    command: string;
+	    createdAt: string;
+	    state: string;
+	    status: string;
+	    ports: DockerPortMapping[];
+	    portsRaw: string;
+	    project: string;
+	    service: string;
+	    size: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new DockerContainer(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.image = source["image"];
+	        this.command = source["command"];
+	        this.createdAt = source["createdAt"];
+	        this.state = source["state"];
+	        this.status = source["status"];
+	        this.ports = this.convertValues(source["ports"], DockerPortMapping);
+	        this.portsRaw = source["portsRaw"];
+	        this.project = source["project"];
+	        this.service = source["service"];
+	        this.size = source["size"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	
+	export class DockerProjectGroup {
+	    project: string;
+	    totalContainers: number;
+	    runningContainers: number;
+	    containers: DockerContainer[];
+	
+	    static createFrom(source: any = {}) {
+	        return new DockerProjectGroup(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.project = source["project"];
+	        this.totalContainers = source["totalContainers"];
+	        this.runningContainers = source["runningContainers"];
+	        this.containers = this.convertValues(source["containers"], DockerContainer);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	export class ExplainPlanResult {
 	    planJson: string;
 	    totalCost: number;

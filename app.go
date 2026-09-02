@@ -12,6 +12,7 @@ type App struct {
 	httpService     *HTTPService
 	projectService  *ProjectService
 	terminalService *TerminalService
+	dockerService   *DockerService
 }
 
 // NewApp creates a new App application struct with domain services.
@@ -22,6 +23,7 @@ func NewApp() *App {
 		httpService:     NewHTTPService(),
 		projectService:  NewProjectService(),
 		terminalService: NewTerminalService(),
+		dockerService:   NewDockerService(),
 	}
 }
 
@@ -33,6 +35,7 @@ func (a *App) startup(ctx context.Context) {
 	a.httpService.SetContext(ctx)
 	a.projectService.SetContext(ctx)
 	a.terminalService.SetContext(ctx)
+	a.dockerService.SetContext(ctx)
 }
 
 // ============================================================================
@@ -201,6 +204,7 @@ func (a *App) SaveProjectFile(filePath string, jsonData string) (bool, error) {
 func (a *App) CloseProjectConnections() (bool, error) {
 	a.dbService.ClosePools()
 	a.terminalService.CloseAllTerminalSessions()
+	a.dockerService.StopAllLogStreams()
 	return a.projectService.CloseProjectConnections()
 }
 func (a *App) WipeLegacyStorage() (bool, error) {
@@ -222,4 +226,36 @@ func (a *App) ResizeTerminalSession(sessionID string, cols int, rows int) error 
 }
 func (a *App) CloseTerminalSession(sessionID string) error {
 	return a.terminalService.CloseTerminalSession(sessionID)
+}
+
+// ============================================================================
+// DOCKER DOMAIN (Delegated to DockerService)
+// ============================================================================
+
+func (a *App) CheckDockerAvailability() (bool, string) {
+	return a.dockerService.CheckDockerAvailability()
+}
+func (a *App) CheckConnection() (bool, string) {
+	return a.dockerService.CheckDockerAvailability()
+}
+func (a *App) ListContainers(onlyRunning bool) ([]DockerProjectGroup, error) {
+	return a.dockerService.ListContainers(onlyRunning)
+}
+func (a *App) StartContainer(containerID string) (bool, error) {
+	return a.dockerService.StartContainer(containerID)
+}
+func (a *App) StopContainer(containerID string) (bool, error) {
+	return a.dockerService.StopContainer(containerID)
+}
+func (a *App) RestartContainer(containerID string) (bool, error) {
+	return a.dockerService.RestartContainer(containerID)
+}
+func (a *App) RemoveContainer(containerID string, force bool) (bool, error) {
+	return a.dockerService.RemoveContainer(containerID, force)
+}
+func (a *App) StartLogStream(containerID string) error {
+	return a.dockerService.StartLogStream(containerID)
+}
+func (a *App) StopLogStream(containerID string) error {
+	return a.dockerService.StopLogStream(containerID)
 }

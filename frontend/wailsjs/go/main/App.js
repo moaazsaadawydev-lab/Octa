@@ -6,6 +6,14 @@ export function AddColumn(arg1, arg2, arg3, arg4, arg5, arg6) {
   return window['go']['main']['App']['AddColumn'](arg1, arg2, arg3, arg4, arg5, arg6);
 }
 
+export function CheckConnection() {
+  return window['go']['main']['App']['CheckConnection']();
+}
+
+export function CheckDockerAvailability() {
+  return window['go']['main']['App']['CheckDockerAvailability']();
+}
+
 export function ClearQueryLogs() {
   return window['go']['main']['App']['ClearQueryLogs']();
 }
@@ -118,6 +126,10 @@ export function ImportSQLScript(arg1, arg2, arg3) {
   return window['go']['main']['App']['ImportSQLScript'](arg1, arg2, arg3);
 }
 
+export function ListContainers(arg1) {
+  return window['go']['main']['App']['ListContainers'](arg1);
+}
+
 export function LoadEnvironmentsData() {
   return window['go']['main']['App']['LoadEnvironmentsData']();
 }
@@ -142,12 +154,20 @@ export function ReadProjectFile(arg1) {
   return window['go']['main']['App']['ReadProjectFile'](arg1);
 }
 
+export function RemoveContainer(arg1, arg2) {
+  return window['go']['main']['App']['RemoveContainer'](arg1, arg2);
+}
+
 export function RenameColumn(arg1, arg2, arg3, arg4, arg5) {
   return window['go']['main']['App']['RenameColumn'](arg1, arg2, arg3, arg4, arg5);
 }
 
 export function ResizeTerminalSession(arg1, arg2, arg3) {
   return window['go']['main']['App']['ResizeTerminalSession'](arg1, arg2, arg3);
+}
+
+export function RestartContainer(arg1) {
+  return window['go']['main']['App']['RestartContainer'](arg1);
 }
 
 export function SaveConnection(arg1) {
@@ -190,8 +210,24 @@ export function SetRedisTTL(arg1, arg2, arg3) {
   return window['go']['main']['App']['SetRedisTTL'](arg1, arg2, arg3);
 }
 
+export function StartContainer(arg1) {
+  return window['go']['main']['App']['StartContainer'](arg1);
+}
+
+export function StartLogStream(arg1) {
+  return window['go']['main']['App']['StartLogStream'](arg1);
+}
+
 export function StartTerminalSession(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['StartTerminalSession'](arg1, arg2, arg3, arg4);
+}
+
+export function StopContainer(arg1) {
+  return window['go']['main']['App']['StopContainer'](arg1);
+}
+
+export function StopLogStream(arg1) {
+  return window['go']['main']['App']['StopLogStream'](arg1);
 }
 
 export function TestConnection(arg1) {

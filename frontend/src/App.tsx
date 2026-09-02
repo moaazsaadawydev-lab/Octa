@@ -9,6 +9,7 @@ import { ErdVisualizer } from './components/database/ErdVisualizer';
 import { RedisWorkspace } from './components/redis/RedisWorkspace';
 import { HttpClientWorkspace } from './components/http/HttpClientWorkspace';
 import { TerminalWorkspace } from './components/terminal';
+import { DockerWorkspace } from './components/docker';
 import { SettingsView } from './components/layout/SettingsView';
 import { NewConnectionModal } from './components/database/NewConnectionModal';
 import { ImportSqlModal } from './components/database/ImportSqlModal';
@@ -667,6 +668,9 @@ export function App() {
         } else if (e.key === '4' && activeProject) {
           e.preventDefault();
           setActiveModule('terminal');
+        } else if (e.key === '5' && activeProject) {
+          e.preventDefault();
+          setActiveModule('docker');
         } else if (e.key === ',') {
           e.preventDefault();
           setIsSettingsModalOpen(true);
@@ -736,6 +740,8 @@ export function App() {
             projectFilePath={projectFilePath}
             showToast={showToast}
           />
+        ) : activeModule === 'docker' ? (
+          <DockerWorkspace showToast={showToast} />
         ) : activeModule === 'settings' ? (
           <SettingsView showToast={showToast} />
         ) : (

@@ -4,6 +4,10 @@ import {main} from '../models';
 
 export function AddColumn(arg1:main.ConnectionConfig,arg2:string,arg3:string,arg4:string,arg5:string,arg6:boolean):Promise<boolean>;
 
+export function CheckConnection():Promise<boolean|string>;
+
+export function CheckDockerAvailability():Promise<boolean|string>;
+
 export function ClearQueryLogs():Promise<boolean>;
 
 export function CloseProjectConnections():Promise<boolean>;
@@ -60,6 +64,8 @@ export function GetTables(arg1:main.ConnectionConfig,arg2:string):Promise<Array<
 
 export function ImportSQLScript(arg1:main.ConnectionConfig,arg2:string,arg3:string):Promise<main.ImportResult>;
 
+export function ListContainers(arg1:boolean):Promise<Array<main.DockerProjectGroup>>;
+
 export function LoadEnvironmentsData():Promise<string>;
 
 export function LoadHttpClientData():Promise<string>;
@@ -72,9 +78,13 @@ export function OpenProjectFileDialog():Promise<main.ProjectFileResult>;
 
 export function ReadProjectFile(arg1:string):Promise<main.ProjectFileResult>;
 
+export function RemoveContainer(arg1:string,arg2:boolean):Promise<boolean>;
+
 export function RenameColumn(arg1:main.ConnectionConfig,arg2:string,arg3:string,arg4:string,arg5:string):Promise<boolean>;
 
 export function ResizeTerminalSession(arg1:string,arg2:number,arg3:number):Promise<void>;
+
+export function RestartContainer(arg1:string):Promise<boolean>;
 
 export function SaveConnection(arg1:main.ConnectionConfig):Promise<boolean|string>;
 
@@ -96,7 +106,15 @@ export function SelectFilesDialog():Promise<Array<main.SelectedFileMeta>>;
 
 export function SetRedisTTL(arg1:main.RedisConnectionConfig,arg2:string,arg3:number):Promise<boolean>;
 
+export function StartContainer(arg1:string):Promise<boolean>;
+
+export function StartLogStream(arg1:string):Promise<void>;
+
 export function StartTerminalSession(arg1:string,arg2:string,arg3:number,arg4:number):Promise<void>;
+
+export function StopContainer(arg1:string):Promise<boolean>;
+
+export function StopLogStream(arg1:string):Promise<void>;
 
 export function TestConnection(arg1:main.ConnectionConfig):Promise<boolean|string>;
 
