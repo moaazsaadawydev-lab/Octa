@@ -740,11 +740,18 @@ export function App() {
           />
         ) : activeModule === 'git' ? (
           <GitWorkspace
+            activeProject={activeProject}
+            projectFilePath={projectFilePath}
             activeProjectPath={
               projectFilePath
                 ? projectFilePath.substring(0, Math.max(projectFilePath.lastIndexOf('\\'), projectFilePath.lastIndexOf('/')))
                 : undefined
             }
+            onUpdateGitConfig={(gitConfig) => {
+              if (activeProject) {
+                setActiveProject((prev) => (prev ? { ...prev, git: gitConfig } : prev));
+              }
+            }}
             showToast={showToast}
           />
         ) : activeModule === 'docker' ? (

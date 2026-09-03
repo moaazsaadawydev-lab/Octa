@@ -9,6 +9,12 @@ export interface ProjectHttpClient {
   activeEnvironmentId: string | null;
 }
 
+export interface ProjectGitConfig {
+  repoPath: string;
+  autoWatch: boolean;
+  defaultBranch?: string;
+}
+
 export interface ProjectWorkspace {
   schemaVersion: 1;
   id: string;
@@ -19,7 +25,9 @@ export interface ProjectWorkspace {
   sqlQueries: (SqlQueryFolder | SqlQueryItem)[];
   redis: RedisConnectionConfig[];
   httpClient: ProjectHttpClient;
+  git?: ProjectGitConfig;
 }
+
 
 export interface ProjectFileResult {
   filePath: string;

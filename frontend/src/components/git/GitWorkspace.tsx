@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { GitBranch, FolderOpen, PlusSquare, RefreshCw, AlertTriangle, ArrowUp } from 'lucide-react';
 import clsx from 'clsx';
 import { GitStatusResult, GitFileChange, InitRepoOptions } from '../../types/git';
+import { ProjectWorkspace, ProjectGitConfig } from '../../types/project';
 import {
   openGitRepositoryDialog,
   isGitRepository,
@@ -25,15 +26,28 @@ import { GitDiffViewer } from './GitDiffViewer';
 import { InitRepoModal } from './InitRepoModal';
 
 interface GitWorkspaceProps {
+  activeProject?: ProjectWorkspace | null;
+  projectFilePath?: string | null;
   activeProjectPath?: string | null;
+  onUpdateGitConfig?: (config: ProjectGitConfig) => void;
   showToast?: (message: string, type?: 'success' | 'error' | 'info') => void;
 }
 
 export const GitWorkspace: React.FC<GitWorkspaceProps> = ({
+  activeProject,
+  projectFilePath,
   activeProjectPath,
+  onUpdateGitConfig,
   showToast,
 }) => {
-  const [repoPath, setRepoPath] = useState<string | null>(activeProjectPath || null);
+  const [repoPath, setRepoPath] = useState<string | null>(() => {
+    if (activeProject?.git?.repoPath) return activeProject.git.repoPath;
+    if (typeof localStorage !== 'undefined') {
+      const saved = localStorage.getItem('octa_active_git_repo');
+      if (saved) return saved;
+    }
+    return activeProjectPath || null;
+  });
   const [status, setStatus] = useState<GitStatusResult | null>(null);
   const [selectedFile, setSelectedFile] = useState<GitFileChange | null>(null);
   const [diffContent, setDiffContent] = useState<string>('');
@@ -46,13 +60,6 @@ export const GitWorkspace: React.FC<GitWorkspaceProps> = ({
 
   const isResizing = useRef(false);
   const workspaceRef = useRef<HTMLDivElement>(null);
-
-  // Sync with active project path if changed
-  useEffect(() => {
-    if (activeProjectPath && !repoPath) {
-      setRepoPath(activeProjectPath);
-    }
-  }, [activeProjectPath]);
 
   // Resizing logic
   const startResizing = useCallback((e: React.MouseEvent) => {
@@ -80,6 +87,19 @@ export const GitWorkspace: React.FC<GitWorkspaceProps> = ({
 
     window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('mouseup', onMouseUp);
+  }, []);
+
+  // Load File Diff
+  const loadDiff = useCallback(async (targetRepo: string, file: GitFileChange) => {
+    setIsDiffLoading(true);
+    try {
+      const diff = await getGitFileDiff(targetRepo, file.path, file.staged);
+      setDiffContent(diff);
+    } catch (err: any) {
+      setDiffContent(`Error loading diff: ${err?.message || err}`);
+    } finally {
+      setIsDiffLoading(false);
+    }
   }, []);
 
   // Fetch Repo Status
@@ -119,20 +139,53 @@ export const GitWorkspace: React.FC<GitWorkspaceProps> = ({
     } catch (err: any) {
       console.error('[Git FetchStatus Error]:', err);
     }
-  }, [repoPath, selectedFile]);
+  }, [repoPath, selectedFile, loadDiff]);
 
-  // Load File Diff
-  const loadDiff = async (targetRepo: string, file: GitFileChange) => {
-    setIsDiffLoading(true);
-    try {
-      const diff = await getGitFileDiff(targetRepo, file.path, file.staged);
-      setDiffContent(diff);
-    } catch (err: any) {
-      setDiffContent(`Error loading diff: ${err?.message || err}`);
-    } finally {
-      setIsDiffLoading(false);
+  // Helper to persist and set active repo
+  const handleSetRepo = useCallback(
+    (newPath: string) => {
+      setRepoPath(newPath);
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('octa_active_git_repo', newPath);
+      }
+      if (onUpdateGitConfig) {
+        onUpdateGitConfig({ repoPath: newPath, autoWatch: true });
+      }
+      fetchStatus(newPath);
+    },
+    [onUpdateGitConfig, fetchStatus]
+  );
+
+  // Auto-hydrate and validate repository on mount
+  useEffect(() => {
+    const candidatePath =
+      activeProject?.git?.repoPath ||
+      (typeof localStorage !== 'undefined' ? localStorage.getItem('octa_active_git_repo') : null) ||
+      activeProjectPath;
+
+    if (candidatePath) {
+      isGitRepository(candidatePath).then((isValid) => {
+        if (isValid) {
+          if (repoPath !== candidatePath) {
+            setRepoPath(candidatePath);
+          }
+          fetchStatus(candidatePath);
+        } else {
+          console.warn('[GitWorkspace] Saved repository path is invalid or removed:', candidatePath);
+          if (typeof localStorage !== 'undefined') {
+            localStorage.removeItem('octa_active_git_repo');
+          }
+          if (onUpdateGitConfig) {
+            onUpdateGitConfig({ repoPath: '', autoWatch: true });
+          }
+          setRepoPath(null);
+          setStatus(null);
+          setSelectedFile(null);
+          setDiffContent('');
+        }
+      }).catch((e) => console.warn('[GitWorkspace] Error validating candidate repo path:', e));
     }
-  };
+  }, [activeProject?.git?.repoPath, activeProjectPath, fetchStatus]);
 
   useEffect(() => {
     if (!repoPath) return;
@@ -184,8 +237,7 @@ export const GitWorkspace: React.FC<GitWorkspaceProps> = ({
           setPendingInitPath(selected);
           setIsInitModalOpen(true);
         } else {
-          setRepoPath(selected);
-          fetchStatus(selected);
+          handleSetRepo(selected);
         }
       }
     } catch (err: any) {
@@ -203,8 +255,7 @@ export const GitWorkspace: React.FC<GitWorkspaceProps> = ({
           setPendingInitPath(selected);
           setIsInitModalOpen(true);
         } else {
-          setRepoPath(selected);
-          fetchStatus(selected);
+          handleSetRepo(selected);
         }
       }
     } catch (err: any) {
@@ -219,8 +270,7 @@ export const GitWorkspace: React.FC<GitWorkspaceProps> = ({
       await initializeRepositoryWithOptions(opts);
       if (showToast) showToast(`Initialized Git repository "${opts.repoName}"`, 'success');
       setIsInitModalOpen(false);
-      setRepoPath(opts.path);
-      fetchStatus(opts.path);
+      handleSetRepo(opts.path);
     } catch (err: any) {
       if (showToast) showToast(err?.message || 'Failed to initialize repository', 'error');
     } finally {

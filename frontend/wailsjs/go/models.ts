@@ -498,6 +498,22 @@ export namespace main {
 	        this.repoName = source["repoName"];
 	    }
 	}
+	export class ProjectGitConfig {
+	    repoPath: string;
+	    autoWatch: boolean;
+	    defaultBranch?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ProjectGitConfig(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.repoPath = source["repoPath"];
+	        this.autoWatch = source["autoWatch"];
+	        this.defaultBranch = source["defaultBranch"];
+	    }
+	}
 	export class ProjectHttpClient {
 	    collections: any[];
 	    environments: any[];
@@ -552,6 +568,7 @@ export namespace main {
 	    sqlQueries: any[];
 	    redis: RedisConnectionConfig[];
 	    httpClient: ProjectHttpClient;
+	    git: ProjectGitConfig;
 	
 	    static createFrom(source: any = {}) {
 	        return new ProjectWorkspace(source);
@@ -568,6 +585,7 @@ export namespace main {
 	        this.sqlQueries = source["sqlQueries"];
 	        this.redis = this.convertValues(source["redis"], RedisConnectionConfig);
 	        this.httpClient = this.convertValues(source["httpClient"], ProjectHttpClient);
+	        this.git = this.convertValues(source["git"], ProjectGitConfig);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -624,6 +642,7 @@ export namespace main {
 		    return a;
 		}
 	}
+	
 	
 	
 	export class QueryLog {

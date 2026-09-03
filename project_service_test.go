@@ -46,6 +46,10 @@ func TestProjectFileLifecycle(t *testing.T) {
 			GlobalVariables:     []any{},
 			ActiveEnvironmentID: "",
 		},
+		Git: ProjectGitConfig{
+			RepoPath:  "/path/to/test-repo",
+			AutoWatch: true,
+		},
 	}
 
 	jsonBytes, err := json.Marshal(sampleProject)
@@ -74,6 +78,9 @@ func TestProjectFileLifecycle(t *testing.T) {
 	}
 	if len(res.Project.Redis) != 1 || res.Project.Redis[0].Name != "Dev Cache" {
 		t.Errorf("Redis mismatch: %+v", res.Project.Redis)
+	}
+	if res.Project.Git.RepoPath != "/path/to/test-repo" {
+		t.Errorf("Git RepoPath mismatch: got %s, want /path/to/test-repo", res.Project.Git.RepoPath)
 	}
 
 	closed, err := app.CloseProjectConnections()

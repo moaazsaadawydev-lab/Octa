@@ -245,6 +245,13 @@ type ProjectHttpClient struct {
 	ActiveEnvironmentID string `json:"activeEnvironmentId"`
 }
 
+// ProjectGitConfig holds Git repository configuration and active state.
+type ProjectGitConfig struct {
+	RepoPath      string `json:"repoPath"`
+	AutoWatch     bool   `json:"autoWatch"`
+	DefaultBranch string `json:"defaultBranch,omitempty"`
+}
+
 // ProjectWorkspace is the root schema for a .octa project file.
 type ProjectWorkspace struct {
 	SchemaVersion int                     `json:"schemaVersion"`
@@ -256,6 +263,7 @@ type ProjectWorkspace struct {
 	SqlQueries    []any                   `json:"sqlQueries"`
 	Redis         []RedisConnectionConfig `json:"redis"`
 	HttpClient    ProjectHttpClient       `json:"httpClient"`
+	Git           ProjectGitConfig        `json:"git"`
 }
 
 // ProjectFileResult is returned from project file operations.

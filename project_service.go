@@ -81,6 +81,10 @@ func (s *ProjectService) CreateProjectFileDialog(defaultName string) (ProjectFil
 			GlobalVariables:     make([]any, 0),
 			ActiveEnvironmentID: "",
 		},
+		Git: ProjectGitConfig{
+			RepoPath:  "",
+			AutoWatch: true,
+		},
 	}
 
 	bytes, err := json.MarshalIndent(proj, "", "  ")
