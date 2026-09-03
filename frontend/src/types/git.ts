@@ -18,3 +18,11 @@ export interface GitStatusResult {
   unstagedFiles: GitFileChange[];
   untrackedFiles: GitFileChange[];
 }
+
+export interface InitRepoOptions {
+  path: string;
+  addGitignore: boolean;
+  gitignoreType: string;
+  addReadme: boolean;
+  repoName: string;
+}

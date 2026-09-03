@@ -17,6 +17,15 @@ import (
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
+// InitRepoOptions specifies advanced repository initialization options
+type InitRepoOptions struct {
+	Path          string `json:"path"`
+	AddGitignore  bool   `json:"addGitignore"`
+	GitignoreType string `json:"gitignoreType"` // "Node", "Go", "Python", "General"
+	AddReadme     bool   `json:"addReadme"`
+	RepoName      string `json:"repoName"`
+}
+
 // GitFileChange describes a modified, staged, untracked, or deleted file
 type GitFileChange struct {
 	Path    string `json:"path"`
@@ -190,6 +199,78 @@ func (s *GitService) OpenRepositoryDialog() (string, error) {
 
 	println("[DEBUG GitService] User selected path:", selectedDir)
 	return selectedDir, nil
+}
+
+// IsGitRepository checks whether a target path is an existing git repository
+func (s *GitService) IsGitRepository(repoPath string) bool {
+	if repoPath == "" {
+		return false
+	}
+	gitDir := filepath.Join(repoPath, ".git")
+	info, err := os.Stat(gitDir)
+	if err == nil && info.IsDir() {
+		return true
+	}
+
+	// Fallback to git rev-parse check
+	checkCmd := exec.Command("git", "-C", repoPath, "rev-parse", "--is-inside-work-tree")
+	out, cErr := checkCmd.Output()
+	return cErr == nil && strings.TrimSpace(string(out)) == "true"
+}
+
+// InitializeRepositoryWithOptions creates a new repo with custom .gitignore and README.md
+func (s *GitService) InitializeRepositoryWithOptions(opts InitRepoOptions) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	println("[DEBUG GitService] InitializeRepositoryWithOptions for path:", opts.Path)
+	if opts.Path == "" {
+		return fmt.Errorf("repository path cannot be empty")
+	}
+
+	// 1. Run git init
+	cmd := exec.Command("git", "-C", opts.Path, "init")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		println("[DEBUG GitService] git init failed:", string(out))
+		return fmt.Errorf("git init failed: %s", strings.TrimSpace(string(out)))
+	}
+
+	// 2. Add .gitignore if requested
+	if opts.AddGitignore {
+		var gitignoreContent string
+		switch opts.GitignoreType {
+		case "Go":
+			gitignoreContent = "bin/\n*.exe\n*.exe~\n*.dll\n*.so\n*.dylib\n*.test\n*.out\nvendor/\n.env\n"
+		case "Python":
+			gitignoreContent = "__pycache__/\n*.py[cod]\n*$py.class\n*.so\n.Python\nbuild/\ndist/\n.env\nvenv/\nENV/\n"
+		case "General":
+			gitignoreContent = ".env\n*.log\n.DS_Store\nThumbs.db\ntmp/\n"
+		default: // "Node"
+			gitignoreContent = "node_modules/\ndist/\nbuild/\n.env\n.env.local\n*.log\n.DS_Store\ncoverage/\n"
+		}
+
+		gitignorePath := filepath.Join(opts.Path, ".gitignore")
+		// Only create if .gitignore doesn't already exist
+		if _, statErr := os.Stat(gitignorePath); os.IsNotExist(statErr) {
+			_ = os.WriteFile(gitignorePath, []byte(gitignoreContent), 0644)
+		}
+	}
+
+	// 3. Add README.md if requested
+	if opts.AddReadme {
+		readmePath := filepath.Join(opts.Path, "README.md")
+		if _, statErr := os.Stat(readmePath); os.IsNotExist(statErr) {
+			repoTitle := opts.RepoName
+			if repoTitle == "" {
+				repoTitle = filepath.Base(opts.Path)
+			}
+			readmeContent := fmt.Sprintf("# %s\n\nProject initialized via Octa.\n", repoTitle)
+			_ = os.WriteFile(readmePath, []byte(readmeContent), 0644)
+		}
+	}
+
+	return nil
 }
 
 // InitRepository runs git init in the target directory

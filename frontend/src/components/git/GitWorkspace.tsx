@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { GitBranch, FolderOpen, PlusSquare, RefreshCw, AlertTriangle, ArrowUp } from 'lucide-react';
 import clsx from 'clsx';
-import { GitStatusResult, GitFileChange } from '../../types/git';
+import { GitStatusResult, GitFileChange, InitRepoOptions } from '../../types/git';
 import {
   openGitRepositoryDialog,
+  isGitRepository,
+  initializeRepositoryWithOptions,
   initGitRepository,
   getGitRepoStatus,
   getGitFileDiff,
@@ -20,6 +22,7 @@ import {
 } from '../../services/api';
 import { GitSidebar } from './GitSidebar';
 import { GitDiffViewer } from './GitDiffViewer';
+import { InitRepoModal } from './InitRepoModal';
 
 interface GitWorkspaceProps {
   activeProjectPath?: string | null;
@@ -37,6 +40,9 @@ export const GitWorkspace: React.FC<GitWorkspaceProps> = ({
   const [isDiffLoading, setIsDiffLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [sidebarWidth, setSidebarWidth] = useState(320);
+  const [isInitModalOpen, setIsInitModalOpen] = useState(false);
+  const [pendingInitPath, setPendingInitPath] = useState<string>('');
+  const [isInitializing, setIsInitializing] = useState(false);
 
   const isResizing = useRef(false);
   const workspaceRef = useRef<HTMLDivElement>(null);
@@ -168,31 +174,57 @@ export const GitWorkspace: React.FC<GitWorkspaceProps> = ({
     }
   };
 
-  // Open Repo Dialog
+  // Open Repo Dialog with non-git folder detection
   const handleOpenRepo = async () => {
     try {
       const selected = await openGitRepositoryDialog();
       if (selected) {
-        setRepoPath(selected);
-        fetchStatus(selected);
+        const isRepo = await isGitRepository(selected);
+        if (!isRepo) {
+          setPendingInitPath(selected);
+          setIsInitModalOpen(true);
+        } else {
+          setRepoPath(selected);
+          fetchStatus(selected);
+        }
       }
     } catch (err: any) {
       if (showToast) showToast(err?.message || 'Failed to open repository', 'error');
     }
   };
 
-  // Init New Repo
+  // Init New Repo Dialog
   const handleInitRepo = async () => {
     try {
       const selected = await openGitRepositoryDialog();
       if (selected) {
-        await initGitRepository(selected);
-        setRepoPath(selected);
-        if (showToast) showToast('Initialized Git repository', 'success');
-        fetchStatus(selected);
+        const isRepo = await isGitRepository(selected);
+        if (!isRepo) {
+          setPendingInitPath(selected);
+          setIsInitModalOpen(true);
+        } else {
+          setRepoPath(selected);
+          fetchStatus(selected);
+        }
       }
     } catch (err: any) {
       if (showToast) showToast(err?.message || 'Failed to init repository', 'error');
+    }
+  };
+
+  // Confirm Init Modal
+  const handleConfirmInit = async (opts: InitRepoOptions) => {
+    setIsInitializing(true);
+    try {
+      await initializeRepositoryWithOptions(opts);
+      if (showToast) showToast(`Initialized Git repository "${opts.repoName}"`, 'success');
+      setIsInitModalOpen(false);
+      setRepoPath(opts.path);
+      fetchStatus(opts.path);
+    } catch (err: any) {
+      if (showToast) showToast(err?.message || 'Failed to initialize repository', 'error');
+    } finally {
+      setIsInitializing(false);
     }
   };
 
@@ -341,6 +373,14 @@ export const GitWorkspace: React.FC<GitWorkspaceProps> = ({
             <span>Initialize Repository</span>
           </button>
         </div>
+
+        <InitRepoModal
+          isOpen={isInitModalOpen}
+          onClose={() => setIsInitModalOpen(false)}
+          path={pendingInitPath}
+          onConfirm={handleConfirmInit}
+          isInitializing={isInitializing}
+        />
       </div>
     );
   }
@@ -364,6 +404,7 @@ export const GitWorkspace: React.FC<GitWorkspaceProps> = ({
         onPull={handlePull}
         onFetch={handleFetch}
         onRefresh={() => fetchStatus()}
+        onSwitchRepo={handleOpenRepo}
         isActionLoading={actionLoading}
         width={sidebarWidth}
         showToast={showToast}
@@ -382,6 +423,14 @@ export const GitWorkspace: React.FC<GitWorkspaceProps> = ({
         fileChange={selectedFile}
         diffContent={diffContent}
         isLoading={isDiffLoading}
+      />
+
+      <InitRepoModal
+        isOpen={isInitModalOpen}
+        onClose={() => setIsInitModalOpen(false)}
+        path={pendingInitPath}
+        onConfirm={handleConfirmInit}
+        isInitializing={isInitializing}
       />
     </div>
   );

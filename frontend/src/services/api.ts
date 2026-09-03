@@ -1307,7 +1307,40 @@ export async function closeContainerExec(sessionId: string): Promise<boolean> {
 // SOURCE CONTROL / GIT API
 // ============================================================================
 
-import { GitStatusResult } from '../types/git';
+import { GitStatusResult, InitRepoOptions } from '../types/git';
+
+export async function isGitRepository(repoPath: string): Promise<boolean> {
+  try {
+    const w = window as any;
+    if (w?.go?.main?.App?.IsGitRepository) {
+      return await w.go.main.App.IsGitRepository(repoPath);
+    }
+    if (w?.go?.main?.GitService?.IsGitRepository) {
+      return await w.go.main.GitService.IsGitRepository(repoPath);
+    }
+  } catch (e) {
+    console.error('[Git IsGitRepository Error]:', e);
+  }
+  return false;
+}
+
+export async function initializeRepositoryWithOptions(opts: InitRepoOptions): Promise<void> {
+  console.log('[Git API] initializeRepositoryWithOptions called:', opts);
+  try {
+    const w = window as any;
+    if (w?.go?.main?.App?.InitializeRepositoryWithOptions) {
+      await w.go.main.App.InitializeRepositoryWithOptions(opts);
+      return;
+    }
+    if (w?.go?.main?.GitService?.InitializeRepositoryWithOptions) {
+      await w.go.main.GitService.InitializeRepositoryWithOptions(opts);
+      return;
+    }
+  } catch (e) {
+    console.error('[Git InitializeRepositoryWithOptions Error]:', e);
+    throw e;
+  }
+}
 
 export async function openGitRepositoryDialog(): Promise<string> {
   console.log('[Git API] openGitRepositoryDialog called');

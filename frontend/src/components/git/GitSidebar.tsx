@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
   GitBranch,
+  FolderSync,
   GitCommit,
   Plus,
   Minus,
@@ -35,6 +36,7 @@ interface GitSidebarProps {
   onPull: () => void;
   onFetch: () => void;
   onRefresh: () => void;
+  onSwitchRepo?: () => void;
   isActionLoading: string | null;
   width?: number;
   showToast?: (message: string, type?: 'success' | 'error' | 'info') => void;
@@ -53,6 +55,7 @@ export const GitSidebar: React.FC<GitSidebarProps> = ({
   onPull,
   onFetch,
   onRefresh,
+  onSwitchRepo,
   isActionLoading,
   width,
   showToast,
@@ -134,6 +137,16 @@ export const GitSidebar: React.FC<GitSidebarProps> = ({
                 <span className="text-xs font-bold text-slate-900 dark:text-zinc-100 truncate" title={status?.repoPath}>
                   {repoName}
                 </span>
+                {onSwitchRepo && (
+                  <button
+                    type="button"
+                    onClick={onSwitchRepo}
+                    title="Switch Repository (Open Folder)"
+                    className="p-0.5 rounded text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+                  >
+                    <FolderSync className="w-3 h-3" />
+                  </button>
+                )}
               </div>
               <div className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-zinc-400 font-mono">
                 <span className="truncate max-w-[120px] text-brand-600 dark:text-brand-400 font-semibold">

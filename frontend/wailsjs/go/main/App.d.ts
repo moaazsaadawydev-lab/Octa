@@ -76,6 +76,10 @@ export function ImportSQLScript(arg1:main.ConnectionConfig,arg2:string,arg3:stri
 
 export function InitRepository(arg1:string):Promise<void>;
 
+export function InitializeRepositoryWithOptions(arg1:main.InitRepoOptions):Promise<void>;
+
+export function IsGitRepository(arg1:string):Promise<boolean>;
+
 export function ListContainers(arg1:boolean):Promise<Array<main.DockerProjectGroup>>;
 
 export function LoadEnvironmentsData():Promise<string>;

@@ -150,6 +150,14 @@ export function InitRepository(arg1) {
   return window['go']['main']['App']['InitRepository'](arg1);
 }
 
+export function InitializeRepositoryWithOptions(arg1) {
+  return window['go']['main']['App']['InitializeRepositoryWithOptions'](arg1);
+}
+
+export function IsGitRepository(arg1) {
+  return window['go']['main']['App']['IsGitRepository'](arg1);
+}
+
 export function ListContainers(arg1) {
   return window['go']['main']['App']['ListContainers'](arg1);
 }

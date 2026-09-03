@@ -321,4 +321,9 @@ func (a *App) StartAutoWatch(repoPath string) error {
 func (a *App) StopAutoWatch() {
 	a.gitService.StopAutoWatch()
 }
-
+func (a *App) IsGitRepository(repoPath string) bool {
+	return a.gitService.IsGitRepository(repoPath)
+}
+func (a *App) InitializeRepositoryWithOptions(opts InitRepoOptions) error {
+	return a.gitService.InitializeRepositoryWithOptions(opts)
+}

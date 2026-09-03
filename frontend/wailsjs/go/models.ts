@@ -478,6 +478,26 @@ export namespace main {
 	        this.errorMessage = source["errorMessage"];
 	    }
 	}
+	export class InitRepoOptions {
+	    path: string;
+	    addGitignore: boolean;
+	    gitignoreType: string;
+	    addReadme: boolean;
+	    repoName: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new InitRepoOptions(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.path = source["path"];
+	        this.addGitignore = source["addGitignore"];
+	        this.gitignoreType = source["gitignoreType"];
+	        this.addReadme = source["addReadme"];
+	        this.repoName = source["repoName"];
+	    }
+	}
 	export class ProjectHttpClient {
 	    collections: any[];
 	    environments: any[];
