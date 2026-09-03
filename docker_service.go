@@ -61,6 +61,20 @@ type execSession struct {
 	cancel      context.CancelFunc
 }
 
+// dockerCommand creates an exec.Cmd with suppressed console window on Windows
+func dockerCommand(args ...string) *exec.Cmd {
+	cmd := exec.Command("docker", args...)
+	cmd.SysProcAttr = getSysProcAttr()
+	return cmd
+}
+
+// dockerCommandContext creates a context-bound exec.Cmd with suppressed console window on Windows
+func dockerCommandContext(ctx context.Context, args ...string) *exec.Cmd {
+	cmd := exec.CommandContext(ctx, "docker", args...)
+	cmd.SysProcAttr = getSysProcAttr()
+	return cmd
+}
+
 // DockerService manages Docker engine interactions via Hybrid SDK + CLI Fallback
 type DockerService struct {
 	ctx          context.Context
@@ -127,7 +141,7 @@ func (s *DockerService) initClient() (*client.Client, error) {
 
 // checkDockerCliAvailable verifies if the local Docker CLI is functional
 func (s *DockerService) checkDockerCliAvailable() (bool, string) {
-	cmd := exec.Command("docker", "version", "--format", "{{.Server.Version}}")
+	cmd := dockerCommand( "version", "--format", "{{.Server.Version}}")
 	out, err := cmd.Output()
 	if err == nil && len(strings.TrimSpace(string(out))) > 0 {
 		return true, strings.TrimSpace(string(out))
@@ -217,7 +231,7 @@ func (s *DockerService) listContainersViaCLI(onlyRunning bool) ([]DockerProjectG
 		args = append(args, "-a")
 	}
 
-	cmd := exec.Command("docker", args...)
+	cmd := dockerCommand( args...)
 	out, err := cmd.Output()
 	if err != nil {
 		println("[DEBUG DockerService] CLI listContainers error:", err.Error())
@@ -433,7 +447,7 @@ func (s *DockerService) StartContainer(containerID string) (bool, error) {
 	}
 
 	// Fallback to CLI
-	cmd := exec.Command("docker", "start", containerID)
+	cmd := dockerCommand( "start", containerID)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return false, fmt.Errorf("failed to start container %s: %s", containerID, strings.TrimSpace(string(out)))
@@ -455,7 +469,7 @@ func (s *DockerService) StopContainer(containerID string) (bool, error) {
 	}
 
 	// Fallback to CLI
-	cmd := exec.Command("docker", "stop", containerID)
+	cmd := dockerCommand( "stop", containerID)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return false, fmt.Errorf("failed to stop container %s: %s", containerID, strings.TrimSpace(string(out)))
@@ -477,7 +491,7 @@ func (s *DockerService) RestartContainer(containerID string) (bool, error) {
 	}
 
 	// Fallback to CLI
-	cmd := exec.Command("docker", "restart", containerID)
+	cmd := dockerCommand( "restart", containerID)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return false, fmt.Errorf("failed to restart container %s: %s", containerID, strings.TrimSpace(string(out)))
@@ -508,7 +522,7 @@ func (s *DockerService) RemoveContainer(containerID string, force bool) (bool, e
 	}
 	args = append(args, containerID)
 
-	cmd := exec.Command("docker", args...)
+	cmd := dockerCommand( args...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return false, fmt.Errorf("failed to remove container %s: %s", containerID, strings.TrimSpace(string(out)))
@@ -573,7 +587,7 @@ func (s *DockerService) StartLogStream(containerID string) error {
 		}
 
 		// Fallback to CLI streaming
-		cmd := exec.CommandContext(ctx, "docker", "logs", "--tail", "250", "-f", containerID)
+		cmd := dockerCommandContext(ctx, "logs", "--tail", "250", "-f", containerID)
 		stdout, err := cmd.StdoutPipe()
 		if err != nil {
 			if s.ctx != nil {
