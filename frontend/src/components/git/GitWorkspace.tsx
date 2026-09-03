@@ -60,6 +60,10 @@ export const GitWorkspace: React.FC<GitWorkspaceProps> = ({
 
   const isResizing = useRef(false);
   const workspaceRef = useRef<HTMLDivElement>(null);
+  const selectedFileRef = useRef<GitFileChange | null>(null);
+  const currentDiffKeyRef = useRef<string | null>(null);
+  const diffContentRef = useRef<string>('');
+  const statusDebounceRef = useRef<any>(null);
 
   // Resizing logic
   const startResizing = useCallback((e: React.MouseEvent) => {
@@ -89,24 +93,38 @@ export const GitWorkspace: React.FC<GitWorkspaceProps> = ({
     window.addEventListener('mouseup', onMouseUp);
   }, []);
 
-  // Load File Diff
-  const loadDiff = useCallback(async (targetRepo: string, file: GitFileChange) => {
+  // Load File Diff with guard against duplicate fetches
+  const loadDiff = useCallback(async (targetRepo: string, file: GitFileChange, force = false) => {
+    const diffKey = `${targetRepo}:${file.path}:${file.staged}`;
+    if (!force && currentDiffKeyRef.current === diffKey && diffContentRef.current) {
+      return; // Already viewing this exact diff
+    }
+
+    currentDiffKeyRef.current = diffKey;
     setIsDiffLoading(true);
     try {
       const diff = await getGitFileDiff(targetRepo, file.path, file.staged);
       setDiffContent(diff);
+      diffContentRef.current = diff;
     } catch (err: any) {
-      setDiffContent(`Error loading diff: ${err?.message || err}`);
+      const errMsg = `Error loading diff: ${err?.message || err}`;
+      setDiffContent(errMsg);
+      diffContentRef.current = errMsg;
     } finally {
       setIsDiffLoading(false);
     }
   }, []);
 
-  // Fetch Repo Status
-  const fetchStatus = useCallback(async (targetPath?: string) => {
+  // Fetch Repo Status without cascading re-renders
+  const fetchStatus = useCallback(async (targetPath?: string, forceDiff = false) => {
     const p = targetPath || repoPath;
     if (!p) {
       setStatus(null);
+      setSelectedFile(null);
+      selectedFileRef.current = null;
+      setDiffContent('');
+      diffContentRef.current = '';
+      currentDiffKeyRef.current = null;
       return;
     }
 
@@ -123,23 +141,27 @@ export const GitWorkspace: React.FC<GitWorkspaceProps> = ({
       // If repository is completely clean or changes were reverted, clear selection and diff
       if (all.length === 0) {
         setSelectedFile(null);
+        selectedFileRef.current = null;
         setDiffContent('');
-      } else if (selectedFile) {
-        const matching = all.find((f) => f.path === selectedFile.path && f.staged === selectedFile.staged);
-        if (matching) {
-          loadDiff(p, matching);
-        } else {
-          setSelectedFile(all[0]);
-          loadDiff(p, all[0]);
-        }
+        diffContentRef.current = '';
+        currentDiffKeyRef.current = null;
       } else {
-        setSelectedFile(all[0]);
-        loadDiff(p, all[0]);
+        const current = selectedFileRef.current;
+        let targetFile: GitFileChange = all[0];
+        if (current) {
+          const matching = all.find((f) => f.path === current.path && f.staged === current.staged);
+          if (matching) {
+            targetFile = matching;
+          }
+        }
+        setSelectedFile(targetFile);
+        selectedFileRef.current = targetFile;
+        loadDiff(p, targetFile, forceDiff);
       }
     } catch (err: any) {
       console.error('[Git FetchStatus Error]:', err);
     }
-  }, [repoPath, selectedFile, loadDiff]);
+  }, [repoPath, loadDiff]);
 
   // Helper to persist and set active repo
   const handleSetRepo = useCallback(
@@ -203,13 +225,21 @@ export const GitWorkspace: React.FC<GitWorkspaceProps> = ({
     if (w?.runtime?.EventsOn) {
       cancelEvent = w.runtime.EventsOn('git:status:changed', (changedRepo: string) => {
         if (!changedRepo || changedRepo === repoPath) {
-          console.log('[GitWorkspace] Real-time file system change detected, refreshing status...');
-          fetchStatus(repoPath);
+          if (statusDebounceRef.current) {
+            clearTimeout(statusDebounceRef.current);
+          }
+          statusDebounceRef.current = setTimeout(() => {
+            console.log('[GitWorkspace] Real-time file system change detected, refreshing status...');
+            fetchStatus(repoPath, true);
+          }, 150);
         }
       });
     }
 
     return () => {
+      if (statusDebounceRef.current) {
+        clearTimeout(statusDebounceRef.current);
+      }
       if (cancelEvent) {
         cancelEvent();
       } else if (w?.runtime?.EventsOff) {
@@ -217,11 +247,12 @@ export const GitWorkspace: React.FC<GitWorkspaceProps> = ({
       }
       stopGitAutoWatch().catch(() => {});
     };
-  }, [repoPath]);
+  }, [repoPath, fetchStatus]);
 
   // Select File handler
   const handleSelectFile = (file: GitFileChange) => {
     setSelectedFile(file);
+    selectedFileRef.current = file;
     if (repoPath) {
       loadDiff(repoPath, file);
     }

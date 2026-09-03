@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Columns, AlignLeft, FileText } from 'lucide-react';
+import { Columns, AlignLeft, FileText, Loader2 } from 'lucide-react';
 import clsx from 'clsx';
 import { GitFileChange } from '../../types/git';
 
@@ -202,6 +202,12 @@ export const GitDiffViewer: React.FC<GitDiffViewerProps> = ({
               Staged
             </span>
           )}
+          {isLoading && (
+            <span className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] text-zinc-400 font-sans bg-zinc-900 border border-zinc-800">
+              <Loader2 className="w-3 h-3 animate-spin text-brand-500" />
+              <span>Updating...</span>
+            </span>
+          )}
         </div>
 
         {/* View Mode Switcher: Unified vs Split */}
@@ -240,13 +246,14 @@ export const GitDiffViewer: React.FC<GitDiffViewerProps> = ({
 
       {/* 2. Diff Viewport */}
       <div className="flex-1 w-full h-full min-h-0 min-w-0 bg-[#090a0f] overflow-auto font-mono text-xs select-text">
-        {isLoading ? (
-          <div className="flex items-center justify-center p-12 text-zinc-500 text-xs">
-            Loading diff...
+        {isLoading && !diffContent ? (
+          <div className="flex items-center justify-center p-12 text-zinc-500 text-xs gap-2">
+            <Loader2 className="w-4 h-4 animate-spin text-brand-500" />
+            <span>Loading diff...</span>
           </div>
         ) : parsedLines.length === 0 ? (
           <div className="flex items-center justify-center p-12 text-zinc-500 text-xs">
-            No line changes detected in this file.
+            {isLoading ? 'Updating diff...' : 'No line changes detected in this file.'}
           </div>
         ) : viewMode === 'unified' ? (
           /* UNIFIED DIFF VIEW */
