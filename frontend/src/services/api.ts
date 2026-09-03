@@ -1303,5 +1303,265 @@ export async function closeContainerExec(sessionId: string): Promise<boolean> {
   return false;
 }
 
+// ============================================================================
+// SOURCE CONTROL / GIT API
+// ============================================================================
 
+import { GitStatusResult } from '../types/git';
+
+export async function openGitRepositoryDialog(): Promise<string> {
+  console.log('[Git API] openGitRepositoryDialog called');
+  try {
+    const w = window as any;
+    if (w?.go?.main?.App?.OpenRepositoryDialog) {
+      const res = await w.go.main.App.OpenRepositoryDialog();
+      console.log('[Git API] App.OpenRepositoryDialog result:', res);
+      return res || '';
+    }
+    if (w?.go?.main?.GitService?.OpenRepositoryDialog) {
+      const res = await w.go.main.GitService.OpenRepositoryDialog();
+      console.log('[Git API] GitService.OpenRepositoryDialog result:', res);
+      return res || '';
+    }
+    console.warn('[Git API] Neither App.OpenRepositoryDialog nor GitService.OpenRepositoryDialog found in window.go.main');
+  } catch (e) {
+    console.error('[Git OpenRepositoryDialog Error]:', e);
+    throw e;
+  }
+  return '';
+}
+
+export async function initGitRepository(repoPath: string): Promise<void> {
+  console.log('[Git API] initGitRepository called for path:', repoPath);
+  try {
+    const w = window as any;
+    if (w?.go?.main?.App?.InitRepository) {
+      await w.go.main.App.InitRepository(repoPath);
+      return;
+    }
+    if (w?.go?.main?.GitService?.InitRepository) {
+      await w.go.main.GitService.InitRepository(repoPath);
+      return;
+    }
+  } catch (e) {
+    console.error('[Git InitRepository Error]:', e);
+    throw e;
+  }
+}
+
+export async function getGitRepoStatus(repoPath: string): Promise<GitStatusResult> {
+  try {
+    const w = window as any;
+    if (w?.go?.main?.App?.GetRepoStatus) {
+      const res = await w.go.main.App.GetRepoStatus(repoPath);
+      return res;
+    }
+    if (w?.go?.main?.GitService?.GetRepoStatus) {
+      const res = await w.go.main.GitService.GetRepoStatus(repoPath);
+      return res;
+    }
+  } catch (e) {
+    console.error('[Git GetRepoStatus Error]:', e);
+    throw e;
+  }
+  return {
+    isRepo: false,
+    repoPath: repoPath,
+    branch: '',
+    upstream: '',
+    ahead: 0,
+    behind: 0,
+    stagedFiles: [],
+    unstagedFiles: [],
+    untrackedFiles: [],
+  };
+}
+
+export async function getGitFileDiff(repoPath: string, filePath: string, staged: boolean = false): Promise<string> {
+  try {
+    const w = window as any;
+    if (w?.go?.main?.App?.GetFileDiff) {
+      const res = await w.go.main.App.GetFileDiff(repoPath, filePath, staged);
+      return res || '';
+    }
+    if (w?.go?.main?.GitService?.GetFileDiff) {
+      const res = await w.go.main.GitService.GetFileDiff(repoPath, filePath, staged);
+      return res || '';
+    }
+  } catch (e) {
+    console.error('[Git GetFileDiff Error]:', e);
+    throw e;
+  }
+  return '';
+}
+
+export async function stageGitFile(repoPath: string, filePath: string): Promise<void> {
+  try {
+    const w = window as any;
+    if (w?.go?.main?.App?.StageFile) {
+      await w.go.main.App.StageFile(repoPath, filePath);
+      return;
+    }
+    if (w?.go?.main?.GitService?.StageFile) {
+      await w.go.main.GitService.StageFile(repoPath, filePath);
+      return;
+    }
+  } catch (e) {
+    console.error('[Git StageFile Error]:', e);
+    throw e;
+  }
+}
+
+export async function unstageGitFile(repoPath: string, filePath: string): Promise<void> {
+  try {
+    const w = window as any;
+    if (w?.go?.main?.App?.UnstageFile) {
+      await w.go.main.App.UnstageFile(repoPath, filePath);
+      return;
+    }
+    if (w?.go?.main?.GitService?.UnstageFile) {
+      await w.go.main.GitService.UnstageFile(repoPath, filePath);
+      return;
+    }
+  } catch (e) {
+    console.error('[Git UnstageFile Error]:', e);
+    throw e;
+  }
+}
+
+export async function stageAllGitFiles(repoPath: string): Promise<void> {
+  try {
+    const w = window as any;
+    if (w?.go?.main?.App?.StageAll) {
+      await w.go.main.App.StageAll(repoPath);
+      return;
+    }
+    if (w?.go?.main?.GitService?.StageAll) {
+      await w.go.main.GitService.StageAll(repoPath);
+      return;
+    }
+  } catch (e) {
+    console.error('[Git StageAll Error]:', e);
+    throw e;
+  }
+}
+
+export async function unstageAllGitFiles(repoPath: string): Promise<void> {
+  try {
+    const w = window as any;
+    if (w?.go?.main?.App?.UnstageAll) {
+      await w.go.main.App.UnstageAll(repoPath);
+      return;
+    }
+    if (w?.go?.main?.GitService?.UnstageAll) {
+      await w.go.main.GitService.UnstageAll(repoPath);
+      return;
+    }
+  } catch (e) {
+    console.error('[Git UnstageAll Error]:', e);
+    throw e;
+  }
+}
+
+export async function commitGitChanges(repoPath: string, message: string): Promise<void> {
+  try {
+    const w = window as any;
+    if (w?.go?.main?.App?.CommitChanges) {
+      await w.go.main.App.CommitChanges(repoPath, message);
+      return;
+    }
+    if (w?.go?.main?.GitService?.CommitChanges) {
+      await w.go.main.GitService.CommitChanges(repoPath, message);
+      return;
+    }
+  } catch (e) {
+    console.error('[Git CommitChanges Error]:', e);
+    throw e;
+  }
+}
+
+export async function pushGitChanges(repoPath: string): Promise<void> {
+  try {
+    const w = window as any;
+    if (w?.go?.main?.App?.PushChanges) {
+      await w.go.main.App.PushChanges(repoPath);
+      return;
+    }
+    if (w?.go?.main?.GitService?.PushChanges) {
+      await w.go.main.GitService.PushChanges(repoPath);
+      return;
+    }
+  } catch (e) {
+    console.error('[Git PushChanges Error]:', e);
+    throw e;
+  }
+}
+
+export async function pullGitChanges(repoPath: string): Promise<void> {
+  try {
+    const w = window as any;
+    if (w?.go?.main?.App?.PullChanges) {
+      await w.go.main.App.PullChanges(repoPath);
+      return;
+    }
+    if (w?.go?.main?.GitService?.PullChanges) {
+      await w.go.main.GitService.PullChanges(repoPath);
+      return;
+    }
+  } catch (e) {
+    console.error('[Git PullChanges Error]:', e);
+    throw e;
+  }
+}
+
+export async function fetchGitChanges(repoPath: string): Promise<void> {
+  try {
+    const w = window as any;
+    if (w?.go?.main?.App?.FetchChanges) {
+      await w.go.main.App.FetchChanges(repoPath);
+      return;
+    }
+    if (w?.go?.main?.GitService?.FetchChanges) {
+      await w.go.main.GitService.FetchChanges(repoPath);
+      return;
+    }
+  } catch (e) {
+    console.error('[Git FetchChanges Error]:', e);
+    throw e;
+  }
+}
+
+export async function startGitAutoWatch(repoPath: string): Promise<boolean> {
+  try {
+    const w = window as any;
+    if (w?.go?.main?.App?.StartAutoWatch) {
+      await w.go.main.App.StartAutoWatch(repoPath);
+      return true;
+    }
+    if (w?.go?.main?.GitService?.StartAutoWatch) {
+      await w.go.main.GitService.StartAutoWatch(repoPath);
+      return true;
+    }
+  } catch (e) {
+    console.warn('[Git StartAutoWatch Error]:', e);
+  }
+  return false;
+}
+
+export async function stopGitAutoWatch(): Promise<boolean> {
+  try {
+    const w = window as any;
+    if (w?.go?.main?.App?.StopAutoWatch) {
+      await w.go.main.App.StopAutoWatch();
+      return true;
+    }
+    if (w?.go?.main?.GitService?.StopAutoWatch) {
+      await w.go.main.GitService.StopAutoWatch();
+      return true;
+    }
+  } catch (e) {
+    console.warn('[Git StopAutoWatch Error]:', e);
+  }
+  return false;
+}
 

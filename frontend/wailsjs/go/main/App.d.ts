@@ -16,6 +16,8 @@ export function CloseProjectConnections():Promise<boolean>;
 
 export function CloseTerminalSession(arg1:string):Promise<void>;
 
+export function CommitChanges(arg1:string,arg2:string):Promise<void>;
+
 export function ConnectRedis(arg1:main.RedisConnectionConfig):Promise<main.RedisConnectResult>;
 
 export function CreateProjectFileDialog(arg1:string):Promise<main.ProjectFileResult>;
@@ -44,6 +46,8 @@ export function ExportDatabaseSQL(arg1:main.ConnectionConfig,arg2:string,arg3:bo
 
 export function ExportTableSQL(arg1:main.ConnectionConfig,arg2:string,arg3:string,arg4:boolean):Promise<string>;
 
+export function FetchChanges(arg1:string):Promise<void>;
+
 export function FlushRedisDB(arg1:main.RedisConnectionConfig):Promise<boolean>;
 
 export function GetDatabaseSchemaDetails(arg1:main.ConnectionConfig,arg2:string):Promise<main.DatabaseSchema>;
@@ -52,9 +56,13 @@ export function GetDatabases(arg1:main.ConnectionConfig):Promise<Array<string>>;
 
 export function GetEnumValues(arg1:main.ConnectionConfig,arg2:string,arg3:string):Promise<Array<string>>;
 
+export function GetFileDiff(arg1:string,arg2:string,arg3:boolean):Promise<string>;
+
 export function GetQueryLogs():Promise<Array<main.QueryLog>>;
 
 export function GetRedisKeyDetails(arg1:main.RedisConnectionConfig,arg2:string):Promise<main.RedisKeyDetail>;
+
+export function GetRepoStatus(arg1:string):Promise<main.GitStatusResult>;
 
 export function GetSavedConnections():Promise<Array<main.ConnectionConfig>>;
 
@@ -65,6 +73,8 @@ export function GetTableSchema(arg1:main.ConnectionConfig,arg2:string,arg3:strin
 export function GetTables(arg1:main.ConnectionConfig,arg2:string):Promise<Array<string>>;
 
 export function ImportSQLScript(arg1:main.ConnectionConfig,arg2:string,arg3:string):Promise<main.ImportResult>;
+
+export function InitRepository(arg1:string):Promise<void>;
 
 export function ListContainers(arg1:boolean):Promise<Array<main.DockerProjectGroup>>;
 
@@ -77,6 +87,12 @@ export function LoadRedisConnections():Promise<string>;
 export function LoadSqlQueriesData():Promise<string>;
 
 export function OpenProjectFileDialog():Promise<main.ProjectFileResult>;
+
+export function OpenRepositoryDialog():Promise<string>;
+
+export function PullChanges(arg1:string):Promise<void>;
+
+export function PushChanges(arg1:string):Promise<void>;
 
 export function ReadProjectFile(arg1:string):Promise<main.ProjectFileResult>;
 
@@ -110,6 +126,12 @@ export function SelectFilesDialog():Promise<Array<main.SelectedFileMeta>>;
 
 export function SetRedisTTL(arg1:main.RedisConnectionConfig,arg2:string,arg3:number):Promise<boolean>;
 
+export function StageAll(arg1:string):Promise<void>;
+
+export function StageFile(arg1:string,arg2:string):Promise<void>;
+
+export function StartAutoWatch(arg1:string):Promise<void>;
+
 export function StartContainer(arg1:string):Promise<boolean>;
 
 export function StartContainerExec(arg1:string,arg2:string,arg3:number,arg4:number):Promise<void>;
@@ -118,6 +140,8 @@ export function StartLogStream(arg1:string):Promise<void>;
 
 export function StartTerminalSession(arg1:string,arg2:string,arg3:number,arg4:number):Promise<void>;
 
+export function StopAutoWatch():Promise<void>;
+
 export function StopContainer(arg1:string):Promise<boolean>;
 
 export function StopLogStream(arg1:string):Promise<void>;
@@ -125,6 +149,10 @@ export function StopLogStream(arg1:string):Promise<void>;
 export function TestConnection(arg1:main.ConnectionConfig):Promise<boolean|string>;
 
 export function TruncateTable(arg1:main.ConnectionConfig,arg2:string,arg3:string):Promise<boolean>;
+
+export function UnstageAll(arg1:string):Promise<void>;
+
+export function UnstageFile(arg1:string,arg2:string):Promise<void>;
 
 export function UpdateRedisKey(arg1:main.RedisConnectionConfig,arg2:string,arg3:string,arg4:any,arg5:number):Promise<boolean>;
 

@@ -10,6 +10,7 @@ import { RedisWorkspace } from './components/redis/RedisWorkspace';
 import { HttpClientWorkspace } from './components/http/HttpClientWorkspace';
 import { TerminalWorkspace } from './components/terminal';
 import { DockerWorkspace } from './components/docker';
+import { GitWorkspace } from './components/git/GitWorkspace';
 import { SettingsView } from './components/layout/SettingsView';
 import { NewConnectionModal } from './components/database/NewConnectionModal';
 import { ImportSqlModal } from './components/database/ImportSqlModal';
@@ -667,8 +668,11 @@ export function App() {
           setActiveModule('http');
         } else if (e.key === '4' && activeProject) {
           e.preventDefault();
-          setActiveModule('docker');
+          setActiveModule('git');
         } else if (e.key === '5' && activeProject) {
+          e.preventDefault();
+          setActiveModule('docker');
+        } else if (e.key === '6' && activeProject) {
           e.preventDefault();
           setActiveModule('terminal');
         } else if (e.key === ',') {
@@ -734,14 +738,23 @@ export function App() {
             }}
             showToast={showToast}
           />
+        ) : activeModule === 'git' ? (
+          <GitWorkspace
+            activeProjectPath={
+              projectFilePath
+                ? projectFilePath.substring(0, Math.max(projectFilePath.lastIndexOf('\\'), projectFilePath.lastIndexOf('/')))
+                : undefined
+            }
+            showToast={showToast}
+          />
+        ) : activeModule === 'docker' ? (
+          <DockerWorkspace showToast={showToast} />
         ) : activeModule === 'terminal' ? (
           <TerminalWorkspace
             activeProject={activeProject}
             projectFilePath={projectFilePath}
             showToast={showToast}
           />
-        ) : activeModule === 'docker' ? (
-          <DockerWorkspace showToast={showToast} />
         ) : activeModule === 'settings' ? (
           <SettingsView showToast={showToast} />
         ) : (

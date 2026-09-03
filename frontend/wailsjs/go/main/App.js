@@ -30,6 +30,10 @@ export function CloseTerminalSession(arg1) {
   return window['go']['main']['App']['CloseTerminalSession'](arg1);
 }
 
+export function CommitChanges(arg1, arg2) {
+  return window['go']['main']['App']['CommitChanges'](arg1, arg2);
+}
+
 export function ConnectRedis(arg1) {
   return window['go']['main']['App']['ConnectRedis'](arg1);
 }
@@ -86,6 +90,10 @@ export function ExportTableSQL(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['ExportTableSQL'](arg1, arg2, arg3, arg4);
 }
 
+export function FetchChanges(arg1) {
+  return window['go']['main']['App']['FetchChanges'](arg1);
+}
+
 export function FlushRedisDB(arg1) {
   return window['go']['main']['App']['FlushRedisDB'](arg1);
 }
@@ -102,12 +110,20 @@ export function GetEnumValues(arg1, arg2, arg3) {
   return window['go']['main']['App']['GetEnumValues'](arg1, arg2, arg3);
 }
 
+export function GetFileDiff(arg1, arg2, arg3) {
+  return window['go']['main']['App']['GetFileDiff'](arg1, arg2, arg3);
+}
+
 export function GetQueryLogs() {
   return window['go']['main']['App']['GetQueryLogs']();
 }
 
 export function GetRedisKeyDetails(arg1, arg2) {
   return window['go']['main']['App']['GetRedisKeyDetails'](arg1, arg2);
+}
+
+export function GetRepoStatus(arg1) {
+  return window['go']['main']['App']['GetRepoStatus'](arg1);
 }
 
 export function GetSavedConnections() {
@@ -128,6 +144,10 @@ export function GetTables(arg1, arg2) {
 
 export function ImportSQLScript(arg1, arg2, arg3) {
   return window['go']['main']['App']['ImportSQLScript'](arg1, arg2, arg3);
+}
+
+export function InitRepository(arg1) {
+  return window['go']['main']['App']['InitRepository'](arg1);
 }
 
 export function ListContainers(arg1) {
@@ -152,6 +172,18 @@ export function LoadSqlQueriesData() {
 
 export function OpenProjectFileDialog() {
   return window['go']['main']['App']['OpenProjectFileDialog']();
+}
+
+export function OpenRepositoryDialog() {
+  return window['go']['main']['App']['OpenRepositoryDialog']();
+}
+
+export function PullChanges(arg1) {
+  return window['go']['main']['App']['PullChanges'](arg1);
+}
+
+export function PushChanges(arg1) {
+  return window['go']['main']['App']['PushChanges'](arg1);
 }
 
 export function ReadProjectFile(arg1) {
@@ -218,6 +250,18 @@ export function SetRedisTTL(arg1, arg2, arg3) {
   return window['go']['main']['App']['SetRedisTTL'](arg1, arg2, arg3);
 }
 
+export function StageAll(arg1) {
+  return window['go']['main']['App']['StageAll'](arg1);
+}
+
+export function StageFile(arg1, arg2) {
+  return window['go']['main']['App']['StageFile'](arg1, arg2);
+}
+
+export function StartAutoWatch(arg1) {
+  return window['go']['main']['App']['StartAutoWatch'](arg1);
+}
+
 export function StartContainer(arg1) {
   return window['go']['main']['App']['StartContainer'](arg1);
 }
@@ -234,6 +278,10 @@ export function StartTerminalSession(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['StartTerminalSession'](arg1, arg2, arg3, arg4);
 }
 
+export function StopAutoWatch() {
+  return window['go']['main']['App']['StopAutoWatch']();
+}
+
 export function StopContainer(arg1) {
   return window['go']['main']['App']['StopContainer'](arg1);
 }
@@ -248,6 +296,14 @@ export function TestConnection(arg1) {
 
 export function TruncateTable(arg1, arg2, arg3) {
   return window['go']['main']['App']['TruncateTable'](arg1, arg2, arg3);
+}
+
+export function UnstageAll(arg1) {
+  return window['go']['main']['App']['UnstageAll'](arg1);
+}
+
+export function UnstageFile(arg1, arg2) {
+  return window['go']['main']['App']['UnstageFile'](arg1, arg2);
 }
 
 export function UpdateRedisKey(arg1, arg2, arg3, arg4, arg5) {
