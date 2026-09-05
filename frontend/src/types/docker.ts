@@ -28,3 +28,10 @@ export interface DockerProjectGroup {
   runningContainers: number;
   containers: DockerContainer[];
 }
+
+export interface DockerEngineProvider {
+  id: 'windows' | 'wsl' | string;
+  label: string;
+  distro?: string;
+}
+

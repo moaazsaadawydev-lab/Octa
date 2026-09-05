@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, ChevronDown, Terminal as TerminalIcon } from 'lucide-react';
+import { Plus, ChevronDown } from 'lucide-react';
 import clsx from 'clsx';
 import { ShellInfo } from '../../types/terminal';
+import { ShellIcon } from './ShellIcon';
 
 interface ShellDropdownProps {
   availableShells?: ShellInfo[];
@@ -74,7 +75,7 @@ export const ShellDropdown: React.FC<ShellDropdownProps> = ({
             e.stopPropagation();
             setIsOpen((prev) => !prev);
           }}
-          title="Choose Shell to Launch (PowerShell, CMD, Git Bash)"
+          title="Choose Shell to Launch (PowerShell, CMD, Git Bash, WSL)"
           className={clsx(
             'p-1 rounded-md text-slate-500 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-white hover:bg-white dark:hover:bg-zinc-700 transition-colors cursor-pointer',
             isOpen && 'bg-white dark:bg-zinc-700 text-slate-900 dark:text-white'
@@ -109,7 +110,10 @@ export const ShellDropdown: React.FC<ShellDropdownProps> = ({
                   className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs text-left hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-200 transition-colors group cursor-pointer"
                 >
                   <div className="flex items-center gap-2 min-w-0">
-                    <TerminalIcon className="w-3.5 h-3.5 text-slate-400 dark:text-zinc-500 group-hover:text-brand-500 flex-shrink-0" />
+                    <ShellIcon
+                      shellId={sh.id}
+                      className="w-3.5 h-3.5 flex-shrink-0"
+                    />
                     <div className="truncate">
                       <div className="font-medium text-slate-800 dark:text-zinc-200 truncate group-hover:text-brand-600 dark:group-hover:text-brand-400">
                         {sh.name}
@@ -133,3 +137,4 @@ export const ShellDropdown: React.FC<ShellDropdownProps> = ({
     </div>
   );
 };
+

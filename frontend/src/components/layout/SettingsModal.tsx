@@ -7,6 +7,7 @@ import {
   Sparkles,
   Info,
   Keyboard,
+  Boxes,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { AppSettings } from '../../types/settings';
@@ -18,6 +19,7 @@ import {
   AppearanceTab,
   ShortcutsTab,
   AIEngineTab,
+  DockerTab,
   AboutTab,
 } from '../settings/tabs';
 
@@ -29,7 +31,7 @@ interface SettingsModalProps {
   showToast: (message: string, type?: 'success' | 'error' | 'info') => void;
 }
 
-export type SettingsCategory = 'general' | 'shortcuts' | 'terminal' | 'appearance' | 'ai' | 'about';
+export type SettingsCategory = 'general' | 'shortcuts' | 'terminal' | 'appearance' | 'ai' | 'docker' | 'about';
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
   isOpen,
@@ -76,6 +78,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     { id: 'terminal', label: 'Terminal', icon: TerminalIcon },
     { id: 'appearance', label: 'Appearance & Theme', icon: Palette },
     { id: 'ai', label: 'AI Engine', icon: Sparkles },
+    { id: 'docker', label: 'Docker Engine', icon: Boxes },
     { id: 'about', label: 'About Octa', icon: Info },
   ];
 
@@ -155,6 +158,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             )}
             {activeTab === 'ai' && (
               <AIEngineTab settings={settings} onUpdateSettings={onUpdateSettings} />
+            )}
+            {activeTab === 'docker' && (
+              <DockerTab
+                settings={settings}
+                onUpdateSettings={onUpdateSettings}
+                showToast={showToast}
+              />
             )}
             {activeTab === 'about' && <AboutTab />}
           </div>

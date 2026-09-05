@@ -11,6 +11,7 @@ import clsx from 'clsx';
 import { DockerProjectGroup, DockerContainer } from '../../types/docker';
 import { startDockerContainer, stopDockerContainer } from '../../services/api';
 import { DockerContainerItem } from './DockerContainerItem';
+import { DockerEngineBadge } from '../../features/docker';
 
 interface DockerContainerListProps {
   groups: DockerProjectGroup[];
@@ -24,6 +25,10 @@ interface DockerContainerListProps {
   isRefreshing: boolean;
   width?: number;
   showToast?: (message: string, type?: 'success' | 'error' | 'info') => void;
+  activeEngine?: 'windows' | 'wsl' | string;
+  activeDistro?: string;
+  isOnline?: boolean;
+  onSwitchEngine?: (engineId: 'windows' | 'wsl') => void;
 }
 
 export const DockerContainerList: React.FC<DockerContainerListProps> = ({
@@ -38,6 +43,10 @@ export const DockerContainerList: React.FC<DockerContainerListProps> = ({
   isRefreshing,
   width,
   showToast,
+  activeEngine,
+  activeDistro,
+  isOnline,
+  onSwitchEngine,
 }) => {
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
@@ -105,11 +114,26 @@ export const DockerContainerList: React.FC<DockerContainerListProps> = ({
       {/* 1. Header Toolbar */}
       <div className="p-3 border-b border-slate-200 dark:border-zinc-800 space-y-2.5">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Boxes className="w-4 h-4 text-brand-500" />
-            <span className="text-xs font-bold text-slate-900 dark:text-zinc-100 uppercase tracking-wider">
-              Docker Engine
+          <div className="flex items-center gap-2 min-w-0">
+            <Boxes className="w-4 h-4 text-brand-500 flex-shrink-0" />
+            <span className="text-xs font-bold text-slate-900 dark:text-zinc-100 uppercase tracking-wider truncate">
+              Docker
             </span>
+            {activeEngine && (
+              <DockerEngineBadge
+                activeEngine={activeEngine}
+                distro={activeDistro}
+                isOnline={isOnline ?? true}
+                onClick={
+                  onSwitchEngine
+                    ? () => {
+                        const next = activeEngine === 'windows' ? 'wsl' : 'windows';
+                        onSwitchEngine(next);
+                      }
+                    : undefined
+                }
+              />
+            )}
           </div>
 
           <div className="flex items-center gap-1.5">

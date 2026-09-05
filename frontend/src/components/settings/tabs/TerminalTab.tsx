@@ -3,6 +3,7 @@ import { Terminal as TerminalIcon } from 'lucide-react';
 import { AppSettings } from '../../../types/settings';
 import { ShellInfo } from '../../../types/terminal';
 import { SettingsRowCard, ToggleSwitch, SelectDropdown } from '../../common';
+import { useTerminalProfiles } from '../../../hooks/useTerminalProfiles';
 
 interface TerminalTabProps {
   settings: AppSettings;
@@ -13,19 +14,13 @@ interface TerminalTabProps {
 export const TerminalTab: React.FC<TerminalTabProps> = ({
   settings,
   onUpdateSettings,
-  availableShells = [],
+  availableShells,
 }) => {
-  const shellOptions =
-    availableShells.length > 0
-      ? availableShells.map((s) => ({
-        value: s.id,
-        label: s.name,
-        badge: s.id === 'powershell' ? 'Default' : undefined,
-      }))
-      : [
-        { value: 'powershell', label: 'PowerShell', badge: 'Default' },
-        { value: 'cmd', label: 'Command Prompt' },
-      ];
+  const { shellOptions } = useTerminalProfiles({
+    initialShells: availableShells,
+    defaultShellId: settings.terminalShell || 'powershell',
+  });
+
 
   return (
     <div className="space-y-4">

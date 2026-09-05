@@ -3,33 +3,36 @@ package main
 import (
 	"context"
 
+	"octa/internal/docker"
 	"octa/internal/settings"
 )
 
 // App is the lightweight delegator / facade struct exposed to Wails.
 type App struct {
-	ctx             context.Context
-	dbService       *DBService
-	redisService    *RedisService
-	httpService     *HTTPService
-	projectService  *ProjectService
-	terminalService *TerminalService
-	dockerService   *DockerService
-	gitService      *GitService
-	settingsService *settings.SettingsService
+	ctx                 context.Context
+	dbService           *DBService
+	redisService        *RedisService
+	httpService         *HTTPService
+	projectService      *ProjectService
+	terminalService     *TerminalService
+	dockerService       *DockerService
+	dockerEngineService *docker.EngineService
+	gitService          *GitService
+	settingsService     *settings.SettingsService
 }
 
 // NewApp creates a new App application struct with domain services.
 func NewApp() *App {
 	return &App{
-		dbService:       NewDBService(),
-		redisService:    NewRedisService(),
-		httpService:     NewHTTPService(),
-		projectService:  NewProjectService(),
-		terminalService: NewTerminalService(),
-		dockerService:   NewDockerService(),
-		gitService:      NewGitService(),
-		settingsService: settings.NewSettingsService(),
+		dbService:           NewDBService(),
+		redisService:        NewRedisService(),
+		httpService:         NewHTTPService(),
+		projectService:      NewProjectService(),
+		terminalService:     NewTerminalService(),
+		dockerService:       NewDockerService(),
+		dockerEngineService: docker.NewEngineService(),
+		gitService:          NewGitService(),
+		settingsService:     settings.NewSettingsService(),
 	}
 }
 
@@ -42,6 +45,7 @@ func (a *App) startup(ctx context.Context) {
 	a.projectService.SetContext(ctx)
 	a.terminalService.SetContext(ctx)
 	a.dockerService.SetContext(ctx)
+	a.dockerEngineService.SetContext(ctx)
 	a.gitService.SetContext(ctx)
 	a.settingsService.SetContext(ctx)
 }
@@ -243,9 +247,23 @@ func (a *App) CloseTerminalSession(sessionID string) error {
 }
 
 // ============================================================================
-// DOCKER DOMAIN (Delegated to DockerService)
+// DOCKER DOMAIN (Delegated to DockerService & EngineService)
 // ============================================================================
 
+func (a *App) GetDetectedDockerEngines() []docker.EngineProvider {
+	return a.dockerEngineService.GetDetectedEngines()
+}
+func (a *App) SetDockerEngine(engineID string, distro string) bool {
+	a.dockerService.SetDockerEngine(engineID, distro)
+	a.dockerEngineService.SetActiveEngine(engineID, distro)
+	return true
+}
+func (a *App) StartDockerEngine(engineID string, distro string) error {
+	return a.dockerEngineService.StartDockerEngine(engineID, distro)
+}
+func (a *App) CheckDockerStatus(engineID string) (bool, error) {
+	return a.dockerEngineService.CheckDockerStatus(engineID)
+}
 func (a *App) CheckDockerAvailability() (bool, string) {
 	return a.dockerService.CheckDockerAvailability()
 }

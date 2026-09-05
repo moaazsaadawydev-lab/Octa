@@ -57,7 +57,12 @@ export function App() {
           hasProject={Boolean(state.activeProject)}
           onOpenSettings={() => state.setIsSettingsModalOpen(true)}
         />
-        <WorkspaceViewRenderer state={state} settings={settings} />
+        <WorkspaceViewRenderer
+          state={state}
+          settings={settings}
+          onUpdateSettings={handleUpdateSettings}
+        />
+
       </div>
 
       <AppModals

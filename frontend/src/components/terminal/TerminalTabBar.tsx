@@ -1,7 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Terminal as TerminalIcon, X, Edit2, Columns2, Rows2 } from 'lucide-react';
+import { X } from 'lucide-react';
 import clsx from 'clsx';
 import { TerminalTab } from '../../types/terminal';
+import { ShellIcon } from './ShellIcon';
+import { TabContextMenu } from './TabContextMenu';
 
 interface TerminalTabBarProps {
   tabs: TerminalTab[];
@@ -13,7 +15,7 @@ interface TerminalTabBarProps {
 }
 
 interface ContextMenuState {
-  tabId: string;
+  tab: TerminalTab;
   x: number;
   y: number;
 }
@@ -33,30 +35,6 @@ export const TerminalTabBar: React.FC<TerminalTabBarProps> = ({
 
   // Right-Click Context Menu State
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
-  const contextMenuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!contextMenu) return;
-
-    const handleClickOutside = (e: MouseEvent) => {
-      if (contextMenuRef.current && !contextMenuRef.current.contains(e.target as Node)) {
-        setContextMenu(null);
-      }
-    };
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setContextMenu(null);
-      }
-    };
-
-    window.addEventListener('mousedown', handleClickOutside);
-    window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      window.removeEventListener('mousedown', handleClickOutside);
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [contextMenu]);
 
   useEffect(() => {
     if (editingTabId && inputRef.current) {
@@ -65,11 +43,7 @@ export const TerminalTabBar: React.FC<TerminalTabBarProps> = ({
     }
   }, [editingTabId]);
 
-  const handleStartRename = (tab: TerminalTab, e?: React.MouseEvent) => {
-    if (e) {
-      e.stopPropagation();
-      e.preventDefault();
-    }
+  const handleStartRename = (tab: TerminalTab) => {
     setContextMenu(null);
     setEditingTabId(tab.id);
     setEditingTitle(tab.title);
@@ -93,13 +67,11 @@ export const TerminalTabBar: React.FC<TerminalTabBarProps> = ({
     e.preventDefault();
     e.stopPropagation();
     setContextMenu({
-      tabId: tab.id,
+      tab,
       x: e.clientX,
       y: e.clientY,
     });
   };
-
-  const contextMenuTab = contextMenu ? tabs.find((t) => t.id === contextMenu.tabId) : null;
 
   return (
     <>
@@ -126,12 +98,12 @@ export const TerminalTabBar: React.FC<TerminalTabBarProps> = ({
                   : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-100 dark:hover:bg-[#18181c] border-transparent'
               )}
             >
-              <TerminalIcon
+              {/* Shell Profile Icon (Linux Tux for WSL, Git for Git-Bash, Terminal for PowerShell/CMD) */}
+              <ShellIcon
+                shellId={tab.shellId || tab.shell}
                 className={clsx(
                   'w-3.5 h-3.5 flex-shrink-0',
-                  isActive
-                    ? 'text-brand-500 dark:text-brand-400'
-                    : 'text-slate-400 dark:text-zinc-500 group-hover/tab:text-zinc-300'
+                  isActive ? '' : 'opacity-70 group-hover/tab:opacity-100'
                 )}
               />
 
@@ -163,7 +135,10 @@ export const TerminalTabBar: React.FC<TerminalTabBarProps> = ({
                 </form>
               ) : (
                 <span
-                  onDoubleClick={(e) => handleStartRename(tab, e)}
+                  onDoubleClick={(e) => {
+                    e.stopPropagation();
+                    handleStartRename(tab);
+                  }}
                   className="truncate font-mono text-[11px] flex-1 select-none"
                 >
                   {tab.title ||
@@ -190,69 +165,16 @@ export const TerminalTabBar: React.FC<TerminalTabBarProps> = ({
       </div>
 
       {/* Tab Right-Click Context Menu Popup */}
-      {contextMenu && contextMenuTab && (
-        <div
-          ref={contextMenuRef}
-          style={{
-            position: 'fixed',
-            top: contextMenu.y,
-            left: contextMenu.x,
-          }}
-          className="z-50 min-w-[160px] py-1 bg-white dark:bg-[#14151d] rounded-xl border border-slate-200 dark:border-zinc-800 shadow-xl select-none text-xs animate-in fade-in zoom-in-95 duration-100"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <button
-            type="button"
-            onClick={() => handleStartRename(contextMenuTab)}
-            className="w-full flex items-center gap-2 px-3 py-1.5 text-left text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
-          >
-            <Edit2 className="w-3.5 h-3.5 text-slate-500 dark:text-zinc-400" />
-            <span>Rename Tab</span>
-          </button>
-
-          <div className="h-px bg-slate-200 dark:bg-zinc-800 my-1" />
-
-          <button
-            type="button"
-            onClick={() => {
-              onSelectTab(contextMenuTab.id);
-              onSplitTab('horizontal');
-              setContextMenu(null);
-            }}
-            className="w-full flex items-center gap-2 px-3 py-1.5 text-left text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
-          >
-            <Columns2 className="w-3.5 h-3.5 text-slate-500 dark:text-zinc-400" />
-            <span>Split Right</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              onSelectTab(contextMenuTab.id);
-              onSplitTab('vertical');
-              setContextMenu(null);
-            }}
-            className="w-full flex items-center gap-2 px-3 py-1.5 text-left text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
-          >
-            <Rows2 className="w-3.5 h-3.5 text-slate-500 dark:text-zinc-400" />
-            <span>Split Down</span>
-          </button>
-
-          <div className="h-px bg-slate-200 dark:bg-zinc-800 my-1" />
-
-          <button
-            type="button"
-            onClick={(e) => {
-              onCloseTab(contextMenuTab.id, e);
-              setContextMenu(null);
-            }}
-            className="w-full flex items-center gap-2 px-3 py-1.5 text-left text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
-          >
-            <X className="w-3.5 h-3.5" />
-            <span>Close Tab</span>
-            <span className="ml-auto text-[10px] text-slate-400 dark:text-zinc-500">Ctrl+W</span>
-          </button>
-        </div>
+      {contextMenu && (
+        <TabContextMenu
+          tab={contextMenu.tab}
+          position={{ x: contextMenu.x, y: contextMenu.y }}
+          onClose={() => setContextMenu(null)}
+          onStartRename={handleStartRename}
+          onSelectTab={onSelectTab}
+          onSplitTab={onSplitTab}
+          onCloseTab={onCloseTab}
+        />
       )}
     </>
   );

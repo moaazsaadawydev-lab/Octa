@@ -1,15 +1,25 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { AlertTriangle, RefreshCw, Boxes } from 'lucide-react';
 import { DockerProjectGroup, DockerContainer } from '../../types/docker';
+import { AppSettings } from '../../types/settings';
 import { checkDockerAvailability, listDockerContainers } from '../../services/api';
 import { DockerContainerList } from './DockerContainerList';
 import { DockerLogViewer } from './DockerLogViewer';
+import { DockerUnreachableState } from './DockerUnreachableState';
+import { useDockerEngine } from '../../features/docker';
 
 interface DockerWorkspaceProps {
   showToast?: (message: string, type?: 'success' | 'error' | 'info') => void;
+  settings?: AppSettings;
+  onUpdateSettings?: (newSettings: AppSettings) => void;
+  isVisible?: boolean;
 }
 
-export const DockerWorkspace: React.FC<DockerWorkspaceProps> = ({ showToast }) => {
+export const DockerWorkspace: React.FC<DockerWorkspaceProps> = ({
+  showToast,
+  settings,
+  onUpdateSettings,
+  isVisible = true,
+}) => {
   const [isDockerAvailable, setIsDockerAvailable] = useState<boolean | null>(null);
   const [dockerError, setDockerError] = useState<string | null>(null);
   const [groups, setGroups] = useState<DockerProjectGroup[]>([]);
@@ -20,6 +30,66 @@ export const DockerWorkspace: React.FC<DockerWorkspaceProps> = ({ showToast }) =
   const [sidebarWidth, setSidebarWidth] = useState(320);
   const isResizing = useRef(false);
   const workspaceRef = useRef<HTMLDivElement>(null);
+
+  const {
+    activeEngine,
+    activeDistro,
+    availableEngines,
+    isOnline,
+    switchEngine,
+  } = useDockerEngine({ settings, onUpdateSettings });
+
+  // Fetch Containers
+  const fetchContainers = useCallback(async (isInitial: boolean = false) => {
+    setIsRefreshing(true);
+    try {
+      const avail = await checkDockerAvailability();
+      if (!avail.available) {
+        setIsDockerAvailable(false);
+        setDockerError(avail.error || 'Docker Engine daemon is not responding');
+        setGroups([]);
+        setSelectedContainer(null);
+        return;
+      }
+
+      setIsDockerAvailable(true);
+      setDockerError(null);
+
+      const result = await listDockerContainers(false);
+      setGroups(result);
+
+      // Preserve or auto-select active container
+      setSelectedContainer((prev) => {
+        if (prev) {
+          for (const g of result) {
+            const found = g.containers.find((c) => c.id === prev.id);
+            if (found) return found;
+          }
+        }
+        if (result.length > 0) {
+          for (const g of result) {
+            const running = g.containers.find((c) => c.state === 'running');
+            if (running) return running;
+          }
+          return result[0]?.containers[0] || null;
+        }
+        return null;
+      });
+    } catch (err: any) {
+      setIsDockerAvailable(false);
+      setDockerError(err?.message || 'Failed to connect to Docker daemon');
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, []);
+
+  const handleSwitchEngine = useCallback(
+    async (engine: 'windows' | 'wsl') => {
+      await switchEngine(engine);
+      await fetchContainers(false);
+    },
+    [switchEngine, fetchContainers]
+  );
 
   const startResizing = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -48,89 +118,36 @@ export const DockerWorkspace: React.FC<DockerWorkspaceProps> = ({ showToast }) =
     window.addEventListener('mouseup', onMouseUp);
   }, []);
 
-  // Fetch Containers
-  const fetchContainers = useCallback(async (isInitial: boolean = false) => {
-    setIsRefreshing(true);
-    try {
-      console.log('[Frontend DockerWorkspace] Calling checkDockerAvailability...');
-      const avail = await checkDockerAvailability();
-      console.log('[Frontend DockerWorkspace] Availability result:', avail);
-      if (!avail.available) {
-        setIsDockerAvailable(false);
-        setDockerError(avail.error || 'Docker Engine daemon is not responding');
-        setGroups([]);
-        setSelectedContainer(null);
-        return;
-      }
-
-      setIsDockerAvailable(true);
-      setDockerError(null);
-
-      console.log('[Frontend DockerWorkspace] Calling listDockerContainers...');
-      const result = await listDockerContainers(false);
-      console.log('[Frontend DockerWorkspace] ListContainers result count:', result.length);
-      setGroups(result);
-
-      // Preserve or auto-select active container
-      setSelectedContainer((prev) => {
-        if (prev) {
-          // Find updated instance of prev container
-          for (const g of result) {
-            const found = g.containers.find((c) => c.id === prev.id);
-            if (found) return found;
-          }
-        }
-        // Fallback: Pick first running container or first available
-        if (result.length > 0) {
-          for (const g of result) {
-            const running = g.containers.find((c) => c.state === 'running');
-            if (running) return running;
-          }
-          return result[0]?.containers[0] || null;
-        }
-        return null;
-      });
-    } catch (err: any) {
-      setIsDockerAvailable(false);
-      setDockerError(err?.message || 'Failed to connect to Docker daemon');
-    } finally {
-      setIsRefreshing(false);
-    }
-  }, []);
-
   useEffect(() => {
-    fetchContainers(true);
-  }, [fetchContainers]);
+    if (isVisible) {
+      fetchContainers(true);
+    }
+  }, [isVisible, fetchContainers]);
 
-  // If Docker Daemon is not running, show dedicated Zero-State
-  if (isDockerAvailable === false) {
+  // If initial connection check is in progress, show subtle spinner instead of error flash
+  if (isDockerAvailable === null) {
     return (
-      <div className="flex-1 w-full h-full flex flex-col items-center justify-center p-8 text-center select-none text-slate-500 dark:text-zinc-500 bg-slate-50 dark:bg-[#090a0f] transition-colors">
-        <div className="w-14 h-14 rounded-2xl bg-amber-500/10 dark:bg-amber-500/20 border border-amber-500/30 flex items-center justify-center mb-4 text-amber-600 dark:text-amber-400 shadow-sm">
-          <AlertTriangle className="w-7 h-7" />
-        </div>
-        <h2 className="text-base font-bold text-slate-800 dark:text-zinc-200">
-          Docker Daemon Not Reachable
-        </h2>
-        <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1 max-w-sm leading-relaxed">
-          Octa could not communicate with the local Docker Engine. Please ensure Docker Desktop or the Docker daemon service is started and running.
-        </p>
-
-        {dockerError && (
-          <div className="mt-3 px-3 py-1.5 rounded-lg bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 text-rose-700 dark:text-rose-300 font-mono text-[11px] max-w-md truncate">
-            {dockerError}
-          </div>
-        )}
-
-        <button
-          type="button"
-          onClick={() => fetchContainers(false)}
-          className="mt-5 flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-medium text-xs shadow-sm transition-all cursor-pointer"
-        >
-          <RefreshCw className={isRefreshing ? 'w-3.5 h-3.5 animate-spin' : 'w-3.5 h-3.5'} />
-          <span>Refresh Connection</span>
-        </button>
+      <div className="flex-1 flex flex-col items-center justify-center w-full h-full bg-slate-50 dark:bg-[#090a0f] text-slate-500 dark:text-zinc-500 select-none">
+        <div className="w-8 h-8 rounded-full border-2 border-brand-500 border-t-transparent animate-spin mb-3" />
+        <span className="text-xs font-medium text-slate-600 dark:text-zinc-400">
+          Connecting to Docker Engine ({activeEngine === 'wsl' ? 'WSL2' : 'Windows'})...
+        </span>
       </div>
+    );
+  }
+
+  // If Docker Daemon is definitely not running, show dedicated Zero-State
+  if (isDockerAvailable === false && !isRefreshing) {
+    return (
+      <DockerUnreachableState
+        onRefresh={() => fetchContainers(false)}
+        isRefreshing={isRefreshing}
+        dockerError={dockerError}
+        activeEngine={activeEngine}
+        activeDistro={activeDistro}
+        availableEngines={availableEngines}
+        onSwitchEngine={handleSwitchEngine}
+      />
     );
   }
 
@@ -152,6 +169,10 @@ export const DockerWorkspace: React.FC<DockerWorkspaceProps> = ({ showToast }) =
         isRefreshing={isRefreshing}
         width={sidebarWidth}
         showToast={showToast}
+        activeEngine={activeEngine}
+        activeDistro={activeDistro}
+        isOnline={isOnline}
+        onSwitchEngine={handleSwitchEngine}
       />
 
       {/* Draggable Vertical Resize Divider */}

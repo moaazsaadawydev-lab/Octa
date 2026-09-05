@@ -19,9 +19,15 @@ import { useWorkspaceState } from '../../hooks/useWorkspaceState';
 export interface WorkspaceViewRendererProps {
   state: ReturnType<typeof useWorkspaceState>;
   settings: AppSettings;
+  onUpdateSettings?: (newSettings: AppSettings) => void;
 }
 
-export const WorkspaceViewRenderer: React.FC<WorkspaceViewRendererProps> = ({ state, settings }) => {
+export const WorkspaceViewRenderer: React.FC<WorkspaceViewRendererProps> = ({
+  state,
+  settings,
+  onUpdateSettings,
+}) => {
+
   if (state.activeModule === 'welcome') {
     return (
       <WelcomeScreen
@@ -87,8 +93,21 @@ export const WorkspaceViewRenderer: React.FC<WorkspaceViewRendererProps> = ({ st
         />
       )}
 
-      {/* 5. Docker Workspace */}
-      {state.activeModule === 'docker' && <DockerWorkspace showToast={state.showToast} />}
+      {/* 5. Persistent Docker Workspace (Kept alive in DOM across module switches) */}
+      <div
+        className={clsx(
+          'w-full h-full min-h-0 min-w-0',
+          state.activeModule === 'docker' ? 'flex flex-col' : 'hidden'
+        )}
+      >
+        <DockerWorkspace
+          isVisible={state.activeModule === 'docker'}
+          settings={settings}
+          onUpdateSettings={onUpdateSettings}
+          showToast={state.showToast}
+        />
+      </div>
+
 
       {/* 6. Settings View */}
       {state.activeModule === 'settings' && <SettingsView showToast={state.showToast} />}

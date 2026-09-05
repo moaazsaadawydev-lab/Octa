@@ -14,6 +14,10 @@ export function CheckDockerAvailability() {
   return window['go']['main']['App']['CheckDockerAvailability']();
 }
 
+export function CheckDockerStatus(arg1) {
+  return window['go']['main']['App']['CheckDockerStatus'](arg1);
+}
+
 export function ClearAppCache() {
   return window['go']['main']['App']['ClearAppCache']();
 }
@@ -116,6 +120,10 @@ export function GetDatabaseSchemaDetails(arg1, arg2) {
 
 export function GetDatabases(arg1) {
   return window['go']['main']['App']['GetDatabases'](arg1);
+}
+
+export function GetDetectedDockerEngines() {
+  return window['go']['main']['App']['GetDetectedDockerEngines']();
 }
 
 export function GetEnumValues(arg1, arg2, arg3) {
@@ -266,6 +274,10 @@ export function SelectFilesDialog() {
   return window['go']['main']['App']['SelectFilesDialog']();
 }
 
+export function SetDockerEngine(arg1, arg2) {
+  return window['go']['main']['App']['SetDockerEngine'](arg1, arg2);
+}
+
 export function SetRedisTTL(arg1, arg2, arg3) {
   return window['go']['main']['App']['SetRedisTTL'](arg1, arg2, arg3);
 }
@@ -288,6 +300,10 @@ export function StartContainer(arg1) {
 
 export function StartContainerExec(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['StartContainerExec'](arg1, arg2, arg3, arg4);
+}
+
+export function StartDockerEngine(arg1, arg2) {
+  return window['go']['main']['App']['StartDockerEngine'](arg1, arg2);
 }
 
 export function StartLogStream(arg1) {

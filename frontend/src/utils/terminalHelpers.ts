@@ -6,6 +6,7 @@ export const getShellDisplayName = (shellId: string, availableShells: ShellInfo[
   if (shellId === 'cmd') return 'Command Prompt';
   if (shellId === 'git-bash') return 'Git Bash';
   if (shellId === 'pwsh') return 'PowerShell Core';
+  if (shellId === 'wsl' || shellId.startsWith('wsl_')) return 'WSL (Linux)';
   return 'PowerShell';
 };
 
@@ -23,6 +24,9 @@ export const resolveShellInfo = (
   if (idToFind === 'cmd') return { id: 'cmd', name: 'Command Prompt', path: 'cmd.exe' };
   if (idToFind === 'git-bash') return { id: 'git-bash', name: 'Git Bash', path: 'bash.exe' };
   if (idToFind === 'pwsh') return { id: 'pwsh', name: 'PowerShell Core', path: 'pwsh.exe' };
+  if (idToFind === 'wsl' || idToFind.startsWith('wsl_')) {
+    return { id: idToFind, name: 'WSL (Ubuntu)', path: 'wsl.exe', distro: 'Ubuntu', args: ['-d', 'Ubuntu'] };
+  }
   return { id: 'powershell', name: 'PowerShell', path: 'powershell.exe' };
 };
 
@@ -35,10 +39,25 @@ export const normalizeTab = (t: any): TerminalTab => {
   const shellId = t.shellId || t.shell || 'powershell';
   const shellName =
     t.shellName ||
-    (shellId === 'cmd' ? 'Command Prompt' : shellId === 'git-bash' ? 'Git Bash' : 'PowerShell');
+    (shellId === 'cmd'
+      ? 'Command Prompt'
+      : shellId === 'git-bash'
+      ? 'Git Bash'
+      : shellId === 'pwsh'
+      ? 'PowerShell Core'
+      : shellId === 'wsl' || shellId.startsWith('wsl_')
+      ? 'WSL'
+      : 'PowerShell');
   const shellPath =
     t.shellPath ||
-    (shellId === 'cmd' ? 'cmd.exe' : shellId === 'git-bash' ? 'bash.exe' : 'powershell.exe');
+    (shellId === 'cmd'
+      ? 'cmd.exe'
+      : shellId === 'git-bash'
+      ? 'bash.exe'
+      : shellId === 'wsl' || shellId.startsWith('wsl_')
+      ? 'wsl.exe'
+      : 'powershell.exe');
+
   return {
     ...t,
     shellId,

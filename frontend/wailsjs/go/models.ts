@@ -1,3 +1,24 @@
+export namespace docker {
+	
+	export class EngineProvider {
+	    id: string;
+	    label: string;
+	    distro?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new EngineProvider(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.label = source["label"];
+	        this.distro = source["distro"];
+	    }
+	}
+
+}
+
 export namespace main {
 	
 	export class ConnectionConfig {
@@ -956,6 +977,8 @@ export namespace pty {
 	    id: string;
 	    name: string;
 	    path: string;
+	    distro?: string;
+	    args?: string[];
 	
 	    static createFrom(source: any = {}) {
 	        return new ShellInfo(source);
@@ -966,6 +989,8 @@ export namespace pty {
 	        this.id = source["id"];
 	        this.name = source["name"];
 	        this.path = source["path"];
+	        this.distro = source["distro"];
+	        this.args = source["args"];
 	    }
 	}
 

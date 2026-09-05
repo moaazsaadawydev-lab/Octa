@@ -90,4 +90,24 @@ func TestGetAvailableShellsAndMultiShellLaunch(t *testing.T) {
 		time.Sleep(300 * time.Millisecond)
 		_ = service.CloseTerminalSession(bashSessID)
 	}
+
+	// Test starting a session with WSL if available
+	var hasWSL bool
+	for _, sh := range shells {
+		if sh.ID == "wsl" || sh.Distro != "" {
+			hasWSL = true
+			break
+		}
+	}
+
+	if hasWSL {
+		wslSessID := "test-wsl-session"
+		err := service.StartTerminalSession(wslSessID, "", 80, 25, "wsl")
+		if err != nil {
+			t.Fatalf("Failed to start WSL session: %v", err)
+		}
+		time.Sleep(300 * time.Millisecond)
+		_ = service.CloseTerminalSession(wslSessID)
+	}
 }
+

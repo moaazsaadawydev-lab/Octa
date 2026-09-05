@@ -1,10 +1,13 @@
 export type SplitDirection = 'none' | 'horizontal' | 'vertical';
 
 export interface ShellInfo {
-  id: string; // 'powershell' | 'cmd' | 'git-bash' | 'pwsh'
-  name: string; // 'PowerShell' | 'Command Prompt' | 'Git Bash'
+  id: string; // 'powershell' | 'cmd' | 'git-bash' | 'pwsh' | 'wsl' | string
+  name: string; // 'PowerShell' | 'Command Prompt' | 'Git Bash' | 'WSL (Ubuntu)'
   path: string; // executable path
+  distro?: string;
+  args?: string[];
 }
+
 
 export interface TerminalPane {
   id: string; // ConPTY session ID
