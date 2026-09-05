@@ -18,6 +18,7 @@ import { PasteConfirmModal } from './PasteConfirmModal';
 interface XTermInstanceProps {
   sessionId: string;
   workDir?: string;
+  shell?: string;
   isActive: boolean;
   settings?: AppSettings;
   onFocus?: () => void;
@@ -84,6 +85,7 @@ const LIGHT_THEME = {
 export const XTermInstance: React.FC<XTermInstanceProps> = ({
   sessionId,
   workDir = '',
+  shell,
   isActive,
   settings,
   onFocus,
@@ -100,6 +102,9 @@ export const XTermInstance: React.FC<XTermInstanceProps> = ({
 
   const workDirRef = useRef(workDir);
   workDirRef.current = workDir;
+
+  const shellRef = useRef(shell);
+  shellRef.current = shell;
 
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
@@ -316,8 +321,9 @@ export const XTermInstance: React.FC<XTermInstanceProps> = ({
 
     const initialCols = term.cols || 120;
     const initialRows = term.rows || 30;
+    const shellToLaunch = shellRef.current || settingsRef.current?.terminalShell || 'powershell';
 
-    startTerminalSession(sessionId, workDirRef.current || '', initialCols, initialRows);
+    startTerminalSession(sessionId, workDirRef.current || '', initialCols, initialRows, shellToLaunch);
     term.focus();
 
     // Wire input streaming
@@ -467,13 +473,15 @@ export const XTermInstance: React.FC<XTermInstanceProps> = ({
     if (isActive && termRef.current && fitAddonRef.current) {
       const timer = setTimeout(() => {
         try {
-          fitAddonRef.current?.fit();
-          if (termRef.current) {
-            const { cols, rows } = termRef.current;
-            if (cols > 0 && rows > 0) {
-              resizeTerminalSession(sessionId, cols, rows);
+          if (containerRef.current && containerRef.current.clientWidth > 0 && containerRef.current.clientHeight > 0) {
+            fitAddonRef.current?.fit();
+            if (termRef.current) {
+              const { cols, rows } = termRef.current;
+              if (cols > 0 && rows > 0) {
+                resizeTerminalSession(sessionId, cols, rows);
+              }
+              termRef.current.focus();
             }
-            termRef.current.focus();
           }
         } catch (e) {
           // ignore

@@ -1,16 +1,75 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Terminal as TerminalIcon,
   Plus,
   X,
 } from 'lucide-react';
 import clsx from 'clsx';
-import { TerminalTab, TerminalPane, SplitDirection } from '../../types/terminal';
+import { TerminalTab, TerminalPane, SplitDirection, ShellInfo } from '../../types/terminal';
 import { ProjectWorkspace, getProjectRootDir } from '../../types/project';
 import { XTermInstance } from './XTermInstance';
 import { TabsHeader } from './TabsHeader';
-import { closeTerminalSession } from '../../services/api';
+import { closeTerminalSession, getAvailableShells } from '../../services/api';
 import { AppSettings } from '../../types/settings';
+
+const getShellDisplayName = (shellId: string, availableShells: ShellInfo[]): string => {
+  const found = availableShells.find((s) => s.id === shellId || s.path === shellId);
+  if (found) return found.name;
+  if (shellId === 'cmd') return 'Command Prompt';
+  if (shellId === 'git-bash') return 'Git Bash';
+  if (shellId === 'pwsh') return 'PowerShell Core';
+  return 'PowerShell';
+};
+
+const resolveShellInfo = (
+  shellOrId: ShellInfo | string | undefined,
+  defaultShellId: string,
+  availableShells: ShellInfo[]
+): ShellInfo => {
+  if (shellOrId && typeof shellOrId === 'object' && shellOrId.id) {
+    return shellOrId;
+  }
+  const idToFind = typeof shellOrId === 'string' && shellOrId ? shellOrId : defaultShellId;
+  const found = availableShells.find((s) => s.id === idToFind || s.path === idToFind);
+  if (found) return found;
+  if (idToFind === 'cmd') return { id: 'cmd', name: 'Command Prompt', path: 'cmd.exe' };
+  if (idToFind === 'git-bash') return { id: 'git-bash', name: 'Git Bash', path: 'bash.exe' };
+  if (idToFind === 'pwsh') return { id: 'pwsh', name: 'PowerShell Core', path: 'pwsh.exe' };
+  return { id: 'powershell', name: 'PowerShell', path: 'powershell.exe' };
+};
+
+const getNextTabTitle = (shellInfo: ShellInfo, existingTabs: TerminalTab[]): string => {
+  const count = existingTabs.filter((t) => t.shellId === shellInfo.id).length + 1;
+  return `${shellInfo.name} ${count}`;
+};
+
+const normalizeTab = (t: any): TerminalTab => {
+  const shellId = t.shellId || t.shell || 'powershell';
+  const shellName =
+    t.shellName ||
+    (shellId === 'cmd' ? 'Command Prompt' : shellId === 'git-bash' ? 'Git Bash' : 'PowerShell');
+  const shellPath =
+    t.shellPath ||
+    (shellId === 'cmd' ? 'cmd.exe' : shellId === 'git-bash' ? 'bash.exe' : 'powershell.exe');
+  return {
+    ...t,
+    shellId,
+    shellName,
+    shellPath,
+    shell: shellPath || shellId,
+    title: t.title || `${shellName} 1`,
+    panes: Array.isArray(t.panes)
+      ? t.panes.map((p: any) => ({
+          ...p,
+          shellId: p.shellId || shellId,
+          shellName: p.shellName || shellName,
+          shellPath: p.shellPath || shellPath,
+          shell: p.shellPath || p.shellId || shellPath || shellId,
+          title: p.title || t.title || `${shellName} 1`,
+        }))
+      : [],
+  };
+};
 
 interface TerminalWorkspaceProps {
   activeProject?: ProjectWorkspace | null;
@@ -33,6 +92,29 @@ export const TerminalWorkspace: React.FC<TerminalWorkspaceProps> = ({
   const storageKey = 'octa_terminal_tabs_' + projectId;
   const activeTabKey = 'octa_active_terminal_tab_id_' + projectId;
 
+  // Available Windows Shells
+  const [availableShells, setAvailableShells] = useState<ShellInfo[]>([
+    { id: 'powershell', name: 'PowerShell', path: 'powershell.exe' },
+    { id: 'cmd', name: 'Command Prompt', path: 'cmd.exe' },
+  ]);
+
+  useEffect(() => {
+    getAvailableShells()
+      .then((shells) => {
+        if (Array.isArray(shells) && shells.length > 0) {
+          setAvailableShells(shells);
+        }
+      })
+      .catch((e) => console.warn('Failed to load available shells:', e));
+  }, []);
+
+  // Stable refs for default shell and shells list so settings changes do NOT restart active tabs
+  const defaultShellRef = useRef(settings?.terminalShell || 'powershell');
+  defaultShellRef.current = settings?.terminalShell || 'powershell';
+
+  const availableShellsRef = useRef(availableShells);
+  availableShellsRef.current = availableShells;
+
   // Tabs State (Scoped per project)
   const [tabs, setTabs] = useState<TerminalTab[]>(() => {
     try {
@@ -40,26 +122,36 @@ export const TerminalWorkspace: React.FC<TerminalWorkspaceProps> = ({
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
+          return parsed.map(normalizeTab);
         }
       }
     } catch (e) {
       console.warn('Failed to parse saved terminal tabs:', e);
     }
+    const initialShell = resolveShellInfo(settings?.terminalShell, 'powershell', []);
     const initialTabId = 'tab-initial-1';
     const initialPaneId = 'pane-initial-1';
+    const initialTitle = `${initialShell.name} 1`;
     return [
       {
         id: initialTabId,
-        title: 'PowerShell 1',
+        title: initialTitle,
         workDir: defaultWorkDir,
+        shellId: initialShell.id,
+        shellName: initialShell.name,
+        shellPath: initialShell.path,
+        shell: initialShell.path || initialShell.id,
         createdAt: Date.now(),
         splitDirection: 'none',
         panes: [
           {
             id: initialPaneId,
-            title: 'PowerShell 1',
+            title: initialTitle,
             workDir: defaultWorkDir,
+            shellId: initialShell.id,
+            shellName: initialShell.name,
+            shellPath: initialShell.path,
+            shell: initialShell.path || initialShell.id,
             createdAt: Date.now(),
           },
         ],
@@ -75,16 +167,17 @@ export const TerminalWorkspace: React.FC<TerminalWorkspaceProps> = ({
       : tabs[0]?.id || null;
   });
 
-  // Reload tabs when active project changes
+  // Reload tabs when active project changes ONLY (decoupled from live settings changes)
   useEffect(() => {
     try {
       const saved = localStorage.getItem(storageKey);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          setTabs(parsed);
+          const normalized = parsed.map(normalizeTab);
+          setTabs(normalized);
           const savedActive = localStorage.getItem(activeTabKey);
-          setActiveTabId(savedActive && parsed.some((t: any) => t.id === savedActive) ? savedActive : parsed[0].id);
+          setActiveTabId(savedActive && normalized.some((t) => t.id === savedActive) ? savedActive : normalized[0].id);
           return;
         }
       }
@@ -92,19 +185,29 @@ export const TerminalWorkspace: React.FC<TerminalWorkspaceProps> = ({
       console.warn('Failed to reload terminal tabs for project:', e);
     }
 
+    const initialShell = resolveShellInfo(defaultShellRef.current, 'powershell', availableShellsRef.current);
     const initialTabId = 'tab-' + Date.now();
     const initialPaneId = 'pane-' + Date.now();
+    const initialTitle = `${initialShell.name} 1`;
     const initialTab: TerminalTab = {
       id: initialTabId,
-      title: 'PowerShell 1',
+      title: initialTitle,
       workDir: defaultWorkDir,
+      shellId: initialShell.id,
+      shellName: initialShell.name,
+      shellPath: initialShell.path,
+      shell: initialShell.path || initialShell.id,
       createdAt: Date.now(),
       splitDirection: 'none',
       panes: [
         {
           id: initialPaneId,
-          title: 'PowerShell 1',
+          title: initialTitle,
           workDir: defaultWorkDir,
+          shellId: initialShell.id,
+          shellName: initialShell.name,
+          shellPath: initialShell.path,
+          shell: initialShell.path || initialShell.id,
           createdAt: Date.now(),
         },
       ],
@@ -131,33 +234,49 @@ export const TerminalWorkspace: React.FC<TerminalWorkspaceProps> = ({
     }
   }, [tabs, activeTabId]);
 
-  // Add New Tab
-  const handleAddTab = useCallback(() => {
-    const newTabId = 'tab-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6);
-    const newPaneId = 'pane-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6);
-    setTabs((prev) => {
-      const newTabNum = prev.length + 1;
-      const newTab: TerminalTab = {
-        id: newTabId,
-        title: 'PowerShell ' + newTabNum,
-        workDir: defaultWorkDir,
-        createdAt: Date.now(),
-        splitDirection: 'none',
-        panes: [
-          {
-            id: newPaneId,
-            title: 'PowerShell ' + newTabNum,
-            workDir: defaultWorkDir,
-            createdAt: Date.now(),
-          },
-        ],
-        activePaneId: newPaneId,
-      };
-      return [...prev, newTab];
-    });
-    setActiveTabId(newTabId);
-    if (showToast) showToast('Opened new PowerShell terminal', 'info');
-  }, [defaultWorkDir, showToast]);
+  // Add New Tab (takes ShellInfo object or shell ID)
+  const handleAddTab = useCallback(
+    (shellTarget?: ShellInfo | string) => {
+      const targetShell = resolveShellInfo(
+        shellTarget,
+        defaultShellRef.current,
+        availableShellsRef.current
+      );
+      const newTabId = 'tab-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6);
+      const newPaneId = 'pane-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6);
+      setTabs((prev) => {
+        const title = getNextTabTitle(targetShell, prev);
+        const newTab: TerminalTab = {
+          id: newTabId,
+          title: title,
+          workDir: defaultWorkDir,
+          shellId: targetShell.id,
+          shellName: targetShell.name,
+          shellPath: targetShell.path,
+          shell: targetShell.path || targetShell.id,
+          createdAt: Date.now(),
+          splitDirection: 'none',
+          panes: [
+            {
+              id: newPaneId,
+              title: title,
+              workDir: defaultWorkDir,
+              shellId: targetShell.id,
+              shellName: targetShell.name,
+              shellPath: targetShell.path,
+              shell: targetShell.path || targetShell.id,
+              createdAt: Date.now(),
+            },
+          ],
+          activePaneId: newPaneId,
+        };
+        return [...prev, newTab];
+      });
+      setActiveTabId(newTabId);
+      if (showToast) showToast(`Opened new ${targetShell.name} terminal`, 'info');
+    },
+    [defaultWorkDir, showToast]
+  );
 
   // Close Tab (closes all panes inside)
   const handleCloseTab = useCallback(
@@ -210,12 +329,17 @@ export const TerminalWorkspace: React.FC<TerminalWorkspaceProps> = ({
             };
           }
 
-          // Add 2nd pane with persistent ID
+          // Add 2nd pane with persistent ID, inheriting the active tab's shell
           const newPaneId = 'pane-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6);
+          const paneShell = tab.shellPath || tab.shell || settings?.terminalShell || 'powershell';
           const newPane: TerminalPane = {
             id: newPaneId,
             title: tab.title + ' (Pane 2)',
             workDir: tab.workDir || defaultWorkDir,
+            shellId: tab.shellId || 'powershell',
+            shellName: tab.shellName || 'PowerShell',
+            shellPath: tab.shellPath || paneShell,
+            shell: tab.shellPath || paneShell,
             createdAt: Date.now(),
           };
 
@@ -288,6 +412,8 @@ export const TerminalWorkspace: React.FC<TerminalWorkspaceProps> = ({
     const targetPaneId = curTab.activePaneId || curTab.panes[0]?.id;
     if (!targetPaneId) return;
 
+    const targetPane = curTab.panes.find((p) => p.id === targetPaneId);
+    const preservedShell = targetPane?.shell || curTab.shell || settings?.terminalShell || 'powershell';
     const newSessionId = 'pane-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6);
     closeTerminalSession(targetPaneId);
 
@@ -297,7 +423,7 @@ export const TerminalWorkspace: React.FC<TerminalWorkspaceProps> = ({
         return {
           ...t,
           panes: t.panes.map((p) =>
-            p.id === targetPaneId ? { ...p, id: newSessionId } : p
+            p.id === targetPaneId ? { ...p, id: newSessionId, shell: preservedShell } : p
           ),
           activePaneId: t.activePaneId === targetPaneId ? newSessionId : t.activePaneId,
         };
@@ -305,7 +431,7 @@ export const TerminalWorkspace: React.FC<TerminalWorkspaceProps> = ({
     );
 
     if (showToast) showToast('Restarted terminal session', 'info');
-  }, [activeTabId, tabs, showToast]);
+  }, [activeTabId, tabs, settings?.terminalShell, showToast]);
 
   // Global Keyboard Shortcuts (Ctrl+Shift+T, Ctrl+Shift+W)
   useEffect(() => {
@@ -334,15 +460,15 @@ export const TerminalWorkspace: React.FC<TerminalWorkspaceProps> = ({
           </div>
           <span className="text-sm font-semibold text-slate-800 dark:text-zinc-200">No active terminals</span>
           <span className="text-xs text-slate-500 dark:text-zinc-500 mt-1 max-w-xs leading-relaxed">
-            Open a new tab to start an interactive PowerShell ConPTY session with Oh My Posh support.
+            Open a new tab to start an interactive ConPTY session with your preferred shell.
           </span>
           <button
             type="button"
-            onClick={handleAddTab}
+            onClick={() => handleAddTab()}
             className="mt-4 flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 text-white font-medium text-xs shadow transition-all cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />
-            <span>New Terminal Session</span>
+            <span>New Terminal Session ({getShellDisplayName(settings?.terminalShell || 'powershell', availableShells)})</span>
           </button>
         </div>
       ) : (
@@ -351,6 +477,8 @@ export const TerminalWorkspace: React.FC<TerminalWorkspaceProps> = ({
           <TabsHeader
             tabs={tabs}
             activeTabId={activeTabId}
+            availableShells={availableShells}
+            defaultShellId={settings?.terminalShell || 'powershell'}
             onSelectTab={setActiveTabId}
             onAddTab={handleAddTab}
             onCloseTab={handleCloseTab}
@@ -424,6 +552,7 @@ export const TerminalWorkspace: React.FC<TerminalWorkspaceProps> = ({
                               <XTermInstance
                                 sessionId={pane.id}
                                 workDir={pane.workDir}
+                                shell={pane.shell || tab.shell || settings?.terminalShell || 'powershell'}
                                 isActive={isVisible && isTabActive && isPaneActive}
                                 settings={settings}
                               />
@@ -439,6 +568,7 @@ export const TerminalWorkspace: React.FC<TerminalWorkspaceProps> = ({
                         <XTermInstance
                           sessionId={tab.panes[0].id}
                           workDir={tab.panes[0].workDir}
+                          shell={tab.panes[0].shell || tab.shell || settings?.terminalShell || 'powershell'}
                           isActive={isVisible && isTabActive}
                           settings={settings}
                         />

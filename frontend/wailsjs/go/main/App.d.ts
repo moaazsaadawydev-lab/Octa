@@ -24,6 +24,8 @@ export function CreateProjectFileDialog(arg1:string):Promise<main.ProjectFileRes
 
 export function CreateRedisKey(arg1:main.RedisConnectionConfig,arg2:string,arg3:string,arg4:any,arg5:number):Promise<boolean>;
 
+export function CreateTerminalSession(arg1:string,arg2:string,arg3:number,arg4:number,arg5:string):Promise<void>;
+
 export function DeleteConnection(arg1:string):Promise<boolean>;
 
 export function DeleteRedisKey(arg1:main.RedisConnectionConfig,arg2:string):Promise<boolean>;
@@ -49,6 +51,8 @@ export function ExportTableSQL(arg1:main.ConnectionConfig,arg2:string,arg3:strin
 export function FetchChanges(arg1:string):Promise<void>;
 
 export function FlushRedisDB(arg1:main.RedisConnectionConfig):Promise<boolean>;
+
+export function GetAvailableShells():Promise<Array<main.ShellInfo>>;
 
 export function GetDatabaseSchemaDetails(arg1:main.ConnectionConfig,arg2:string):Promise<main.DatabaseSchema>;
 
@@ -142,7 +146,7 @@ export function StartContainerExec(arg1:string,arg2:string,arg3:number,arg4:numb
 
 export function StartLogStream(arg1:string):Promise<void>;
 
-export function StartTerminalSession(arg1:string,arg2:string,arg3:number,arg4:number):Promise<void>;
+export function StartTerminalSession(arg1:string,arg2:string,arg3:number,arg4:number,arg5:string):Promise<void>;
 
 export function StopAutoWatch():Promise<void>;
 

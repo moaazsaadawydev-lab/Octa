@@ -25,7 +25,8 @@ import {
 import clsx from 'clsx';
 import { AppSettings, StartupBehavior, ThemeMode } from '../../types/settings';
 import { useTheme } from '../../context/ThemeContext';
-import { clearQueryLogs } from '../../services/api';
+import { clearQueryLogs, getAvailableShells } from '../../services/api';
+import { ShellInfo } from '../../types/terminal';
 import { ALL_SHORTCUT_GROUPS } from '../../constants/shortcuts';
 import appIcon from '../../assets/appicon.png';
 
@@ -118,6 +119,23 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [isClearingCache, setIsClearingCache] = useState(false);
   const [cacheClearedSuccess, setCacheClearedSuccess] = useState(false);
   const { theme, setTheme } = useTheme();
+  const [availableShells, setAvailableShells] = useState<ShellInfo[]>([
+    { id: 'powershell', name: 'PowerShell', path: 'powershell.exe' },
+    { id: 'cmd', name: 'Command Prompt', path: 'cmd.exe' },
+  ]);
+
+  // Load host shells dynamically on mount/open
+  useEffect(() => {
+    if (isOpen) {
+      getAvailableShells()
+        .then((shells) => {
+          if (Array.isArray(shells) && shells.length > 0) {
+            setAvailableShells(shells);
+          }
+        })
+        .catch((err) => console.warn('Failed to load shells:', err));
+    }
+  }, [isOpen]);
 
   // Close on Escape key
   useEffect(() => {
@@ -427,11 +445,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     <select
                       value={settings.terminalShell || 'powershell'}
                       onChange={(e) => updateSetting('terminalShell', e.target.value)}
-                      className="bg-white dark:bg-zinc-800 border border-slate-300 dark:border-zinc-700 text-slate-900 dark:text-zinc-100 text-xs rounded-lg px-2.5 py-1.5 focus:ring-2 focus:ring-brand-500 focus:outline-none cursor-pointer"
+                      className="bg-white dark:bg-zinc-800 border border-slate-300 dark:border-zinc-700 text-slate-900 dark:text-zinc-100 text-xs rounded-lg px-2.5 py-1.5 focus:ring-2 focus:ring-brand-500 focus:outline-none cursor-pointer max-w-[320px] truncate"
                     >
-                      <option value="powershell">PowerShell (powershell.exe)</option>
-                      <option value="pwsh">PowerShell Core (pwsh.exe)</option>
-                      <option value="cmd">Command Prompt (cmd.exe)</option>
+                      {availableShells.map((sh) => (
+                        <option key={sh.id} value={sh.id}>
+                          {sh.name} ({sh.path})
+                        </option>
+                      ))}
+                      {!availableShells.some((s) => s.id === (settings.terminalShell || 'powershell')) && (
+                        <option value={settings.terminalShell}>
+                          {settings.terminalShell}
+                        </option>
+                      )}
                     </select>
                   </SettingCard>
 

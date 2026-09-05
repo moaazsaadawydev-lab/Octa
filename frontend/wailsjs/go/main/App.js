@@ -46,6 +46,10 @@ export function CreateRedisKey(arg1, arg2, arg3, arg4, arg5) {
   return window['go']['main']['App']['CreateRedisKey'](arg1, arg2, arg3, arg4, arg5);
 }
 
+export function CreateTerminalSession(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['main']['App']['CreateTerminalSession'](arg1, arg2, arg3, arg4, arg5);
+}
+
 export function DeleteConnection(arg1) {
   return window['go']['main']['App']['DeleteConnection'](arg1);
 }
@@ -96,6 +100,10 @@ export function FetchChanges(arg1) {
 
 export function FlushRedisDB(arg1) {
   return window['go']['main']['App']['FlushRedisDB'](arg1);
+}
+
+export function GetAvailableShells() {
+  return window['go']['main']['App']['GetAvailableShells']();
 }
 
 export function GetDatabaseSchemaDetails(arg1, arg2) {
@@ -282,8 +290,8 @@ export function StartLogStream(arg1) {
   return window['go']['main']['App']['StartLogStream'](arg1);
 }
 
-export function StartTerminalSession(arg1, arg2, arg3, arg4) {
-  return window['go']['main']['App']['StartTerminalSession'](arg1, arg2, arg3, arg4);
+export function StartTerminalSession(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['main']['App']['StartTerminalSession'](arg1, arg2, arg3, arg4, arg5);
 }
 
 export function StopAutoWatch() {
