@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import clsx from 'clsx';
 import { TitleBar } from './components/layout/TitleBar';
 import { ActivityBar, ActiveModule } from './components/layout/ActivityBar';
 import { WelcomeScreen } from './components/layout/WelcomeScreen';
@@ -24,7 +25,8 @@ import {
 import {
   ProjectWorkspace,
   RecentProject,
-  ProjectHttpClient
+  ProjectHttpClient,
+  getProjectRootDir
 } from './types/project';
 import { RedisConnectionConfig } from './types/redis';
 import {
@@ -78,6 +80,7 @@ export function App() {
     return DEFAULT_APP_SETTINGS;
   });
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [isSidebarVisible, setIsSidebarVisible] = useState(true);
 
   // Recent Projects List
   const [recentProjects, setRecentProjects] = useState<RecentProject[]>(() => {
@@ -155,6 +158,9 @@ export function App() {
       localStorage.setItem('octa_global_settings', JSON.stringify(newSettings));
     } catch (e) {
       console.warn('Failed to persist settings to localStorage:', e);
+    }
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('octa:settings:changed', { detail: newSettings }));
     }
   }, []);
   // Perform Initial Startup Behavior & Legacy Wipe
@@ -650,43 +656,59 @@ export function App() {
     setActiveQueryTabId(query.id);
   };
 
-  // Global Keyboard Shortcuts
+  // Apply Compact Mode & Editor Font Ligatures globally
+  useEffect(() => {
+    const isCompact = Boolean(settings.compactMode);
+    const hasLigatures = Boolean((settings.editorFontLigatures ?? settings.editorLigatures) ?? true);
+
+    document.documentElement.classList.toggle('compact-mode', isCompact);
+    document.documentElement.classList.toggle('compact', isCompact);
+    document.body.classList.toggle('compact-mode', isCompact);
+    document.body.classList.toggle('compact', isCompact);
+
+    document.documentElement.classList.toggle('ligatures-enabled', hasLigatures);
+    document.documentElement.classList.toggle('ligatures-disabled', !hasLigatures);
+    document.body.classList.toggle('ligatures-enabled', hasLigatures);
+    document.body.classList.toggle('ligatures-disabled', !hasLigatures);
+  }, [settings.compactMode, settings.editorFontLigatures, settings.editorLigatures]);
+
+  // Centralized Navigation Shortcuts (Ctrl+1 through Ctrl+6)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey) {
-        if (e.key === 's') {
+      const target = e.target as HTMLElement | null;
+      const isEditing = target
+        ? target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable
+        : false;
+
+      if ((e.ctrlKey || e.metaKey) && !isEditing) {
+        const keyNum = parseInt(e.key, 10);
+        if (keyNum >= 1 && keyNum <= 6) {
           e.preventDefault();
-          handleSaveProject();
-        } else if (e.key === '1' && activeProject) {
-          e.preventDefault();
-          setActiveModule('databases');
-        } else if (e.key === '2' && activeProject) {
-          e.preventDefault();
-          setActiveModule('redis');
-        } else if (e.key === '3' && activeProject) {
-          e.preventDefault();
-          setActiveModule('http');
-        } else if (e.key === '4' && activeProject) {
-          e.preventDefault();
-          setActiveModule('git');
-        } else if (e.key === '5' && activeProject) {
-          e.preventDefault();
-          setActiveModule('docker');
-        } else if (e.key === '6' && activeProject) {
-          e.preventDefault();
-          setActiveModule('terminal');
-        } else if (e.key === ',') {
-          e.preventDefault();
-          setIsSettingsModalOpen(true);
+          const tabMap: Record<number, ActiveModule> = {
+            1: 'databases',
+            2: 'redis',
+            3: 'http',      // requests
+            4: 'git',
+            5: 'docker',    // services
+            6: 'terminal',
+          };
+          const targetTab = tabMap[keyNum];
+          if (targetTab) {
+            setActiveModule(targetTab);
+          }
         }
       }
     };
+
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeProject, projectFilePath, connections, queriesTree]);
+  }, []);
 
   return (
-    <div className="flex flex-col h-screen w-screen bg-slate-50 dark:bg-surface-950 text-slate-900 dark:text-gray-100 font-sans overflow-hidden select-none transition-colors">
+    <div className={clsx(
+        "flex flex-col h-screen w-screen bg-slate-50 dark:bg-surface-950 text-slate-900 dark:text-gray-100 font-sans overflow-hidden select-none transition-colors",
+        settings.compactMode && "compact-mode compact"
+      )}>
       {/* Top Frameless TitleBar with Brand, Project Info & Actions */}
       <TitleBar
         activeModule={activeModule}
@@ -712,7 +734,7 @@ export function App() {
         />
 
         {/* Dynamic Module Content */}
-        {activeModule === 'welcome' || !activeProject ? (
+        {activeModule === 'welcome' ? (
           <WelcomeScreen
             onCreateProject={handleCreateProject}
             onOpenProject={handleOpenProject}
@@ -722,69 +744,95 @@ export function App() {
             recentProjects={recentProjects}
             isOpening={isOpeningProject}
           />
-        ) : activeModule === 'redis' ? (
-          <RedisWorkspace
-            connections={redisConnections}
-            onUpdateConnections={(conns) => {
-              setRedisConnections(conns);
-            }}
-            showToast={showToast}
-          />
-        ) : activeModule === 'http' ? (
-          <HttpClientWorkspace
-            data={httpData}
-            onUpdateData={(newData) => {
-              setHttpData(newData);
-            }}
-            showToast={showToast}
-          />
-        ) : activeModule === 'git' ? (
-          <GitWorkspace
-            activeProject={activeProject}
-            projectFilePath={projectFilePath}
-            activeProjectPath={
-              projectFilePath
-                ? projectFilePath.substring(0, Math.max(projectFilePath.lastIndexOf('\\'), projectFilePath.lastIndexOf('/')))
-                : undefined
-            }
-            onUpdateGitConfig={(gitConfig) => {
-              if (activeProject) {
-                setActiveProject((prev) => (prev ? { ...prev, git: gitConfig } : prev));
-              }
-            }}
-            showToast={showToast}
-          />
-        ) : activeModule === 'docker' ? (
-          <DockerWorkspace showToast={showToast} />
-        ) : activeModule === 'terminal' ? (
-          <TerminalWorkspace
-            activeProject={activeProject}
-            projectFilePath={projectFilePath}
-            showToast={showToast}
-          />
-        ) : activeModule === 'settings' ? (
-          <SettingsView showToast={showToast} />
         ) : (
-          <div className="flex-1 flex overflow-hidden">
+          <div className="flex-1 flex overflow-hidden relative">
+            {/* 1. Persistent Terminal Workspace (Kept alive in DOM across module switches) */}
+            <div
+              className={clsx(
+                'w-full h-full min-h-0 min-w-0',
+                activeModule === 'terminal' ? 'flex flex-col' : 'hidden'
+              )}
+            >
+              <TerminalWorkspace
+                activeProject={activeProject}
+                projectFilePath={projectFilePath}
+                isVisible={activeModule === 'terminal'}
+                settings={settings}
+                showToast={showToast}
+              />
+            </div>
+
+            {/* 2. Redis Workspace */}
+            {activeModule === 'redis' && (
+              <RedisWorkspace
+                connections={redisConnections}
+                onUpdateConnections={(conns) => {
+                  setRedisConnections(conns);
+                }}
+                showToast={showToast}
+              />
+            )}
+
+            {/* 3. HTTP Client Workspace */}
+            {activeModule === 'http' && (
+              <HttpClientWorkspace
+                data={httpData}
+                onUpdateData={(newData) => {
+                  setHttpData(newData);
+                }}
+                showToast={showToast}
+              />
+            )}
+
+            {/* 4. Git Workspace */}
+            {activeModule === 'git' && (
+              <GitWorkspace
+                activeProject={activeProject}
+                projectFilePath={projectFilePath}
+                activeProjectPath={getProjectRootDir(projectFilePath) || undefined}
+                onUpdateGitConfig={(gitConfig) => {
+                  if (activeProject) {
+                    setActiveProject((prev) => (prev ? { ...prev, git: gitConfig } : prev));
+                  }
+                }}
+                showToast={showToast}
+              />
+            )}
+
+            {/* 5. Docker Workspace */}
+            {activeModule === 'docker' && (
+              <DockerWorkspace showToast={showToast} />
+            )}
+
+            {/* 6. Settings View */}
+            {activeModule === 'settings' && (
+              <SettingsView showToast={showToast} />
+            )}
+
+            {/* 7. Database Workspace */}
+            {activeModule === 'databases' && (
+              <div className="flex-1 flex overflow-hidden">
             {/* Main Secondary Sidebar (Server Explorer & Queries) */}
-            <Sidebar
-              connections={connections}
-              activeSession={activeSession}
-              databasesMap={databasesMap}
-              loadingMap={loadingMap}
-              expandedServers={expandedServers}
-              onToggleExpand={handleToggleExpand}
-              onOpenNewModal={() => setIsModalOpen(true)}
-              onRefreshConnections={() => {}}
-              onConnectToDatabase={handleConnectToDatabase}
-              onDeleteConnection={handleDeleteConnection}
-              onExportDatabase={handleExportDatabase}
-              onImportSQL={handleImportSQL}
-              onSelectQuery={handleSelectQueryFromSidebar}
-              activeQueryId={activeQueryTabId}
-              queriesTree={queriesTree}
-              onSaveQueriesTree={handleSaveQueriesTree}
-            />
+            {isSidebarVisible && (
+              <Sidebar
+                connections={connections}
+                activeSession={activeSession}
+                databasesMap={databasesMap}
+                loadingMap={loadingMap}
+                expandedServers={expandedServers}
+                onToggleExpand={handleToggleExpand}
+                onOpenNewModal={() => setIsModalOpen(true)}
+                onRefreshConnections={() => {}}
+                onConnectToDatabase={handleConnectToDatabase}
+                onDeleteConnection={handleDeleteConnection}
+                onExportDatabase={handleExportDatabase}
+                onImportSQL={handleImportSQL}
+                onSelectQuery={handleSelectQueryFromSidebar}
+                activeQueryId={activeQueryTabId}
+                queriesTree={queriesTree}
+                onSaveQueriesTree={handleSaveQueriesTree}
+              />
+            )}
 
             {/* Database Workspace Views (Tables vs Monaco SQL Playground vs Schema ERD) */}
             <div className="flex-1 flex flex-col overflow-hidden relative">
@@ -856,6 +904,8 @@ export function App() {
                 />
               )}
             </div>
+              </div>
+            )}
           </div>
         )}
       </div>

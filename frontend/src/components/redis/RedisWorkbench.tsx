@@ -33,6 +33,7 @@ import { executeRedisCommand } from '../../services/api';
 import { registerRedisLanguage, REDIS_COMMAND_DOCS } from '../../utils/monacoRedis';
 import { defineOctaTheme } from '../../types/http';
 import { useTheme } from '../../context/ThemeContext';
+import { useEditorLigatures, EDITOR_FONT_FAMILY } from '../../utils/editorSettings';
 
 interface RedisWorkbenchProps {
   activeConn: RedisConnectionConfig | null;
@@ -67,6 +68,8 @@ LRANGE queue:tasks 0 -1
 `;
 
 export const RedisWorkbench: React.FC<RedisWorkbenchProps> = ({
+  // Ligatures hook
+
   activeConn,
   activeDb,
   showToast,
@@ -82,6 +85,7 @@ export const RedisWorkbench: React.FC<RedisWorkbenchProps> = ({
   const [isHistoryDrawerOpen, setIsHistoryDrawerOpen] = useState<boolean>(false);
 
   const editorRef = useRef<any>(null);
+  const editorFontLigatures = useEditorLigatures(editorRef);
   const monacoRef = useRef<any>(null);
 
   useEffect(() => {
@@ -183,6 +187,15 @@ export const RedisWorkbench: React.FC<RedisWorkbenchProps> = ({
       setIsRunning(false);
     }
   }, [currentConfig, commandText, showToast]);
+
+  // Listen for Global Shortcut: Ctrl + Enter (Run Redis Command)
+  useEffect(() => {
+    const handleGlobalRun = () => {
+      handleRun();
+    };
+    window.addEventListener('octa:redis:run', handleGlobalRun);
+    return () => window.removeEventListener('octa:redis:run', handleGlobalRun);
+  }, [handleRun]);
 
   // Insert template command into editor
   const handleInsertTemplate = (snippet: string) => {
@@ -442,7 +455,8 @@ export const RedisWorkbench: React.FC<RedisWorkbenchProps> = ({
               onChange={(val) => setCommandText(val || '')}
               options={{
                 fontSize: 13,
-                fontFamily: "JetBrains Mono, Fira Code, Menlo, Monaco, Consolas, monospace",
+                fontFamily: EDITOR_FONT_FAMILY,
+                fontLigatures: editorFontLigatures,
                 minimap: { enabled: false },
                 lineNumbers: 'on',
                 lineNumbersMinChars: 3,
@@ -638,7 +652,8 @@ export const RedisWorkbench: React.FC<RedisWorkbenchProps> = ({
                   options={{
                     readOnly: true,
                     fontSize: 12,
-                    fontFamily: "JetBrains Mono, Fira Code, Menlo, Monaco, Consolas, monospace",
+                    fontFamily: EDITOR_FONT_FAMILY,
+                    fontLigatures: editorFontLigatures,
                     minimap: { enabled: false },
                     lineNumbers: 'on',
                     scrollBeyondLastLine: false,

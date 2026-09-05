@@ -167,9 +167,6 @@ export const GitWorkspace: React.FC<GitWorkspaceProps> = ({
   const handleSetRepo = useCallback(
     (newPath: string) => {
       setRepoPath(newPath);
-      if (typeof localStorage !== 'undefined') {
-        localStorage.setItem('octa_active_git_repo', newPath);
-      }
       if (onUpdateGitConfig) {
         onUpdateGitConfig({ repoPath: newPath, autoWatch: true });
       }
@@ -178,36 +175,62 @@ export const GitWorkspace: React.FC<GitWorkspaceProps> = ({
     [onUpdateGitConfig, fetchStatus]
   );
 
-  // Auto-hydrate and validate repository on mount
+  // Auto-detect and validate repository strictly scoped to active project
   useEffect(() => {
-    const candidatePath =
-      activeProject?.git?.repoPath ||
-      (typeof localStorage !== 'undefined' ? localStorage.getItem('octa_active_git_repo') : null) ||
-      activeProjectPath;
-
-    if (candidatePath) {
-      isGitRepository(candidatePath).then((isValid) => {
-        if (isValid) {
-          if (repoPath !== candidatePath) {
-            setRepoPath(candidatePath);
+    let isMounted = true;
+    (async () => {
+      // 1. First priority: explicit git repo path saved in project configuration
+      const configuredPath = activeProject?.git?.repoPath;
+      if (configuredPath) {
+        try {
+          const isValid = await isGitRepository(configuredPath);
+          if (isValid && isMounted) {
+            if (repoPath !== configuredPath) {
+              setRepoPath(configuredPath);
+            }
+            fetchStatus(configuredPath);
+            return;
           }
-          fetchStatus(candidatePath);
-        } else {
-          console.warn('[GitWorkspace] Saved repository path is invalid or removed:', candidatePath);
-          if (typeof localStorage !== 'undefined') {
-            localStorage.removeItem('octa_active_git_repo');
-          }
-          if (onUpdateGitConfig) {
-            onUpdateGitConfig({ repoPath: '', autoWatch: true });
-          }
-          setRepoPath(null);
-          setStatus(null);
-          setSelectedFile(null);
-          setDiffContent('');
+        } catch (e) {
+          console.warn('[GitWorkspace] Error validating configured repo path:', e);
         }
-      }).catch((e) => console.warn('[GitWorkspace] Error validating candidate repo path:', e));
-    }
-  }, [activeProject?.git?.repoPath, activeProjectPath, fetchStatus]);
+      }
+
+      // 2. Second priority: check if active project root directory is a Git repository
+      if (activeProjectPath) {
+        try {
+          const isRootGit = await isGitRepository(activeProjectPath);
+          if (isRootGit && isMounted) {
+            if (repoPath !== activeProjectPath) {
+              setRepoPath(activeProjectPath);
+            }
+            if (onUpdateGitConfig) {
+              onUpdateGitConfig({ repoPath: activeProjectPath, autoWatch: true });
+            }
+            fetchStatus(activeProjectPath);
+            return;
+          }
+        } catch (e) {
+          console.warn('[GitWorkspace] Error checking project root Git repository:', e);
+        }
+      }
+
+      // 3. Neither configured path nor project root is a Git repository: reset state completely
+      if (isMounted) {
+        setRepoPath(null);
+        setStatus(null);
+        setSelectedFile(null);
+        setDiffContent('');
+        currentDiffKeyRef.current = null;
+        diffContentRef.current = '';
+        selectedFileRef.current = null;
+      }
+    })();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [activeProject?.id, activeProject?.git?.repoPath, activeProjectPath, fetchStatus, onUpdateGitConfig]);
 
   useEffect(() => {
     if (!repoPath) return;

@@ -19,23 +19,18 @@ interface SettingsViewProps {
   showToast: (message: string, type?: 'success' | 'error' | 'info') => void;
 }
 
+import { NAVIGATION_SHORTCUTS } from '../../constants/shortcuts';
+
 export const SettingsView: React.FC<SettingsViewProps> = ({ showToast }) => {
   const handleClearCache = () => {
     localStorage.removeItem('octa_query_history');
     showToast('Application cache and query history cleared', 'success');
   };
 
-  const SHORTCUTS = [
-    { key: 'Ctrl + 1', desc: 'Switch to Databases Workspace' },
-    { key: 'Ctrl + 2', desc: 'Switch to HTTP / API Client Workspace' },
-    { key: 'Ctrl + 3', desc: 'Switch to Schema & ERD Visualizer' },
-    { key: 'Ctrl + Enter', desc: 'Execute Query / Send HTTP Request' },
-    { key: 'Alt + X', desc: 'Generate Query Execution Plan (Dry Run)' },
-    { key: 'Ctrl + Shift + Enter', desc: 'Run Explain & Analyze with Execution Profiling' },
-    { key: 'Ctrl + T / Ctrl + N', desc: 'Create New Query Tab' },
-    { key: 'Ctrl + W', desc: 'Close Active Query Tab' },
-    { key: 'Ctrl + H', desc: 'Toggle Query Execution History Drawer' },
-  ];
+  const SHORTCUTS = NAVIGATION_SHORTCUTS.map((s) => ({
+    key: s.keys.join(' + '),
+    desc: s.label,
+  }));
 
   return (
     <div className="flex-1 h-full bg-[#121212] text-zinc-100 overflow-y-auto p-8 select-none font-sans">

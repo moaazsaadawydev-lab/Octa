@@ -4,6 +4,7 @@ import * as monaco from 'monaco-editor';
 import { format } from 'sql-formatter';
 import { useTheme } from '../../context/ThemeContext';
 import { registerOctaMonacoThemes } from '../../utils/monacoThemes';
+import { useEditorLigatures, EDITOR_FONT_FAMILY } from '../../utils/editorSettings';
 
 // Configure Monaco to use locally bundled monaco-editor package rather than fetching from CDN
 loader.config({ monaco });
@@ -36,6 +37,7 @@ export const QueryEditor: React.FC<QueryEditorProps> = ({
   const monacoRef = useRef<any>(null);
   const tablesRef = useRef<string[]>(tables);
   const columnsRef = useRef<string[]>(columns);
+  const editorFontLigatures = useEditorLigatures(editorRef);
 
   useEffect(() => {
     tablesRef.current = tables;
@@ -278,8 +280,8 @@ export const QueryEditor: React.FC<QueryEditorProps> = ({
         options={{
           theme: monacoTheme,
           fontSize: 14,
-          fontFamily: "Fira Code, MesloLGS NF, Menlo, Monaco, 'Courier New', monospace",
-          fontLigatures: true,
+          fontFamily: EDITOR_FONT_FAMILY,
+          fontLigatures: editorFontLigatures,
           minimap: { enabled: false },
           scrollBeyondLastLine: false,
           automaticLayout: true,

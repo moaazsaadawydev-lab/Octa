@@ -34,17 +34,15 @@ export const ActivityBar: React.FC<ActivityBarProps> = ({
         {/* 1. Databases Workspace */}
         <button
           type="button"
-          disabled={!hasProject}
           onClick={() => setActiveModule('databases')}
-          title={hasProject ? "Databases (Tables, SQL Playground, ERD) (Ctrl+1)" : "Open a project to use Databases"}
-          className={`relative w-10 h-10 rounded-lg flex items-center justify-center transition-all ${!hasProject
-              ? 'opacity-30 cursor-not-allowed text-slate-400 dark:text-zinc-600'
-              : activeModule === 'databases'
-                ? 'bg-slate-200 dark:bg-zinc-800 text-brand-600 dark:text-brand-400 font-medium shadow-sm cursor-pointer'
-                : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-200/60 dark:hover:bg-zinc-800/60 cursor-pointer'
-            }`}
+          title="Databases (Tables, SQL Playground, ERD) (Ctrl+1)"
+          className={`activity-bar-btn relative w-10 h-10 rounded-lg flex items-center justify-center transition-all ${
+            activeModule === 'databases'
+              ? 'bg-slate-200 dark:bg-zinc-800 text-brand-600 dark:text-brand-400 font-medium shadow-sm cursor-pointer'
+              : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-200/60 dark:hover:bg-zinc-800/60 cursor-pointer'
+          }`}
         >
-          {hasProject && activeModule === 'databases' && (
+          {activeModule === 'databases' && (
             <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-brand-500 dark:bg-brand-400 rounded-r shadow-[0_0_8px_rgba(56,189,248,0.8)]" />
           )}
           <Database className="w-5 h-5" />
@@ -53,17 +51,15 @@ export const ActivityBar: React.FC<ActivityBarProps> = ({
         {/* 2. Redis Cache Explorer Workspace */}
         <button
           type="button"
-          disabled={!hasProject}
           onClick={() => setActiveModule('redis')}
-          title={hasProject ? "Redis / Cache Explorer (Ctrl+2)" : "Open a project to use Redis Explorer"}
-          className={`relative w-10 h-10 rounded-lg flex items-center justify-center transition-all ${!hasProject
-              ? 'opacity-30 cursor-not-allowed text-slate-400 dark:text-zinc-600'
-              : activeModule === 'redis'
-                ? 'bg-slate-200 dark:bg-zinc-800 text-brand-600 dark:text-brand-400 font-medium shadow-sm cursor-pointer'
-                : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-200/60 dark:hover:bg-zinc-800/60 cursor-pointer'
-            }`}
+          title="Redis / Cache Explorer (Ctrl+2)"
+          className={`activity-bar-btn relative w-10 h-10 rounded-lg flex items-center justify-center transition-all ${
+            activeModule === 'redis'
+              ? 'bg-slate-200 dark:bg-zinc-800 text-brand-600 dark:text-brand-400 font-medium shadow-sm cursor-pointer'
+              : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-200/60 dark:hover:bg-zinc-800/60 cursor-pointer'
+          }`}
         >
-          {hasProject && activeModule === 'redis' && (
+          {activeModule === 'redis' && (
             <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-brand-500 dark:bg-brand-400 rounded-r shadow-[0_0_8px_rgba(56,189,248,0.8)]" />
           )}
           <Layers className="w-5 h-5" />
@@ -72,17 +68,15 @@ export const ActivityBar: React.FC<ActivityBarProps> = ({
         {/* 3. HTTP / API Client Workspace */}
         <button
           type="button"
-          disabled={!hasProject}
           onClick={() => setActiveModule('http')}
-          title={hasProject ? "HTTP / API Client (Ctrl+3)" : "Open a project to use HTTP Client"}
-          className={`relative w-10 h-10 rounded-lg flex items-center justify-center transition-all ${!hasProject
-              ? 'opacity-30 cursor-not-allowed text-slate-400 dark:text-zinc-600'
-              : activeModule === 'http'
-                ? 'bg-slate-200 dark:bg-zinc-800 text-brand-600 dark:text-brand-400 font-medium shadow-sm cursor-pointer'
-                : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-200/60 dark:hover:bg-zinc-800/60 cursor-pointer'
-            }`}
+          title="HTTP / API Client (Ctrl+3)"
+          className={`activity-bar-btn relative w-10 h-10 rounded-lg flex items-center justify-center transition-all ${
+            activeModule === 'http'
+              ? 'bg-slate-200 dark:bg-zinc-800 text-brand-600 dark:text-brand-400 font-medium shadow-sm cursor-pointer'
+              : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-200/60 dark:hover:bg-zinc-800/60 cursor-pointer'
+          }`}
         >
-          {hasProject && activeModule === 'http' && (
+          {activeModule === 'http' && (
             <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-brand-500 dark:bg-brand-400 rounded-r shadow-[0_0_8px_rgba(56,189,248,0.8)]" />
           )}
           <Globe className="w-5 h-5" />
@@ -91,17 +85,15 @@ export const ActivityBar: React.FC<ActivityBarProps> = ({
         {/* 4. Source Control / Git Workspace */}
         <button
           type="button"
-          disabled={!hasProject}
           onClick={() => setActiveModule('git')}
-          title={hasProject ? "Source Control / Git (Changes, Diff, Commit, Push) (Ctrl+4)" : "Open a project to use Source Control"}
-          className={`relative w-10 h-10 rounded-lg flex items-center justify-center transition-all ${!hasProject
-              ? 'opacity-30 cursor-not-allowed text-slate-400 dark:text-zinc-600'
-              : activeModule === 'git'
-                ? 'bg-slate-200 dark:bg-zinc-800 text-brand-600 dark:text-brand-400 font-medium shadow-sm cursor-pointer'
-                : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-200/60 dark:hover:bg-zinc-800/60 cursor-pointer'
-            }`}
+          title="Source Control / Git (Changes, Diff, Commit, Push) (Ctrl+4)"
+          className={`activity-bar-btn relative w-10 h-10 rounded-lg flex items-center justify-center transition-all ${
+            activeModule === 'git'
+              ? 'bg-slate-200 dark:bg-zinc-800 text-brand-600 dark:text-brand-400 font-medium shadow-sm cursor-pointer'
+              : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-200/60 dark:hover:bg-zinc-800/60 cursor-pointer'
+          }`}
         >
-          {hasProject && activeModule === 'git' && (
+          {activeModule === 'git' && (
             <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-brand-500 dark:bg-brand-400 rounded-r shadow-[0_0_8px_rgba(56,189,248,0.8)]" />
           )}
           <GitBranch className="w-5 h-5" />
@@ -110,17 +102,15 @@ export const ActivityBar: React.FC<ActivityBarProps> = ({
         {/* 5. Docker Manager Workspace */}
         <button
           type="button"
-          disabled={!hasProject}
           onClick={() => setActiveModule('docker')}
-          title={hasProject ? "Docker Manager (Containers, Compose, Live Logs) (Ctrl+5)" : "Open a project to use Docker Manager"}
-          className={`relative w-10 h-10 rounded-lg flex items-center justify-center transition-all ${!hasProject
-              ? 'opacity-30 cursor-not-allowed text-slate-400 dark:text-zinc-600'
-              : activeModule === 'docker'
-                ? 'bg-slate-200 dark:bg-zinc-800 text-brand-600 dark:text-brand-400 font-medium shadow-sm cursor-pointer'
-                : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-200/60 dark:hover:bg-zinc-800/60 cursor-pointer'
-            }`}
+          title="Docker Manager (Containers, Compose, Live Logs) (Ctrl+5)"
+          className={`activity-bar-btn relative w-10 h-10 rounded-lg flex items-center justify-center transition-all ${
+            activeModule === 'docker'
+              ? 'bg-slate-200 dark:bg-zinc-800 text-brand-600 dark:text-brand-400 font-medium shadow-sm cursor-pointer'
+              : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-200/60 dark:hover:bg-zinc-800/60 cursor-pointer'
+          }`}
         >
-          {hasProject && activeModule === 'docker' && (
+          {activeModule === 'docker' && (
             <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-brand-500 dark:bg-brand-400 rounded-r shadow-[0_0_8px_rgba(56,189,248,0.8)]" />
           )}
           <Boxes className="w-5 h-5" />
@@ -129,17 +119,15 @@ export const ActivityBar: React.FC<ActivityBarProps> = ({
         {/* 6. Terminal Workspace */}
         <button
           type="button"
-          disabled={!hasProject}
           onClick={() => setActiveModule('terminal')}
-          title={hasProject ? "Terminal / PowerShell (Ctrl+6)" : "Open a project to use Terminal"}
-          className={`relative w-10 h-10 rounded-lg flex items-center justify-center transition-all ${!hasProject
-              ? 'opacity-30 cursor-not-allowed text-slate-400 dark:text-zinc-600'
-              : activeModule === 'terminal'
-                ? 'bg-slate-200 dark:bg-zinc-800 text-brand-600 dark:text-brand-400 font-medium shadow-sm cursor-pointer'
-                : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-200/60 dark:hover:bg-zinc-800/60 cursor-pointer'
-            }`}
+          title="Terminal / PowerShell (Ctrl+6)"
+          className={`activity-bar-btn relative w-10 h-10 rounded-lg flex items-center justify-center transition-all ${
+            activeModule === 'terminal'
+              ? 'bg-slate-200 dark:bg-zinc-800 text-brand-600 dark:text-brand-400 font-medium shadow-sm cursor-pointer'
+              : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-200/60 dark:hover:bg-zinc-800/60 cursor-pointer'
+          }`}
         >
-          {hasProject && activeModule === 'terminal' && (
+          {activeModule === 'terminal' && (
             <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-brand-500 dark:bg-brand-400 rounded-r shadow-[0_0_8px_rgba(56,189,248,0.8)]" />
           )}
           <Terminal className="w-5 h-5" />

@@ -42,3 +42,16 @@ export interface RecentProject {
   filePath: string;
   lastOpenedAt: string;
 }
+
+export function getProjectRootDir(projectFilePath: string | null | undefined): string {
+  if (!projectFilePath) return '';
+  const normalized = projectFilePath.replace(/\\/g, '/');
+  const lastSlash = normalized.lastIndexOf('/');
+  if (lastSlash === -1) return '';
+  let dir = normalized.substring(0, lastSlash);
+  if (dir.endsWith('/.octa')) {
+    dir = dir.substring(0, dir.length - 6);
+  }
+  return dir;
+}
+

@@ -6,57 +6,41 @@ import {
 } from 'lucide-react';
 import clsx from 'clsx';
 import { TerminalTab, TerminalPane, SplitDirection } from '../../types/terminal';
-import { ProjectWorkspace } from '../../types/project';
+import { ProjectWorkspace, getProjectRootDir } from '../../types/project';
 import { XTermInstance } from './XTermInstance';
 import { TabsHeader } from './TabsHeader';
 import { closeTerminalSession } from '../../services/api';
+import { AppSettings } from '../../types/settings';
 
 interface TerminalWorkspaceProps {
   activeProject?: ProjectWorkspace | null;
   projectFilePath?: string | null;
+  isVisible?: boolean;
+  settings?: AppSettings;
   showToast?: (message: string, type?: 'success' | 'error' | 'info') => void;
 }
 
 export const TerminalWorkspace: React.FC<TerminalWorkspaceProps> = ({
   activeProject,
   projectFilePath,
+  isVisible = true,
+  settings,
   showToast,
 }) => {
-  // Derive default working directory from open project file path or empty
-  const defaultWorkDir = projectFilePath
-    ? projectFilePath.substring(0, Math.max(projectFilePath.lastIndexOf('\\'), projectFilePath.lastIndexOf('/')))
-    : '';
+  // Derive project root directory
+  const defaultWorkDir = getProjectRootDir(projectFilePath);
+  const projectId = activeProject?.id || 'global';
+  const storageKey = 'octa_terminal_tabs_' + projectId;
+  const activeTabKey = 'octa_active_terminal_tab_id_' + projectId;
 
-  // Tabs State (Migrating old single-session tabs to split-pane structure)
+  // Tabs State (Scoped per project)
   const [tabs, setTabs] = useState<TerminalTab[]>(() => {
     try {
-      const saved = localStorage.getItem('octa_terminal_tabs');
+      const saved = localStorage.getItem(storageKey);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed.map((t: any, idx: number) => {
-            const tabId = t.id || 'tab-' + (Date.now() + idx);
-            const panes: TerminalPane[] =
-              Array.isArray(t.panes) && t.panes.length > 0
-                ? t.panes
-                : [
-                    {
-                      id: t.id || 'pane-' + (Date.now() + idx),
-                      title: t.title || 'PowerShell ' + (idx + 1),
-                      workDir: t.workDir || defaultWorkDir,
-                      createdAt: t.createdAt || Date.now(),
-                    },
-                  ];
-            return {
-              id: tabId,
-              title: t.title || 'PowerShell ' + (idx + 1),
-              workDir: t.workDir || defaultWorkDir,
-              createdAt: t.createdAt || Date.now(),
-              splitDirection: (t.splitDirection as SplitDirection) || 'none',
-              panes,
-              activePaneId: t.activePaneId || panes[0]?.id,
-            };
-          });
+          return parsed;
         }
       }
     } catch (e) {
@@ -85,19 +69,60 @@ export const TerminalWorkspace: React.FC<TerminalWorkspaceProps> = ({
   });
 
   const [activeTabId, setActiveTabId] = useState<string | null>(() => {
-    const savedActiveId = localStorage.getItem('octa_active_terminal_tab_id');
+    const savedActiveId = localStorage.getItem(activeTabKey);
     return savedActiveId && tabs.some((t) => t.id === savedActiveId)
       ? savedActiveId
       : tabs[0]?.id || null;
   });
 
-  // Persist Tabs in localStorage
+  // Reload tabs when active project changes
   useEffect(() => {
-    localStorage.setItem('octa_terminal_tabs', JSON.stringify(tabs));
-    if (activeTabId) {
-      localStorage.setItem('octa_active_terminal_tab_id', activeTabId);
+    try {
+      const saved = localStorage.getItem(storageKey);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setTabs(parsed);
+          const savedActive = localStorage.getItem(activeTabKey);
+          setActiveTabId(savedActive && parsed.some((t: any) => t.id === savedActive) ? savedActive : parsed[0].id);
+          return;
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to reload terminal tabs for project:', e);
     }
-  }, [tabs, activeTabId]);
+
+    const initialTabId = 'tab-' + Date.now();
+    const initialPaneId = 'pane-' + Date.now();
+    const initialTab: TerminalTab = {
+      id: initialTabId,
+      title: 'PowerShell 1',
+      workDir: defaultWorkDir,
+      createdAt: Date.now(),
+      splitDirection: 'none',
+      panes: [
+        {
+          id: initialPaneId,
+          title: 'PowerShell 1',
+          workDir: defaultWorkDir,
+          createdAt: Date.now(),
+        },
+      ],
+      activePaneId: initialPaneId,
+    };
+    setTabs([initialTab]);
+    setActiveTabId(initialTabId);
+  }, [projectId, defaultWorkDir, storageKey, activeTabKey]);
+
+  // Persist Tabs in scoped localStorage
+  useEffect(() => {
+    if (tabs.length > 0) {
+      localStorage.setItem(storageKey, JSON.stringify(tabs));
+    }
+    if (activeTabId) {
+      localStorage.setItem(activeTabKey, activeTabId);
+    }
+  }, [tabs, activeTabId, storageKey, activeTabKey]);
 
   // Ensure an activeTabId exists if tabs are present
   useEffect(() => {
@@ -399,7 +424,8 @@ export const TerminalWorkspace: React.FC<TerminalWorkspaceProps> = ({
                               <XTermInstance
                                 sessionId={pane.id}
                                 workDir={pane.workDir}
-                                isActive={isTabActive && isPaneActive}
+                                isActive={isVisible && isTabActive && isPaneActive}
+                                settings={settings}
                               />
                             </div>
                           </div>
@@ -413,7 +439,8 @@ export const TerminalWorkspace: React.FC<TerminalWorkspaceProps> = ({
                         <XTermInstance
                           sessionId={tab.panes[0].id}
                           workDir={tab.panes[0].workDir}
-                          isActive={isTabActive}
+                          isActive={isVisible && isTabActive}
+                          settings={settings}
                         />
                       )}
                     </div>

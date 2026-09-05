@@ -789,6 +789,27 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
     }
   };
 
+  // Listen for Global Shortcuts: Ctrl + Enter (Execute Query), Ctrl + S (Save Query), and Ctrl + N (New Query)
+  useEffect(() => {
+    const handleGlobalExecute = () => {
+      handleExecuteQuery();
+    };
+    const handleGlobalSave = () => {
+      handleTriggerSave();
+    };
+    const handleGlobalNew = () => {
+      handleAddTab();
+    };
+    window.addEventListener('octa:db:execute-query', handleGlobalExecute);
+    window.addEventListener('octa:db:save-query', handleGlobalSave);
+    window.addEventListener('octa:db:new-query', handleGlobalNew);
+    return () => {
+      window.removeEventListener('octa:db:execute-query', handleGlobalExecute);
+      window.removeEventListener('octa:db:save-query', handleGlobalSave);
+      window.removeEventListener('octa:db:new-query', handleGlobalNew);
+    };
+  }, [handleExecuteQuery, handleTriggerSave, handleAddTab]);
+
   // Export Results to CSV
   const handleExportCSV = () => {
     if (!activeTab?.results || activeTab.results.length === 0) return;

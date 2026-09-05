@@ -63,16 +63,16 @@ export const TitleBar: React.FC<TitleBarProps> = ({
   return (
     <div
       style={{ '--wails-draggable': 'drag' } as any}
-      className="h-8 bg-slate-100 dark:bg-[#0c0c0c] border-b border-slate-200 dark:border-[#222222] text-slate-800 dark:text-zinc-200 flex items-center justify-between px-3 select-none flex-shrink-0 z-50 text-xs font-sans transition-colors"
+      className="title-bar-root h-8 bg-slate-100 dark:bg-[#0c0c0c] border-b border-slate-200 dark:border-[#222222] text-slate-800 dark:text-zinc-200 flex items-center justify-between px-3 select-none flex-shrink-0 z-50 text-xs font-sans transition-all"
     >
       {/* Left: Brand Identity & Active Project */}
       <div className="flex items-center gap-2">
-        <div className="flex items-center gap-1.5">
+        {/* <div className="flex items-center gap-1.5">
           <img src={appIcon} alt="Octa" className="w-3.5 h-3.5 object-contain drop-shadow-[0_0_6px_rgba(56,189,248,0.4)]" />
           <span className="font-semibold text-slate-800 dark:text-zinc-200 text-xs tracking-tight">Octa</span>
-        </div>
+        </div> */}
 
-        <span className="text-slate-400 dark:text-zinc-600">/</span>
+        {/* <span className="text-slate-400 dark:text-zinc-600">/</span> */}
 
         {activeProject ? (
           /* Active Project Indicator & Menu Trigger */
@@ -223,30 +223,6 @@ export const TitleBar: React.FC<TitleBarProps> = ({
           <span className="text-emerald-400 font-medium">{activeSession.activeDatabase}</span>
         </div>
       )}
-
-      {/* Right Auto-save Status & Project Actions */}
-      <div className="flex items-center gap-2" style={{ '--wails-draggable': 'no-drag' } as any}>
-        {activeProject && (
-          <div className="flex items-center gap-1 text-[11px] text-slate-700 dark:text-zinc-300 font-mono px-2 py-0.5 rounded bg-slate-100 dark:bg-zinc-800/80 border border-slate-200 dark:border-zinc-700">
-            {isSavingProject ? (
-              <>
-                <Loader2 className="w-3 h-3 text-brand-500 dark:text-brand-400 animate-spin" />
-                <span>Saving...</span>
-              </>
-            ) : (
-              <>
-                <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
-                <span>Auto-saved</span>
-              </>
-            )}
-          </div>
-        )}
-
-        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-mono bg-slate-100 dark:bg-zinc-800/80 border border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-300">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse" />
-          <span>Octa v2.0</span>
-        </div>
-      </div>
     </div>
   );
 };

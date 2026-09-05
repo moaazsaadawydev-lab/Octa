@@ -5,6 +5,7 @@ import { WebLinksAddon } from '@xterm/addon-web-links';
 import { WebglAddon } from '@xterm/addon-webgl';
 import '@xterm/xterm/css/xterm.css';
 import { useTheme } from '../../context/ThemeContext';
+import { AppSettings, DEFAULT_APP_SETTINGS } from '../../types/settings';
 import {
   startTerminalSession,
   writeTerminalSession,
@@ -18,8 +19,17 @@ interface XTermInstanceProps {
   sessionId: string;
   workDir?: string;
   isActive: boolean;
+  settings?: AppSettings;
   onFocus?: () => void;
 }
+
+const mapCursorStyle = (style?: string): 'block' | 'bar' | 'underline' => {
+  if (!style) return 'block';
+  const s = style.toLowerCase();
+  if (s === 'bar' || s === 'line') return 'bar';
+  if (s === 'underline') return 'underline';
+  return 'block';
+};
 
 const DARK_THEME = {
   background: '#090a0f',
@@ -75,6 +85,7 @@ export const XTermInstance: React.FC<XTermInstanceProps> = ({
   sessionId,
   workDir = '',
   isActive,
+  settings,
   onFocus,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -89,6 +100,12 @@ export const XTermInstance: React.FC<XTermInstanceProps> = ({
 
   const workDirRef = useRef(workDir);
   workDirRef.current = workDir;
+
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
+
+  const copyOnSelectRef = useRef(Boolean(settings?.terminalCopyOnSelect));
+  copyOnSelectRef.current = Boolean(settings?.terminalCopyOnSelect);
 
   // Multi-line Paste Modal State
   const [pasteModalText, setPasteModalText] = useState<string | null>(null);
@@ -150,11 +167,15 @@ export const XTermInstance: React.FC<XTermInstanceProps> = ({
     const container = containerRef.current;
     if (!container || !sessionId) return;
 
+    // Current configured terminal options
+    const initialFontSize = settingsRef.current?.terminalFontSize || 14;
+    const initialCursorStyle = mapCursorStyle(settingsRef.current?.terminalCursorStyle);
+
     // Create xterm Terminal with GPU acceleration support
     const term = new Terminal({
       cursorBlink: true,
-      cursorStyle: 'block',
-      fontSize: 13,
+      cursorStyle: initialCursorStyle,
+      fontSize: initialFontSize,
       lineHeight: 1.2,
       fontFamily: "'MesloLGS NF', 'FiraCode Nerd Font', 'CaskaydiaCove Nerd Font', 'JetBrains Mono', Consolas, monospace",
       allowProposedApi: true,
@@ -304,6 +325,20 @@ export const XTermInstance: React.FC<XTermInstanceProps> = ({
       writeTerminalSession(sessionId, data);
     });
 
+    // Wire Copy on Select listener
+    const selectionDisposable = term.onSelectionChange(() => {
+      if (copyOnSelectRef.current && term.hasSelection()) {
+        const selected = term.getSelection();
+        if (selected) {
+          if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+            navigator.clipboard.writeText(selected).catch(() => {});
+          } else if (runtime && typeof runtime.ClipboardSetText === 'function') {
+            runtime.ClipboardSetText(selected);
+          }
+        }
+      }
+    });
+
     // ResizeObserver for dynamic layout updates
     const resizeObserver = new ResizeObserver(() => {
       if (!fitAddonRef.current || !termRef.current) return;
@@ -323,6 +358,7 @@ export const XTermInstance: React.FC<XTermInstanceProps> = ({
     return () => {
       container.removeEventListener('paste', handleNativePaste, true);
       container.removeEventListener('contextmenu', handleContextMenu);
+      selectionDisposable.dispose();
       onDataDisposable.dispose();
       if (typeof unsubscribeData === 'function') {
         unsubscribeData();
@@ -357,10 +393,79 @@ export const XTermInstance: React.FC<XTermInstanceProps> = ({
     }
   }, [resolvedTheme]);
 
-  // 3. Handle Active Tab Focus & Re-fit
+  // Clear active terminal buffer on Ctrl + Shift + K shortcut
+  useEffect(() => {
+    const handleClearTerminal = () => {
+      if (isActive && termRef.current) {
+        termRef.current.clear();
+      }
+    };
+    window.addEventListener('octa:terminal:clear', handleClearTerminal);
+    return () => window.removeEventListener('octa:terminal:clear', handleClearTerminal);
+  }, [isActive]);
+
+  // Live Synchronize Terminal Settings (Font Size, Cursor Style, Re-fit)
+  useEffect(() => {
+    if (!termRef.current) return;
+    const term = termRef.current;
+
+    // 1. Font Size
+    const targetFontSize = settings?.terminalFontSize || 14;
+    if (term.options.fontSize !== targetFontSize) {
+      term.options.fontSize = targetFontSize;
+      try {
+        fitAddonRef.current?.fit();
+        const { cols, rows } = term;
+        if (cols > 0 && rows > 0) {
+          resizeTerminalSession(sessionId, cols, rows);
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    // 2. Cursor Style
+    const targetCursorStyle = mapCursorStyle(settings?.terminalCursorStyle);
+    if (term.options.cursorStyle !== targetCursorStyle) {
+      term.options.cursorStyle = targetCursorStyle;
+    }
+  }, [settings?.terminalFontSize, settings?.terminalCursorStyle, sessionId]);
+
+  // Global Event Listener for immediate cross-component sync
+  useEffect(() => {
+    const handleGlobalSettings = (e: Event) => {
+      const customEvent = e as CustomEvent<AppSettings>;
+      const s = customEvent.detail;
+      if (!s || !termRef.current) return;
+      const term = termRef.current;
+
+      if (s.terminalFontSize && term.options.fontSize !== s.terminalFontSize) {
+        term.options.fontSize = s.terminalFontSize;
+        try {
+          fitAddonRef.current?.fit();
+          const { cols, rows } = term;
+          if (cols > 0 && rows > 0) {
+            resizeTerminalSession(sessionId, cols, rows);
+          }
+        } catch (err) {}
+      }
+
+      if (s.terminalCursorStyle) {
+        const mapped = mapCursorStyle(s.terminalCursorStyle);
+        if (term.options.cursorStyle !== mapped) {
+          term.options.cursorStyle = mapped;
+        }
+      }
+    };
+
+    window.addEventListener('octa:settings:changed', handleGlobalSettings);
+    return () => window.removeEventListener('octa:settings:changed', handleGlobalSettings);
+  }, [sessionId]);
+
+  // 3. Handle Active Tab Focus & Re-fit (triggers when tab or module becomes visible)
   useEffect(() => {
     if (isActive && termRef.current && fitAddonRef.current) {
-      requestAnimationFrame(() => {
+      const timer = setTimeout(() => {
         try {
           fitAddonRef.current?.fit();
           if (termRef.current) {
@@ -373,7 +478,8 @@ export const XTermInstance: React.FC<XTermInstanceProps> = ({
         } catch (e) {
           // ignore
         }
-      });
+      }, 30);
+      return () => clearTimeout(timer);
     }
   }, [isActive, sessionId]);
 

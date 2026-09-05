@@ -71,3 +71,98 @@
   }
 }
 
+
+/* ========================================================================= */
+/* Compact Mode Styles (High Information Density)                            */
+/* ========================================================================= */
+
+.compact-mode .activity-bar-container,
+.compact .activity-bar-container {
+  width: 3rem !important; /* 48px vs 56px */
+  padding-top: 0.5rem !important;
+  padding-bottom: 0.5rem !important;
+}
+
+.compact-mode .activity-bar-btn,
+.compact .activity-bar-btn {
+  width: 2rem !important; /* 32px vs 40px */
+  height: 2rem !important;
+}
+
+.compact-mode .activity-bar-btn svg,
+.compact .activity-bar-btn svg {
+  width: 1.125rem !important;
+  height: 1.125rem !important;
+}
+
+.compact-mode .explorer-sidebar,
+.compact .explorer-sidebar {
+  width: 16rem !important; /* 256px vs 288px */
+}
+
+.compact-mode .sidebar-header,
+.compact .sidebar-header {
+  padding-top: 0.375rem !important;
+  padding-bottom: 0.375rem !important;
+}
+
+.compact-mode .tree-item,
+.compact-mode .group\/qrow,
+.compact-mode .group\/srow,
+.compact-mode .group\/dbrow,
+.compact-mode .tree-node,
+.compact .tree-item,
+.compact .group\/qrow,
+.compact .group\/srow,
+.compact .group\/dbrow,
+.compact .tree-node {
+  padding-top: 0.125rem !important;
+  padding-bottom: 0.125rem !important;
+  min-height: 1.5rem !important;
+  font-size: 11px !important;
+}
+
+.compact-mode .tree-item svg,
+.compact-mode .group\/qrow svg,
+.compact-mode .group\/srow svg,
+.compact-mode .group\/dbrow svg,
+.compact-mode .tree-node svg,
+.compact .tree-item svg,
+.compact .group\/qrow svg,
+.compact .group\/srow svg,
+.compact .group\/dbrow svg,
+.compact .tree-node svg {
+  width: 0.8125rem !important; /* 13px */
+  height: 0.8125rem !important;
+}
+
+.compact-mode .title-bar-root,
+.compact .title-bar-root {
+  height: 1.75rem !important; /* 28px vs 32px */
+  font-size: 11px !important;
+}
+
+/* ========================================================================= */
+/* Editor Font Ligatures Support                                             */
+/* ========================================================================= */
+
+.ligatures-enabled,
+.ligatures-enabled .monaco-editor,
+.ligatures-enabled .monaco-editor .view-lines,
+.ligatures-enabled .monaco-editor-background,
+.ligatures-enabled pre,
+.ligatures-enabled code {
+  font-variant-ligatures: normal !important;
+  font-feature-settings: "liga" 1, "calt" 1 !important;
+}
+
+.ligatures-disabled,
+.ligatures-disabled .monaco-editor,
+.ligatures-disabled .monaco-editor .view-lines,
+.ligatures-disabled .monaco-editor-background,
+.ligatures-disabled pre,
+.ligatures-disabled code,
+.ligatures-disabled * {
+  font-variant-ligatures: none !important;
+  font-feature-settings: "liga" 0, "calt" 0 !important;
+}

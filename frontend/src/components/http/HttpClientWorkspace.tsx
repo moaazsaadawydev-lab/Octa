@@ -356,17 +356,8 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
   const { monacoTheme } = useTheme();
   const liveFileObjectsRef = useRef<Map<string, File>>(new Map());
 
-  // --- Environments & Variables State ---
+  // --- Environments & Variables State (Scoped to active project) ---
   const [environments, setEnvironments] = useState<Environment[]>(() => {
-    try {
-      const saved = localStorage.getItem('octa_http_environments');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
-    } catch (e) {
-      console.warn('Failed to parse environments from localStorage', e);
-    }
     return propData?.environments || [];
   });
 
@@ -383,53 +374,6 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
   const [isEnvDropdownOpen, setIsEnvDropdownOpen] = useState(false);
   const [revealedSecrets, setRevealedSecrets] = useState<Record<string, boolean>>({});
   const envDropdownRef = useRef<HTMLDivElement>(null);
-
-  // Sync environments to localStorage & desktop storage
-  useEffect(() => {
-    try {
-      const json = JSON.stringify(environments);
-      localStorage.setItem('octa_http_environments', json);
-      saveEnvironmentsData(json);
-    } catch (e) {
-      console.warn('Failed to save environments:', e);
-    }
-  }, [environments]);
-
-  // Sync active environment ID
-  useEffect(() => {
-    try {
-      localStorage.setItem('octa_http_active_env_id', activeEnvironmentId ? activeEnvironmentId : 'null');
-    } catch (e) {
-      console.warn('Failed to save activeEnvironmentId:', e);
-    }
-  }, [activeEnvironmentId]);
-
-  // Sync global variables
-  useEffect(() => {
-    try {
-      localStorage.setItem('octa_http_global_vars', JSON.stringify(globalVariables));
-    } catch (e) {
-      console.warn('Failed to save globalVariables:', e);
-    }
-  }, [globalVariables]);
-
-  // Load environments from desktop storage on mount
-  useEffect(() => {
-    async function loadDesktopEnvs() {
-      try {
-        const data = await loadEnvironmentsData();
-        if (data && data.trim() !== '' && data !== '[]') {
-          const parsed = JSON.parse(data);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setEnvironments(parsed);
-          }
-        }
-      } catch (err) {
-        console.warn('Error loading desktop environments:', err);
-      }
-    }
-    loadDesktopEnvs();
-  }, []);
 
   // Close environment dropdown on click outside
   useEffect(() => {
@@ -541,19 +485,41 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
           type: 'default',
         });
       }
-      setEnvironments(
-        environments.map((e) => (e.id === activeEnvironment.id ? { ...e, variables: currentVars } : e))
-      );
+      const updatedEnvs = environments.map((e) => (e.id === activeEnvironment.id ? { ...e, variables: currentVars } : e));
+      setEnvironments(updatedEnvs);
+      if (onUpdateData) {
+        onUpdateData({
+          collections,
+          environments: updatedEnvs,
+          globalVariables,
+          activeEnvironmentId,
+        });
+      }
     }
   };
 
-  // 1. Collections & Requests Tree State
+  // 1. Collections & Requests Tree State (Strictly scoped to active project)
   const [collections, setCollections] = useState<HttpFolderItem[]>(() => {
     if (propData?.collections && propData.collections.length > 0) {
       return normalizeCollections(propData.collections);
     }
     return [];
   });
+
+  // Synchronize state when active project data changes
+  useEffect(() => {
+    if (propData) {
+      setCollections(normalizeCollections(propData.collections || []));
+      setEnvironments(propData.environments || []);
+      setGlobalVariables(propData.globalVariables || []);
+      setActiveEnvironmentId(propData.activeEnvironmentId ?? null);
+    } else {
+      setCollections([]);
+      setEnvironments([]);
+      setGlobalVariables([]);
+      setActiveEnvironmentId(null);
+    }
+  }, [propData]);
 
   // Cookie Jar State (Persisted in localStorage)
   const [cookieJar, setCookieJar] = useState<StoredCookie[]>(() => {
@@ -581,27 +547,6 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
   // Cookie Jar Modal / Popover State
   const [isCookieJarOpen, setIsCookieJarOpen] = useState(false);
 
-  // Load from Go backend on mount
-  useEffect(() => {
-    let isMounted = true;
-    (async () => {
-      try {
-        const diskData = await loadHttpClientData();
-        if (diskData && diskData.trim() && isMounted) {
-          const parsed = JSON.parse(diskData);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setCollections(normalizeCollections(parsed));
-          }
-        }
-      } catch (err) {
-        console.warn('Failed to load HTTP client data from disk:', err);
-      }
-    })();
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
   // Persist tree helper and notify parent project store
   const saveTreeData = (nextCols: HttpFolderItem[]) => {
     setCollections(nextCols);
@@ -612,15 +557,6 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
         globalVariables,
         activeEnvironmentId,
       });
-    }
-    try {
-      const jsonStr = JSON.stringify(nextCols);
-      localStorage.setItem('octa_http_collections', jsonStr);
-      saveHttpClientData(jsonStr).catch((err) => {
-        console.warn('Backend saveHttpClientData failed:', err);
-      });
-    } catch (e) {
-      console.warn('Failed to persist http collections:', e);
     }
   };
 
@@ -1617,6 +1553,22 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
       setIsSending(false);
     }
   };
+
+  // Listen for Global Shortcuts: Ctrl + Enter (Send Request) and Ctrl + N (New Request)
+  useEffect(() => {
+    const handleGlobalSend = () => {
+      handleSendRequest();
+    };
+    const handleGlobalNew = () => {
+      handleNewTab();
+    };
+    window.addEventListener('octa:http:send-request', handleGlobalSend);
+    window.addEventListener('octa:http:new-request', handleGlobalNew);
+    return () => {
+      window.removeEventListener('octa:http:send-request', handleGlobalSend);
+      window.removeEventListener('octa:http:new-request', handleGlobalNew);
+    };
+  }, [handleSendRequest, handleNewTab]);
 
   // JSON Formatting action
   const handleFormatJson = () => {
