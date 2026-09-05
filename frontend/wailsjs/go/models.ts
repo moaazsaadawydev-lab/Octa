@@ -927,22 +927,6 @@ export namespace main {
 	        this.contentType = source["contentType"];
 	    }
 	}
-	export class ShellInfo {
-	    id: string;
-	    name: string;
-	    path: string;
-	
-	    static createFrom(source: any = {}) {
-	        return new ShellInfo(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.id = source["id"];
-	        this.name = source["name"];
-	        this.path = source["path"];
-	    }
-	}
 	
 	export class TableDataResult {
 	    columns: string[];
@@ -963,6 +947,27 @@ export namespace main {
 	    }
 	}
 	
+
+}
+
+export namespace pty {
+	
+	export class ShellInfo {
+	    id: string;
+	    name: string;
+	    path: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ShellInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.path = source["path"];
+	    }
+	}
 
 }
 

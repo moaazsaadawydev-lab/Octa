@@ -3,12 +3,13 @@
 
 package main
 
-import "syscall"
+import (
+	"syscall"
+
+	"octa/internal/executil"
+)
 
 // getSysProcAttr returns process attributes to prevent console window popup on Windows
 func getSysProcAttr() *syscall.SysProcAttr {
-	return &syscall.SysProcAttr{
-		HideWindow:    true,
-		CreationFlags: 0x08000000, // CREATE_NO_WINDOW
-	}
+	return executil.GetSysProcAttr()
 }

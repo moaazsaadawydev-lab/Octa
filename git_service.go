@@ -15,6 +15,8 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
+
+	"octa/internal/executil"
 )
 
 // InitRepoOptions specifies advanced repository initialization options
@@ -49,9 +51,7 @@ type GitStatusResult struct {
 
 // gitCommand creates an exec.Cmd with suppressed console window on Windows
 func gitCommand(args ...string) *exec.Cmd {
-	cmd := exec.Command("git", args...)
-	cmd.SysProcAttr = getSysProcAttr()
-	return cmd
+	return executil.Command("git", args...)
 }
 
 // GitService handles native Git commands via host CLI and watches the active repo

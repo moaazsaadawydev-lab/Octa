@@ -3,9 +3,13 @@
 
 package main
 
-import "syscall"
+import (
+	"syscall"
+
+	"octa/internal/executil"
+)
 
 // getSysProcAttr returns standard process attributes on non-Windows platforms
 func getSysProcAttr() *syscall.SysProcAttr {
-	return &syscall.SysProcAttr{}
+	return executil.GetSysProcAttr()
 }

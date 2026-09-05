@@ -2,135 +2,15 @@ import React, { useState } from 'react';
 import { Columns, AlignLeft, FileText, Loader2 } from 'lucide-react';
 import clsx from 'clsx';
 import { GitFileChange } from '../../types/git';
+import { parseUnifiedDiff, buildSplitDiff } from './diffParser';
+import { UnifiedDiffView } from './UnifiedDiffView';
+import { SplitDiffView } from './SplitDiffView';
 
 interface GitDiffViewerProps {
   filePath: string | null;
   fileChange: GitFileChange | null;
   diffContent: string;
   isLoading: boolean;
-}
-
-interface DiffLine {
-  type: 'add' | 'delete' | 'context' | 'hunk' | 'header';
-  oldLineNumber?: number;
-  newLineNumber?: number;
-  text: string;
-}
-
-interface SplitDiffRow {
-  oldLine?: { number: number; text: string; type: 'delete' | 'context' };
-  newLine?: { number: number; text: string; type: 'add' | 'context' };
-  hunkHeader?: string;
-}
-
-function parseUnifiedDiff(rawDiff: string): DiffLine[] {
-  if (!rawDiff) return [];
-  const lines = rawDiff.split('\n');
-  const result: DiffLine[] = [];
-
-  let oldLine = 0;
-  let newLine = 0;
-
-  for (const line of lines) {
-    if (line.startsWith('diff --git') || line.startsWith('index ') || line.startsWith('---') || line.startsWith('+++')) {
-      result.push({ type: 'header', text: line });
-    } else if (line.startsWith('@@')) {
-      // Hunk header e.g. @@ -1,5 +1,6 @@
-      const match = line.match(/@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
-      if (match) {
-        oldLine = parseInt(match[1], 10);
-        newLine = parseInt(match[2], 10);
-      }
-      result.push({ type: 'hunk', text: line });
-    } else if (line.startsWith('+')) {
-      result.push({
-        type: 'add',
-        newLineNumber: newLine,
-        text: line.slice(1),
-      });
-      newLine++;
-    } else if (line.startsWith('-')) {
-      result.push({
-        type: 'delete',
-        oldLineNumber: oldLine,
-        text: line.slice(1),
-      });
-      oldLine++;
-    } else {
-      // Context unchanged line (or empty)
-      const text = line.startsWith(' ') ? line.slice(1) : line;
-      result.push({
-        type: 'context',
-        oldLineNumber: oldLine > 0 ? oldLine : undefined,
-        newLineNumber: newLine > 0 ? newLine : undefined,
-        text: text,
-      });
-      if (oldLine > 0) oldLine++;
-      if (newLine > 0) newLine++;
-    }
-  }
-
-  return result;
-}
-
-function buildSplitDiff(lines: DiffLine[]): SplitDiffRow[] {
-  const rows: SplitDiffRow[] = [];
-  let i = 0;
-
-  while (i < lines.length) {
-    const line = lines[i];
-
-    if (line.type === 'header') {
-      i++;
-      continue;
-    }
-
-    if (line.type === 'hunk') {
-      rows.push({ hunkHeader: line.text });
-      i++;
-      continue;
-    }
-
-    if (line.type === 'context') {
-      rows.push({
-        oldLine: { number: line.oldLineNumber || 0, text: line.text, type: 'context' },
-        newLine: { number: line.newLineNumber || 0, text: line.text, type: 'context' },
-      });
-      i++;
-      continue;
-    }
-
-    if (line.type === 'delete') {
-      // Check if followed by an add
-      const next = lines[i + 1];
-      if (next && next.type === 'add') {
-        rows.push({
-          oldLine: { number: line.oldLineNumber || 0, text: line.text, type: 'delete' },
-          newLine: { number: next.newLineNumber || 0, text: next.text, type: 'add' },
-        });
-        i += 2;
-        continue;
-      } else {
-        rows.push({
-          oldLine: { number: line.oldLineNumber || 0, text: line.text, type: 'delete' },
-        });
-        i++;
-        continue;
-      }
-    }
-
-    if (line.type === 'add') {
-      rows.push({
-        newLine: { number: line.newLineNumber || 0, text: line.text, type: 'add' },
-      });
-      i++;
-      continue;
-    }
-
-    i++;
-  }
-
-  return rows;
 }
 
 export const GitDiffViewer: React.FC<GitDiffViewerProps> = ({
@@ -256,112 +136,9 @@ export const GitDiffViewer: React.FC<GitDiffViewerProps> = ({
             {isLoading ? 'Updating diff...' : 'No line changes detected in this file.'}
           </div>
         ) : viewMode === 'unified' ? (
-          /* UNIFIED DIFF VIEW */
-          <div className="divide-y divide-zinc-900/50 min-w-full">
-            {parsedLines.map((line, idx) => {
-              if (line.type === 'header') {
-                return (
-                  <div key={idx} className="px-4 py-1 text-zinc-600 bg-zinc-950/80 select-none text-[11px]">
-                    {line.text}
-                  </div>
-                );
-              }
-              if (line.type === 'hunk') {
-                return (
-                  <div key={idx} className="px-4 py-1.5 text-sky-400/80 bg-sky-950/20 font-semibold select-none">
-                    {line.text}
-                  </div>
-                );
-              }
-
-              const isAdd = line.type === 'add';
-              const isDelete = line.type === 'delete';
-
-              return (
-                <div
-                  key={idx}
-                  className={clsx(
-                    'flex items-stretch leading-relaxed hover:brightness-110 transition-colors',
-                    isAdd && 'bg-emerald-950/35 text-emerald-300',
-                    isDelete && 'bg-rose-950/35 text-rose-300',
-                    !isAdd && !isDelete && 'text-zinc-300'
-                  )}
-                >
-                  {/* Line Numbers Gutter */}
-                  <div className="flex select-none flex-shrink-0 text-zinc-600 font-mono text-[11px] text-right bg-zinc-950/60 border-r border-zinc-800/60">
-                    <span className="w-10 px-2 py-0.5">{line.oldLineNumber || ''}</span>
-                    <span className="w-10 px-2 py-0.5 border-l border-zinc-900">{line.newLineNumber || ''}</span>
-                  </div>
-
-                  {/* Marker +/- */}
-                  <div className="w-6 flex items-center justify-center font-bold select-none flex-shrink-0 opacity-70">
-                    {isAdd ? '+' : isDelete ? '-' : ' '}
-                  </div>
-
-                  {/* Line Content */}
-                  <div className="flex-1 px-2 py-0.5 whitespace-pre font-mono">
-                    {line.text || ' '}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          <UnifiedDiffView lines={parsedLines} />
         ) : (
-          /* SPLIT / SIDE-BY-SIDE DIFF VIEW */
-          <div className="divide-y divide-zinc-900/50 min-w-full">
-            {splitRows.map((row, idx) => {
-              if (row.hunkHeader) {
-                return (
-                  <div key={idx} className="px-4 py-1.5 text-sky-400/80 bg-sky-950/20 font-semibold select-none">
-                    {row.hunkHeader}
-                  </div>
-                );
-              }
-
-              const isOldDelete = row.oldLine?.type === 'delete';
-              const isNewAdd = row.newLine?.type === 'add';
-
-              return (
-                <div key={idx} className="flex divide-x divide-zinc-800/80 leading-relaxed min-w-full">
-                  {/* Left (Old / Deletion Side) */}
-                  <div
-                    className={clsx(
-                      'flex-1 flex min-w-0',
-                      isOldDelete ? 'bg-rose-950/35 text-rose-300' : 'text-zinc-400'
-                    )}
-                  >
-                    <div className="w-10 px-2 py-0.5 text-right text-zinc-600 select-none bg-zinc-950/60 border-r border-zinc-800/60 text-[11px]">
-                      {row.oldLine?.number || ''}
-                    </div>
-                    <div className="w-5 text-center font-bold select-none opacity-70">
-                      {isOldDelete ? '-' : ' '}
-                    </div>
-                    <div className="flex-1 px-2 py-0.5 whitespace-pre font-mono overflow-hidden truncate">
-                      {row.oldLine?.text || ' '}
-                    </div>
-                  </div>
-
-                  {/* Right (New / Addition Side) */}
-                  <div
-                    className={clsx(
-                      'flex-1 flex min-w-0',
-                      isNewAdd ? 'bg-emerald-950/35 text-emerald-300' : 'text-zinc-300'
-                    )}
-                  >
-                    <div className="w-10 px-2 py-0.5 text-right text-zinc-600 select-none bg-zinc-950/60 border-r border-zinc-800/60 text-[11px]">
-                      {row.newLine?.number || ''}
-                    </div>
-                    <div className="w-5 text-center font-bold select-none opacity-70">
-                      {isNewAdd ? '+' : ' '}
-                    </div>
-                    <div className="flex-1 px-2 py-0.5 whitespace-pre font-mono overflow-hidden truncate">
-                      {row.newLine?.text || ' '}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          <SplitDiffView rows={splitRows} />
         )}
       </div>
     </div>

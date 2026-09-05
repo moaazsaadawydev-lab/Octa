@@ -14,6 +14,10 @@ export function CheckDockerAvailability() {
   return window['go']['main']['App']['CheckDockerAvailability']();
 }
 
+export function ClearAppCache() {
+  return window['go']['main']['App']['ClearAppCache']();
+}
+
 export function ClearQueryLogs() {
   return window['go']['main']['App']['ClearQueryLogs']();
 }

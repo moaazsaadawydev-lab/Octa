@@ -1,0 +1,103 @@
+import { RedisCommandDoc } from './types';
+
+export const SERVER_COMMANDS: RedisCommandDoc[] = [
+  // Keys & Server
+  {
+    name: 'DEL',
+    syntax: 'DEL key [key ...]',
+    snippet: 'DEL ${1:key}',
+    doc: 'Delete one or more keys. Returns the number of keys removed.',
+    group: 'Keys & Server',
+  },
+  {
+    name: 'EXISTS',
+    syntax: 'EXISTS key [key ...]',
+    snippet: 'EXISTS ${1:key}',
+    doc: 'Determine if one or more keys exist (returns count of existing keys).',
+    group: 'Keys & Server',
+  },
+  {
+    name: 'EXPIRE',
+    syntax: 'EXPIRE key seconds [NX|XX|GT|LT]',
+    snippet: 'EXPIRE ${1:key} ${2:60}',
+    doc: "Set a key's time to live in seconds.",
+    group: 'Keys & Server',
+  },
+  {
+    name: 'TTL',
+    syntax: 'TTL key',
+    snippet: 'TTL ${1:key}',
+    doc: 'Get the time to live for a key in seconds (-1=persistent, -2=expired/not exists).',
+    group: 'Keys & Server',
+  },
+  {
+    name: 'PERSIST',
+    syntax: 'PERSIST key',
+    snippet: 'PERSIST ${1:key}',
+    doc: 'Remove the expiration from a key, making it persistent.',
+    group: 'Keys & Server',
+  },
+  {
+    name: 'TYPE',
+    syntax: 'TYPE key',
+    snippet: 'TYPE ${1:key}',
+    doc: 'Determine the type stored at key (string, list, set, zset, hash, stream, none).',
+    group: 'Keys & Server',
+  },
+  {
+    name: 'KEYS',
+    syntax: 'KEYS pattern',
+    snippet: 'KEYS ${1:*}',
+    doc: 'Find all keys matching the given pattern (e.g. `*`, `user:*`). Use with care on large production databases.',
+    group: 'Keys & Server',
+  },
+  {
+    name: 'SCAN',
+    syntax: 'SCAN cursor [MATCH pattern] [COUNT count] [TYPE type]',
+    snippet: 'SCAN ${1:0} MATCH ${2:*} COUNT ${3:100}',
+    doc: 'Incrementally iterate the keyspace using a cursor.',
+    group: 'Keys & Server',
+  },
+  {
+    name: 'PING',
+    syntax: 'PING [message]',
+    snippet: 'PING',
+    doc: 'Ping the Redis server. Returns `PONG` or the echoed message.',
+    group: 'Keys & Server',
+  },
+  {
+    name: 'INFO',
+    syntax: 'INFO [section]',
+    snippet: 'INFO ${1:all}',
+    doc: 'Get information and statistics about the Redis server (server, clients, memory, persistence, stats, cpu, keyspace).',
+    group: 'Keys & Server',
+  },
+  {
+    name: 'DBSIZE',
+    syntax: 'DBSIZE',
+    snippet: 'DBSIZE',
+    doc: 'Return the total number of keys in the currently-selected database.',
+    group: 'Keys & Server',
+  },
+  {
+    name: 'SELECT',
+    syntax: 'SELECT index',
+    snippet: 'SELECT ${1:0}',
+    doc: 'Change the selected database for the current connection.',
+    group: 'Keys & Server',
+  },
+  {
+    name: 'FLUSHDB',
+    syntax: 'FLUSHDB [ASYNC|SYNC]',
+    snippet: 'FLUSHDB',
+    doc: 'Remove all keys from the current database.',
+    group: 'Keys & Server',
+  },
+  {
+    name: 'FLUSHALL',
+    syntax: 'FLUSHALL [ASYNC|SYNC]',
+    snippet: 'FLUSHALL',
+    doc: 'Remove all keys from all databases on the Redis server.',
+    group: 'Keys & Server',
+  },
+];

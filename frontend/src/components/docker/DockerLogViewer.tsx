@@ -1,41 +1,18 @@
-import React, { useState, useEffect, useRef } from 'react';
-import {
-  ScrollText,
-  Search,
-  Trash2,
-  ArrowDown,
-  Copy,
-  Check,
-  Play,
-  Square,
-  RotateCw,
-  Clock,
-  HardDrive,
-  Network,
-  Layers,
-  AlertTriangle,
-  ChevronUp,
-  ChevronDown,
-  Terminal as TerminalIcon,
-} from 'lucide-react';
-import clsx from 'clsx';
-import { Terminal } from '@xterm/xterm';
-import { FitAddon } from '@xterm/addon-fit';
-import { WebglAddon } from '@xterm/addon-webgl';
-import { SearchAddon } from '@xterm/addon-search';
+import React, { useState, useEffect } from 'react';
+import { ScrollText } from 'lucide-react';
 import '@xterm/xterm/css/xterm.css';
-
 import { DockerContainer } from '../../types/docker';
 import {
   startDockerContainer,
   stopDockerContainer,
   restartDockerContainer,
   removeDockerContainer,
-  startDockerLogStream,
-  stopDockerLogStream,
 } from '../../services/api';
 import { DockerExecTerminal } from './DockerExecTerminal';
-import * as runtime from '../../../wailsjs/runtime/runtime';
+import { DockerHeaderToolbar } from './DockerHeaderToolbar';
+import { DockerLogsToolbar } from './DockerLogsToolbar';
+import { DockerDeleteModal } from './DockerDeleteModal';
+import { useDockerLogStream } from './useDockerLogStream';
 
 interface DockerLogViewerProps {
   container: DockerContainer | null;
@@ -49,25 +26,8 @@ export const DockerLogViewer: React.FC<DockerLogViewerProps> = ({
   showToast,
 }) => {
   const [activeTab, setActiveTab] = useState<'logs' | 'terminal'>('logs');
-  const [autoScroll, setAutoScroll] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [copiedId, setCopiedId] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-
-  const containerRef = useRef<HTMLDivElement>(null);
-  const termRef = useRef<Terminal | null>(null);
-  const fitAddonRef = useRef<FitAddon | null>(null);
-  const searchAddonRef = useRef<SearchAddon | null>(null);
-  const autoScrollRef = useRef(autoScroll);
-
-  // Keep autoScrollRef in sync
-  useEffect(() => {
-    autoScrollRef.current = autoScroll;
-    if (autoScroll && termRef.current) {
-      termRef.current.scrollToBottom();
-    }
-  }, [autoScroll]);
 
   // If container stops, revert from terminal to logs
   useEffect(() => {
@@ -76,227 +36,10 @@ export const DockerLogViewer: React.FC<DockerLogViewerProps> = ({
     }
   }, [container?.state, activeTab]);
 
-  // Copy Container ID
-  const handleCopyId = async () => {
-    if (!container) return;
-    try {
-      await navigator.clipboard.writeText(container.id);
-      setCopiedId(true);
-      setTimeout(() => setCopiedId(false), 2000);
-      if (showToast) showToast('Container ID copied', 'info');
-    } catch (e) {
-      console.warn('Failed to copy container ID:', e);
-    }
-  };
-
-  // Lifecycle Action Handlers
-  const handleStart = async () => {
-    if (!container) return;
-    setActionLoading('start');
-    try {
-      await startDockerContainer(container.id);
-      if (showToast) showToast(`Started ${container.service || container.name}`, 'success');
-      onRefreshList();
-    } catch (err: any) {
-      if (showToast) showToast(err?.message || 'Failed to start container', 'error');
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const handleStop = async () => {
-    if (!container) return;
-    setActionLoading('stop');
-    try {
-      await stopDockerContainer(container.id);
-      if (showToast) showToast(`Stopped ${container.service || container.name}`, 'info');
-      onRefreshList();
-    } catch (err: any) {
-      if (showToast) showToast(err?.message || 'Failed to stop container', 'error');
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const handleRestart = async () => {
-    if (!container) return;
-    setActionLoading('restart');
-    try {
-      await restartDockerContainer(container.id);
-      if (showToast) showToast(`Restarted ${container.service || container.name}`, 'success');
-      onRefreshList();
-    } catch (err: any) {
-      if (showToast) showToast(err?.message || 'Failed to restart container', 'error');
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const handleRemove = async (force: boolean = true) => {
-    if (!container) return;
-    setActionLoading('remove');
-    setShowDeleteConfirm(false);
-    try {
-      await removeDockerContainer(container.id, force);
-      if (showToast) showToast(`Deleted container ${container.service || container.name}`, 'success');
-      onRefreshList();
-    } catch (err: any) {
-      if (showToast) showToast(err?.message || 'Failed to delete container', 'error');
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  // Clear Terminal Output
-  const handleClear = () => {
-    if (termRef.current) {
-      termRef.current.clear();
-    }
-  };
-
-  // Search Navigation
-  const handleSearchChange = (value: string) => {
-    setSearchTerm(value);
-    if (!searchAddonRef.current) return;
-    if (value.trim()) {
-      searchAddonRef.current.findNext(value, { incremental: true });
-    } else {
-      searchAddonRef.current.clearDecorations();
-    }
-  };
-
-  const handleFindNext = () => {
-    if (searchAddonRef.current && searchTerm.trim()) {
-      searchAddonRef.current.findNext(searchTerm);
-    }
-  };
-
-  const handleFindPrevious = () => {
-    if (searchAddonRef.current && searchTerm.trim()) {
-      searchAddonRef.current.findPrevious(searchTerm);
-    }
-  };
-
-  // Initialize Read-Only XTerm Instance & Stream Subscription for Logs
-  useEffect(() => {
-    if (activeTab !== 'logs' || !container?.id || !containerRef.current) {
-      return;
-    }
-
-    const containerId = container.id;
-    const domNode = containerRef.current;
-
-    const term = new Terminal({
-      disableStdin: true,
-      cursorBlink: false,
-      cursorStyle: 'underline',
-      convertEol: true,
-      fontSize: 12,
-      fontFamily: 'Consolas, "Cascadia Code", "Fira Code", monospace',
-      theme: {
-        background: '#090a0f',
-        foreground: '#d4d4d8',
-        black: '#18181b',
-        red: '#ef4444',
-        green: '#22c55e',
-        yellow: '#eab308',
-        blue: '#3b82f6',
-        magenta: '#a855f7',
-        cyan: '#06b6d4',
-        white: '#f4f4f5',
-        brightBlack: '#71717a',
-        brightRed: '#f87171',
-        brightGreen: '#4ade80',
-        brightYellow: '#fde047',
-        brightBlue: '#60a5fa',
-        brightMagenta: '#c084fc',
-        brightCyan: '#22d3ee',
-        brightWhite: '#ffffff',
-      },
-      scrollback: 10000,
-    });
-
-    const fitAddon = new FitAddon();
-    const searchAddon = new SearchAddon();
-
-    term.loadAddon(fitAddon);
-    term.loadAddon(searchAddon);
-
-    term.open(domNode);
-
-    try {
-      const webglAddon = new WebglAddon();
-      webglAddon.onContextLoss(() => {
-        webglAddon.dispose();
-      });
-      term.loadAddon(webglAddon);
-    } catch {
-      // Fallback
-    }
-
-    requestAnimationFrame(() => {
-      try {
-        fitAddon.fit();
-      } catch {
-        // Ignore
-      }
-    });
-
-    termRef.current = term;
-    fitAddonRef.current = fitAddon;
-    searchAddonRef.current = searchAddon;
-
-    const scrollDisposable = term.onScroll(() => {
-      const buffer = term.buffer.active;
-      const isBottom = buffer.viewportY >= buffer.baseY;
-      if (!isBottom && autoScrollRef.current) {
-        setAutoScroll(false);
-      } else if (isBottom && !autoScrollRef.current) {
-        setAutoScroll(true);
-      }
-    });
-
-    const resizeObserver = new ResizeObserver(() => {
-      requestAnimationFrame(() => {
-        try {
-          fitAddon.fit();
-        } catch {
-          // Ignore
-        }
-      });
-    });
-    resizeObserver.observe(domNode);
-
-    const eventName = 'docker:logs:' + containerId;
-    let unsubscribe: (() => void) | undefined;
-
-    if (runtime && typeof runtime.EventsOn === 'function') {
-      unsubscribe = runtime.EventsOn(eventName, (chunk: string) => {
-        if (!chunk) return;
-        term.write(chunk);
-        if (autoScrollRef.current) {
-          term.scrollToBottom();
-        }
-      });
-    }
-
-    startDockerLogStream(containerId);
-
-    return () => {
-      if (typeof unsubscribe === 'function') {
-        unsubscribe();
-      } else if (runtime && typeof runtime.EventsOff === 'function') {
-        runtime.EventsOff(eventName);
-      }
-      stopDockerLogStream(containerId);
-      scrollDisposable.dispose();
-      resizeObserver.disconnect();
-      term.dispose();
-      termRef.current = null;
-      fitAddonRef.current = null;
-      searchAddonRef.current = null;
-    };
-  }, [container?.id, activeTab]);
+  const logStream = useDockerLogStream({
+    containerId: container?.id,
+    activeTab,
+  });
 
   if (!container) {
     return (
@@ -314,180 +57,75 @@ export const DockerLogViewer: React.FC<DockerLogViewerProps> = ({
     );
   }
 
-  const isRunning = container.state === 'running';
+  const handleStart = async () => {
+    setActionLoading('start');
+    try {
+      await startDockerContainer(container.id);
+      if (showToast) showToast(`Started ${container.service || container.name}`, 'success');
+      onRefreshList();
+    } catch (err: any) {
+      if (showToast) showToast(err?.message || 'Failed to start container', 'error');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleStop = async () => {
+    setActionLoading('stop');
+    try {
+      await stopDockerContainer(container.id);
+      if (showToast) showToast(`Stopped ${container.service || container.name}`, 'info');
+      onRefreshList();
+    } catch (err: any) {
+      if (showToast) showToast(err?.message || 'Failed to stop container', 'error');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleRestart = async () => {
+    setActionLoading('restart');
+    try {
+      await restartDockerContainer(container.id);
+      if (showToast) showToast(`Restarted ${container.service || container.name}`, 'success');
+      onRefreshList();
+    } catch (err: any) {
+      if (showToast) showToast(err?.message || 'Failed to restart container', 'error');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleRemove = async (force: boolean = true) => {
+    setActionLoading('remove');
+    setShowDeleteConfirm(false);
+    try {
+      await removeDockerContainer(container.id, force);
+      if (showToast) showToast(`Deleted container ${container.service || container.name}`, 'success');
+      onRefreshList();
+    } catch (err: any) {
+      if (showToast) showToast(err?.message || 'Failed to delete container', 'error');
+    } finally {
+      setActionLoading(null);
+    }
+  };
 
   return (
     <div className="flex-1 flex flex-col w-full h-full min-h-0 min-w-0 bg-slate-50 dark:bg-[#090a0f] text-slate-900 dark:text-zinc-100 overflow-hidden font-sans transition-colors relative">
-      {/* 1. Container Summary Header */}
-      <div className="p-4 bg-white dark:bg-[#0c0d12] border-b border-slate-200 dark:border-zinc-800 flex flex-col gap-3 flex-shrink-0 select-none transition-colors">
-        <div className="flex items-center justify-between gap-4 flex-wrap">
-          {/* Service & Container Title */}
-          <div className="flex items-center gap-3 min-w-0">
-            <span
-              className={clsx(
-                'w-3 h-3 rounded-full flex-shrink-0',
-                isRunning
-                  ? 'bg-emerald-500 shadow-sm shadow-emerald-500/50 animate-pulse'
-                  : 'bg-slate-400 dark:bg-zinc-600'
-              )}
-            />
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <h2 className="text-base font-bold text-slate-900 dark:text-zinc-100 truncate">
-                  {container.service || container.name}
-                </h2>
-                {container.service !== container.name && (
-                  <span className="text-xs text-slate-500 dark:text-zinc-400 font-mono">
-                    ({container.name})
-                  </span>
-                )}
-                <span
-                  className={clsx(
-                    'px-2 py-0.5 rounded-full text-[10px] font-medium border uppercase tracking-wider',
-                    isRunning
-                      ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/80'
-                      : 'bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 border-slate-200 dark:border-zinc-700'
-                  )}
-                >
-                  {container.state}
-                </span>
-              </div>
+      {/* 1. Header Toolbar */}
+      <DockerHeaderToolbar
+        container={container}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        actionLoading={actionLoading}
+        onStart={handleStart}
+        onStop={handleStop}
+        onRestart={handleRestart}
+        onDeleteClick={() => setShowDeleteConfirm(true)}
+        showToast={showToast}
+      />
 
-              {/* ID & Compose Meta */}
-              <div className="flex items-center gap-3 mt-1 text-xs text-slate-500 dark:text-zinc-400">
-                <button
-                  type="button"
-                  onClick={handleCopyId}
-                  title="Click to copy full Container ID"
-                  className="flex items-center gap-1 font-mono text-[11px] text-slate-500 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-zinc-200 transition-colors cursor-pointer"
-                >
-                  <span>{container.id.substring(0, 12)}</span>
-                  {copiedId ? (
-                    <Check className="w-3 h-3 text-emerald-500" />
-                  ) : (
-                    <Copy className="w-3 h-3 opacity-60 hover:opacity-100" />
-                  )}
-                </button>
-
-                <div className="flex items-center gap-1 truncate max-w-xs font-mono text-[11px]">
-                  <Layers className="w-3 h-3 text-brand-500 flex-shrink-0" />
-                  <span className="truncate">{container.image}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Action Buttons & Tab Switcher */}
-          <div className="flex items-center gap-3">
-            {/* View Switcher Segmented Pill Toggle: Logs vs Exec Terminal */}
-            <div className="flex items-center p-0.5 rounded-lg bg-slate-100 dark:bg-[#141418] border border-slate-200 dark:border-zinc-800">
-              <button
-                type="button"
-                onClick={() => setActiveTab('logs')}
-                className={clsx(
-                  'flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-all cursor-pointer',
-                  activeTab === 'logs'
-                    ? 'bg-white dark:bg-zinc-800 text-brand-600 dark:text-brand-400 shadow-sm'
-                    : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
-                )}
-              >
-                <ScrollText className="w-3.5 h-3.5" />
-                <span>Logs</span>
-              </button>
-
-              <button
-                type="button"
-                disabled={!isRunning}
-                onClick={() => setActiveTab('terminal')}
-                title={isRunning ? "Interactive Terminal (Exec)" : "Container must be running to open terminal"}
-                className={clsx(
-                  'flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-medium transition-all',
-                  !isRunning
-                    ? 'opacity-40 cursor-not-allowed text-slate-400 dark:text-zinc-600'
-                    : activeTab === 'terminal'
-                      ? 'bg-white dark:bg-zinc-800 text-brand-600 dark:text-brand-400 shadow-sm cursor-pointer'
-                      : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 cursor-pointer'
-                )}
-              >
-                <TerminalIcon className="w-3.5 h-3.5" />
-                <span>Exec Shell</span>
-              </button>
-            </div>
-
-            {/* Lifecycle Buttons */}
-            {isRunning ? (
-              <button
-                type="button"
-                disabled={actionLoading !== null}
-                onClick={handleStop}
-                title="Stop Container"
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30 text-xs font-medium transition-all cursor-pointer disabled:opacity-50"
-              >
-                <Square className="w-3.5 h-3.5 fill-current" />
-                <span>Stop</span>
-              </button>
-            ) : (
-              <button
-                type="button"
-                disabled={actionLoading !== null}
-                onClick={handleStart}
-                title="Start Container"
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium shadow-sm transition-all cursor-pointer disabled:opacity-50"
-              >
-                <Play className="w-3.5 h-3.5 fill-current" />
-                <span>Start</span>
-              </button>
-            )}
-
-            <button
-              type="button"
-              disabled={actionLoading !== null}
-              onClick={handleRestart}
-              title="Restart Container"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-xs font-medium transition-all cursor-pointer disabled:opacity-50"
-            >
-              <RotateCw className={clsx('w-3.5 h-3.5', actionLoading === 'restart' && 'animate-spin')} />
-              <span>Restart</span>
-            </button>
-
-            <button
-              type="button"
-              disabled={actionLoading !== null}
-              onClick={() => setShowDeleteConfirm(true)}
-              title="Delete Container"
-              className="p-1.5 rounded-lg text-rose-500 hover:text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 transition-all cursor-pointer disabled:opacity-50"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-
-        {/* Status / Ports Badges Row */}
-        <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-zinc-400 pt-2 border-t border-slate-100 dark:border-zinc-800/80 overflow-x-auto no-scrollbar">
-          <div className="flex items-center gap-1.5 flex-shrink-0">
-            <Clock className="w-3.5 h-3.5 text-slate-400 dark:text-zinc-500" />
-            <span className="font-mono text-[11px]">{container.status}</span>
-          </div>
-
-          {container.portsRaw && (
-            <div className="flex items-center gap-1.5 flex-shrink-0">
-              <Network className="w-3.5 h-3.5 text-brand-500" />
-              <span className="font-mono text-[11px] text-brand-600 dark:text-brand-400 font-medium">
-                {container.portsRaw}
-              </span>
-            </div>
-          )}
-
-          {container.size && (
-            <div className="flex items-center gap-1.5 flex-shrink-0">
-              <HardDrive className="w-3.5 h-3.5 text-slate-400 dark:text-zinc-500" />
-              <span className="font-mono text-[11px]">{container.size}</span>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Main Viewport: Either Logs Canvas or Exec Terminal */}
+      {/* 2. Main Viewport: Exec Terminal or Logs Canvas */}
       {activeTab === 'terminal' ? (
         <DockerExecTerminal
           container={container}
@@ -497,125 +135,32 @@ export const DockerLogViewer: React.FC<DockerLogViewerProps> = ({
         />
       ) : (
         <>
-          {/* Logs Sub-Toolbar */}
-          <div className="px-4 py-2 bg-slate-100/70 dark:bg-[#08090d] border-b border-slate-200 dark:border-zinc-800 flex items-center justify-between gap-3 flex-shrink-0 select-none">
-            {/* Search in Logs */}
-            <div className="flex items-center gap-1.5 flex-1 max-w-sm">
-              <div className="relative w-full">
-                <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-zinc-500 pointer-events-none" />
-                <input
-                  type="text"
-                  placeholder="Search logs..."
-                  value={searchTerm}
-                  onChange={(e) => handleSearchChange(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      if (e.shiftKey) {
-                        handleFindPrevious();
-                      } else {
-                        handleFindNext();
-                      }
-                    }
-                  }}
-                  className="w-full pl-8 pr-16 py-1 rounded-lg bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-500 outline-none focus:border-brand-500 font-mono transition-colors"
-                />
-                {searchTerm && (
-                  <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
-                    <button
-                      type="button"
-                      onClick={handleFindPrevious}
-                      title="Find Previous (Shift+Enter)"
-                      className="p-0.5 rounded text-slate-400 hover:text-slate-800 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-slate-100 dark:hover:bg-zinc-800 cursor-pointer"
-                    >
-                      <ChevronUp className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleFindNext}
-                      title="Find Next (Enter)"
-                      className="p-0.5 rounded text-slate-400 hover:text-slate-800 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-slate-100 dark:hover:bg-zinc-800 cursor-pointer"
-                    >
-                      <ChevronDown className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
+          <DockerLogsToolbar
+            searchTerm={logStream.searchTerm}
+            onSearchChange={logStream.handleSearchChange}
+            onFindNext={logStream.handleFindNext}
+            onFindPrevious={logStream.handleFindPrevious}
+            autoScroll={logStream.autoScroll}
+            onToggleAutoScroll={() => logStream.setAutoScroll(!logStream.autoScroll)}
+            onClear={logStream.handleClear}
+          />
 
-            {/* Right Tools: AutoScroll, Clear */}
-            <div className="flex items-center gap-2 text-xs">
-              <button
-                type="button"
-                onClick={() => setAutoScroll(!autoScroll)}
-                className={clsx(
-                  'flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors cursor-pointer',
-                  autoScroll
-                    ? 'bg-brand-50 dark:bg-brand-950/40 text-brand-600 dark:text-brand-400 border-brand-300 dark:border-brand-800/80'
-                    : 'text-slate-600 dark:text-zinc-400 hover:bg-slate-200 dark:hover:bg-zinc-800 border-slate-200 dark:border-zinc-800'
-                )}
-              >
-                <ArrowDown className="w-3 h-3" />
-                <span>Auto-scroll</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={handleClear}
-                title="Clear Log Stream Buffer"
-                className="px-2.5 py-1 rounded-lg text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100 hover:bg-slate-200 dark:hover:bg-zinc-800 border border-slate-200 dark:border-zinc-800 transition-colors cursor-pointer"
-              >
-                Clear
-              </button>
-            </div>
-          </div>
-
-          {/* Live Logs Stream Terminal Viewport (Read-Only XTerm Instance) */}
           <div className="flex-1 w-full h-full min-h-0 min-w-0 bg-[#090a0f] p-3 overflow-hidden relative">
             <div
-              ref={containerRef}
+              ref={logStream.containerRef}
               className="w-full h-full min-h-0 min-w-0 overflow-hidden"
             />
           </div>
         </>
       )}
 
-      {/* Delete Confirmation Modal */}
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in select-none">
-          <div className="w-full max-w-md bg-white dark:bg-[#12131a] rounded-2xl border border-slate-200 dark:border-zinc-800 p-5 shadow-2xl space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-rose-500/10 dark:bg-rose-500/20 border border-rose-500/30 flex items-center justify-center text-rose-600 dark:text-rose-400 flex-shrink-0">
-                <AlertTriangle className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-sm font-semibold text-slate-900 dark:text-zinc-100">
-                  Delete Container?
-                </h3>
-                <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
-                  This will forcibly stop and remove container <span className="font-mono text-slate-800 dark:text-zinc-200 font-semibold">{container.service || container.name}</span>.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-zinc-800">
-              <button
-                type="button"
-                onClick={() => setShowDeleteConfirm(false)}
-                className="px-3.5 py-1.5 rounded-xl text-xs font-medium text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 border border-slate-300 dark:border-zinc-700 transition-colors cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => handleRemove(true)}
-                className="px-3.5 py-1.5 rounded-xl text-xs font-medium text-white bg-rose-600 hover:bg-rose-500 shadow-sm transition-all cursor-pointer"
-              >
-                Delete Anyway
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* 3. Delete Modal */}
+      <DockerDeleteModal
+        isOpen={showDeleteConfirm}
+        container={container}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={() => handleRemove(true)}
+      />
     </div>
   );
 };

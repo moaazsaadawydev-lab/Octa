@@ -36,11 +36,10 @@ export const ActivityBar: React.FC<ActivityBarProps> = ({
           type="button"
           onClick={() => setActiveModule('databases')}
           title="Databases (Tables, SQL Playground, ERD) (Ctrl+1)"
-          className={`activity-bar-btn relative w-10 h-10 rounded-lg flex items-center justify-center transition-all ${
-            activeModule === 'databases'
+          className={`activity-bar-btn relative w-10 h-10 rounded-lg flex items-center justify-center transition-all ${activeModule === 'databases'
               ? 'bg-slate-200 dark:bg-zinc-800 text-brand-600 dark:text-brand-400 font-medium shadow-sm cursor-pointer'
               : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-200/60 dark:hover:bg-zinc-800/60 cursor-pointer'
-          }`}
+            }`}
         >
           {activeModule === 'databases' && (
             <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-brand-500 dark:bg-brand-400 rounded-r shadow-[0_0_8px_rgba(56,189,248,0.8)]" />
@@ -53,11 +52,10 @@ export const ActivityBar: React.FC<ActivityBarProps> = ({
           type="button"
           onClick={() => setActiveModule('redis')}
           title="Redis / Cache Explorer (Ctrl+2)"
-          className={`activity-bar-btn relative w-10 h-10 rounded-lg flex items-center justify-center transition-all ${
-            activeModule === 'redis'
+          className={`activity-bar-btn relative w-10 h-10 rounded-lg flex items-center justify-center transition-all ${activeModule === 'redis'
               ? 'bg-slate-200 dark:bg-zinc-800 text-brand-600 dark:text-brand-400 font-medium shadow-sm cursor-pointer'
               : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-200/60 dark:hover:bg-zinc-800/60 cursor-pointer'
-          }`}
+            }`}
         >
           {activeModule === 'redis' && (
             <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-brand-500 dark:bg-brand-400 rounded-r shadow-[0_0_8px_rgba(56,189,248,0.8)]" />
@@ -70,11 +68,10 @@ export const ActivityBar: React.FC<ActivityBarProps> = ({
           type="button"
           onClick={() => setActiveModule('http')}
           title="HTTP / API Client (Ctrl+3)"
-          className={`activity-bar-btn relative w-10 h-10 rounded-lg flex items-center justify-center transition-all ${
-            activeModule === 'http'
+          className={`activity-bar-btn relative w-10 h-10 rounded-lg flex items-center justify-center transition-all ${activeModule === 'http'
               ? 'bg-slate-200 dark:bg-zinc-800 text-brand-600 dark:text-brand-400 font-medium shadow-sm cursor-pointer'
               : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-200/60 dark:hover:bg-zinc-800/60 cursor-pointer'
-          }`}
+            }`}
         >
           {activeModule === 'http' && (
             <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-brand-500 dark:bg-brand-400 rounded-r shadow-[0_0_8px_rgba(56,189,248,0.8)]" />
@@ -87,11 +84,10 @@ export const ActivityBar: React.FC<ActivityBarProps> = ({
           type="button"
           onClick={() => setActiveModule('git')}
           title="Source Control / Git (Changes, Diff, Commit, Push) (Ctrl+4)"
-          className={`activity-bar-btn relative w-10 h-10 rounded-lg flex items-center justify-center transition-all ${
-            activeModule === 'git'
+          className={`activity-bar-btn relative w-10 h-10 rounded-lg flex items-center justify-center transition-all ${activeModule === 'git'
               ? 'bg-slate-200 dark:bg-zinc-800 text-brand-600 dark:text-brand-400 font-medium shadow-sm cursor-pointer'
               : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-200/60 dark:hover:bg-zinc-800/60 cursor-pointer'
-          }`}
+            }`}
         >
           {activeModule === 'git' && (
             <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-brand-500 dark:bg-brand-400 rounded-r shadow-[0_0_8px_rgba(56,189,248,0.8)]" />
@@ -104,11 +100,10 @@ export const ActivityBar: React.FC<ActivityBarProps> = ({
           type="button"
           onClick={() => setActiveModule('docker')}
           title="Docker Manager (Containers, Compose, Live Logs) (Ctrl+5)"
-          className={`activity-bar-btn relative w-10 h-10 rounded-lg flex items-center justify-center transition-all ${
-            activeModule === 'docker'
+          className={`activity-bar-btn relative w-10 h-10 rounded-lg flex items-center justify-center transition-all ${activeModule === 'docker'
               ? 'bg-slate-200 dark:bg-zinc-800 text-brand-600 dark:text-brand-400 font-medium shadow-sm cursor-pointer'
               : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-200/60 dark:hover:bg-zinc-800/60 cursor-pointer'
-          }`}
+            }`}
         >
           {activeModule === 'docker' && (
             <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-brand-500 dark:bg-brand-400 rounded-r shadow-[0_0_8px_rgba(56,189,248,0.8)]" />
@@ -121,11 +116,10 @@ export const ActivityBar: React.FC<ActivityBarProps> = ({
           type="button"
           onClick={() => setActiveModule('terminal')}
           title="Terminal / PowerShell (Ctrl+6)"
-          className={`activity-bar-btn relative w-10 h-10 rounded-lg flex items-center justify-center transition-all ${
-            activeModule === 'terminal'
+          className={`activity-bar-btn relative w-10 h-10 rounded-lg flex items-center justify-center transition-all ${activeModule === 'terminal'
               ? 'bg-slate-200 dark:bg-zinc-800 text-brand-600 dark:text-brand-400 font-medium shadow-sm cursor-pointer'
               : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-200/60 dark:hover:bg-zinc-800/60 cursor-pointer'
-          }`}
+            }`}
         >
           {activeModule === 'terminal' && (
             <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-brand-500 dark:bg-brand-400 rounded-r shadow-[0_0_8px_rgba(56,189,248,0.8)]" />

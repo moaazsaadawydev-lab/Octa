@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+
+	"octa/internal/settings"
 )
 
 // App is the lightweight delegator / facade struct exposed to Wails.
@@ -14,6 +16,7 @@ type App struct {
 	terminalService *TerminalService
 	dockerService   *DockerService
 	gitService      *GitService
+	settingsService *settings.SettingsService
 }
 
 // NewApp creates a new App application struct with domain services.
@@ -26,6 +29,7 @@ func NewApp() *App {
 		terminalService: NewTerminalService(),
 		dockerService:   NewDockerService(),
 		gitService:      NewGitService(),
+		settingsService: settings.NewSettingsService(),
 	}
 }
 
@@ -39,6 +43,7 @@ func (a *App) startup(ctx context.Context) {
 	a.terminalService.SetContext(ctx)
 	a.dockerService.SetContext(ctx)
 	a.gitService.SetContext(ctx)
+	a.settingsService.SetContext(ctx)
 }
 
 // ============================================================================
@@ -333,3 +338,12 @@ func (a *App) IsGitRepository(repoPath string) bool {
 func (a *App) InitializeRepositoryWithOptions(opts InitRepoOptions) error {
 	return a.gitService.InitializeRepositoryWithOptions(opts)
 }
+
+// ============================================================================
+// SETTINGS & CACHE DOMAIN (Delegated to SettingsService)
+// ============================================================================
+
+func (a *App) ClearAppCache() (bool, error) {
+	return a.settingsService.ClearAppCache()
+}
+

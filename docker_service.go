@@ -18,6 +18,8 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/stdcopy"
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
+
+	"octa/internal/executil"
 )
 
 // DockerPortMapping represents an exposed or forwarded port
@@ -63,16 +65,12 @@ type execSession struct {
 
 // dockerCommand creates an exec.Cmd with suppressed console window on Windows
 func dockerCommand(args ...string) *exec.Cmd {
-	cmd := exec.Command("docker", args...)
-	cmd.SysProcAttr = getSysProcAttr()
-	return cmd
+	return executil.Command("docker", args...)
 }
 
 // dockerCommandContext creates a context-bound exec.Cmd with suppressed console window on Windows
 func dockerCommandContext(ctx context.Context, args ...string) *exec.Cmd {
-	cmd := exec.CommandContext(ctx, "docker", args...)
-	cmd.SysProcAttr = getSysProcAttr()
-	return cmd
+	return executil.CommandContext(ctx, "docker", args...)
 }
 
 // DockerService manages Docker engine interactions via Hybrid SDK + CLI Fallback
