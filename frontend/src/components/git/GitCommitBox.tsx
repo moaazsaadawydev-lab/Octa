@@ -1,7 +1,9 @@
 import React from 'react';
-import { GitCommit, ArrowUp } from 'lucide-react';
+import { GitCommit, ArrowUp, Sparkles, Loader2 } from 'lucide-react';
+import { useCommitAI } from './useCommitAI';
 
 interface GitCommitBoxProps {
+  repoPath?: string;
   commitMessage: string;
   setCommitMessage: (msg: string) => void;
   canCommit: boolean;
@@ -12,9 +14,11 @@ interface GitCommitBoxProps {
   isActionLoading: string | null;
   onCommitSubmit: () => void;
   onPush: () => void;
+  showToast?: (message: string, type?: 'success' | 'error' | 'info') => void;
 }
 
 export const GitCommitBox: React.FC<GitCommitBoxProps> = ({
+  repoPath,
   commitMessage,
   setCommitMessage,
   canCommit,
@@ -25,22 +29,48 @@ export const GitCommitBox: React.FC<GitCommitBoxProps> = ({
   isActionLoading,
   onCommitSubmit,
   onPush,
+  showToast,
 }) => {
+  const { isGenerating, generate } = useCommitAI({ showToast });
+
+  const handleGenerateAI = () => {
+    if (!repoPath) return;
+    generate(repoPath, (msg) => {
+      setCommitMessage(msg);
+    });
+  };
+
   return (
     <div className="space-y-1.5 pt-1">
-      <textarea
-        rows={2}
-        value={commitMessage}
-        onChange={(e) => setCommitMessage(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-            e.preventDefault();
-            onCommitSubmit();
-          }
-        }}
-        placeholder="Message (Ctrl+Enter to commit)"
-        className="w-full px-2.5 py-1.5 rounded-lg bg-slate-50 dark:bg-[#08090d] border border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-500 outline-none focus:border-brand-500 resize-none font-sans transition-colors"
-      />
+      <div className="relative">
+        <textarea
+          rows={2}
+          value={commitMessage}
+          onChange={(e) => setCommitMessage(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+              e.preventDefault();
+              onCommitSubmit();
+            }
+          }}
+          placeholder="Message (Ctrl+Enter to commit)"
+          className="w-full pl-2.5 pr-8 py-1.5 rounded-lg bg-slate-50 dark:bg-[#08090d] border border-slate-200 dark:border-zinc-800 text-xs text-slate-900 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-500 outline-none focus:border-brand-500 resize-none font-sans transition-colors"
+        />
+
+        <button
+          type="button"
+          disabled={isGenerating || isActionLoading !== null || !repoPath}
+          onClick={handleGenerateAI}
+          title="Suggest commit message with AI"
+          className="absolute top-2 right-2 p-1 rounded-md text-purple-500 hover:text-purple-600 dark:text-purple-400 dark:hover:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950/30 transition-colors disabled:opacity-40 cursor-pointer"
+        >
+          {isGenerating ? (
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          ) : (
+            <Sparkles className="w-3.5 h-3.5" />
+          )}
+        </button>
+      </div>
 
       <div className="flex items-center gap-1.5">
         <button

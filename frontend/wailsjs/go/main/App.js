@@ -110,6 +110,14 @@ export function FlushRedisDB(arg1) {
   return window['go']['main']['App']['FlushRedisDB'](arg1);
 }
 
+export function GenerateCommitMessage(arg1) {
+  return window['go']['main']['App']['GenerateCommitMessage'](arg1);
+}
+
+export function GetAISettings() {
+  return window['go']['main']['App']['GetAISettings']();
+}
+
 export function GetAvailableShells() {
   return window['go']['main']['App']['GetAvailableShells']();
 }
@@ -238,6 +246,10 @@ export function RestartContainer(arg1) {
   return window['go']['main']['App']['RestartContainer'](arg1);
 }
 
+export function SaveAISettings(arg1, arg2) {
+  return window['go']['main']['App']['SaveAISettings'](arg1, arg2);
+}
+
 export function SaveConnection(arg1) {
   return window['go']['main']['App']['SaveConnection'](arg1);
 }
@@ -328,6 +340,10 @@ export function StopLogStream(arg1) {
 
 export function TestConnection(arg1) {
   return window['go']['main']['App']['TestConnection'](arg1);
+}
+
+export function TestGeminiConnection(arg1, arg2) {
+  return window['go']['main']['App']['TestGeminiConnection'](arg1, arg2);
 }
 
 export function TruncateTable(arg1, arg2, arg3) {

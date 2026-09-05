@@ -45,6 +45,7 @@ export const GitSidebar: React.FC<GitSidebarProps> = ({
   onSwitchRepo,
   isActionLoading,
   width,
+  showToast,
 }) => {
   const [commitMessage, setCommitMessage] = useState('');
   const [stagedExpanded, setStagedExpanded] = useState(true);
@@ -87,6 +88,7 @@ export const GitSidebar: React.FC<GitSidebarProps> = ({
 
         {/* 2. Commit Message Box */}
         <GitCommitBox
+          repoPath={status?.repoPath || ''}
           commitMessage={commitMessage}
           setCommitMessage={setCommitMessage}
           canCommit={canCommit}
@@ -97,6 +99,7 @@ export const GitSidebar: React.FC<GitSidebarProps> = ({
           isActionLoading={isActionLoading}
           onCommitSubmit={handleCommitSubmit}
           onPush={onPush}
+          showToast={showToast}
         />
       </div>
 

@@ -157,7 +157,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <AppearanceTab settings={settings} onUpdateSettings={onUpdateSettings} />
             )}
             {activeTab === 'ai' && (
-              <AIEngineTab settings={settings} onUpdateSettings={onUpdateSettings} />
+              <AIEngineTab
+                settings={settings}
+                onUpdateSettings={onUpdateSettings}
+                showToast={showToast}
+              />
             )}
             {activeTab === 'docker' && (
               <DockerTab

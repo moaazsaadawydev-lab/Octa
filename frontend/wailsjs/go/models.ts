@@ -1,3 +1,36 @@
+export namespace ai {
+	
+	export class AIConfig {
+	    gemini_api_key: string;
+	    gemini_selected_model: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new AIConfig(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.gemini_api_key = source["gemini_api_key"];
+	        this.gemini_selected_model = source["gemini_selected_model"];
+	    }
+	}
+	export class ConnectionResult {
+	    success: boolean;
+	    message: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ConnectionResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.success = source["success"];
+	        this.message = source["message"];
+	    }
+	}
+
+}
+
 export namespace docker {
 	
 	export class EngineProvider {

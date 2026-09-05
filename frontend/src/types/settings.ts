@@ -18,6 +18,8 @@ export interface AppSettings {
   aiEnabled?: boolean;
   aiProvider?: string;
   aiApiKey?: string;
+  gemini_api_key?: string;
+  gemini_selected_model?: string;
   // Docker Engine
   docker_default_engine?: 'windows' | 'wsl';
 }
@@ -34,8 +36,10 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   editorLigatures: true,
   editorFontLigatures: true,
   aiEnabled: false,
-  aiProvider: 'gemini-3.8-flash',
+  aiProvider: 'gemini-2.5-flash',
   aiApiKey: '',
+  gemini_api_key: '',
+  gemini_selected_model: 'gemini-2.5-flash',
   docker_default_engine: 'windows',
 };
 
