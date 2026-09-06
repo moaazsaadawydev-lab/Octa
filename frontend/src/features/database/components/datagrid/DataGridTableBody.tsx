@@ -5,6 +5,7 @@ import { DataGridCellEditor } from './DataGridCellEditor';
 export interface DataGridTableBodyProps {
   rows: Record<string, any>[];
   columns: TableColumn[];
+  columnWidths?: Record<string, number>;
   pkCol: string;
   selectedRowIds: Set<string>;
   onToggleRowSelect: (rowId: string) => void;
@@ -18,6 +19,7 @@ export interface DataGridTableBodyProps {
 export const DataGridTableBody: React.FC<DataGridTableBodyProps> = ({
   rows,
   columns,
+  columnWidths,
   pkCol,
   selectedRowIds,
   onToggleRowSelect,
@@ -55,10 +57,12 @@ export const DataGridTableBody: React.FC<DataGridTableBodyProps> = ({
               const val = hasStaged ? stagedUpdates[rowId][col.name] : row[col.name];
               const isEditing =
                 editingCell?.rowIdx === rIdx && editingCell?.colName === col.name;
+              const width = columnWidths?.[col.name] || 160;
 
               return (
                 <td
                   key={col.name}
+                  style={{ width, minWidth: width, maxWidth: width }}
                   onDoubleClick={() => {
                     setEditingCell({
                       rowIdx: rIdx,

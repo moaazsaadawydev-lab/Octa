@@ -6,7 +6,7 @@ export const AboutTab: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Brand Header */}
-      <div className="p-6 bg-slate-50 dark:bg-[#16171d] border border-slate-200 dark:border-zinc-800/80 rounded-2xl flex items-center justify-between shadow-xs">
+      <div className="p-6 bg-slate-50/70 dark:bg-[#0e1219] border border-slate-200 dark:border-zinc-800/80 rounded-2xl flex items-center justify-between shadow-xs">
         <div className="flex items-center gap-4">
           <div className="w-14 h-14 rounded-2xl bg-brand-600/10 dark:bg-brand-600/20 border border-brand-500/20 dark:border-brand-500/30 flex items-center justify-center p-2 shadow-sm">
             <img
@@ -37,7 +37,7 @@ export const AboutTab: React.FC = () => {
       </div>
 
       {/* System Specifications */}
-      <div className="p-4 bg-slate-50 dark:bg-[#16171d] border border-slate-200 dark:border-zinc-800/80 rounded-xl space-y-3">
+      <div className="p-4 bg-slate-50/70 dark:bg-[#0e1219] border border-slate-200 dark:border-zinc-800/80 rounded-xl space-y-3">
         <div className="flex items-center gap-2 text-xs font-semibold text-slate-900 dark:text-zinc-100">
           <Shield className="w-4 h-4 text-brand-500" />
           <span>Security & Local Storage</span>

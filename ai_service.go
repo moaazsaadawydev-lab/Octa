@@ -102,3 +102,40 @@ func (s *AIService) GenerateCommitMessage(repoPath string) (string, error) {
 	return ai.GenerateCommitMessage(repoPath, cfg.GeminiApiKey, model)
 }
 
+// ExplainTerminalError analyzes recent terminal session output and returns a diagnostic explanation.
+func (s *AIService) ExplainTerminalError(shellType string, terminalOutput string) (*ai.AIExplanationResponse, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	cfg, err := ai.LoadAIConfig()
+	if err != nil || strings.TrimSpace(cfg.GeminiApiKey) == "" {
+		return nil, errors.New("Gemini API key is not configured. Please set it in Settings -> AI Engine.")
+	}
+
+	model := cfg.GeminiSelectedModel
+	if strings.TrimSpace(model) == "" {
+		model = ai.DefaultGeminiModel
+	}
+
+	return ai.ExplainTerminalError(s.ctx, shellType, terminalOutput, cfg.GeminiApiKey, model)
+}
+
+// AskAIFollowUp handles follow-up inquiries to the initial terminal diagnostic response.
+func (s *AIService) AskAIFollowUp(conversationHistory []ai.ChatMessage, userQuery string) (string, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	cfg, err := ai.LoadAIConfig()
+	if err != nil || strings.TrimSpace(cfg.GeminiApiKey) == "" {
+		return "", errors.New("Gemini API key is not configured. Please set it in Settings -> AI Engine.")
+	}
+
+	model := cfg.GeminiSelectedModel
+	if strings.TrimSpace(model) == "" {
+		model = ai.DefaultGeminiModel
+	}
+
+	return ai.AskAIFollowUp(s.ctx, conversationHistory, userQuery, cfg.GeminiApiKey, model)
+}
+
+

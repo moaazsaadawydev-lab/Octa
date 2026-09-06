@@ -24,7 +24,7 @@ export const ScopeList: React.FC<ScopeListProps> = ({
   onDeleteEnvironment,
 }) => {
   return (
-    <div className="w-64 border-r border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-[#121214] flex flex-col overflow-hidden">
+    <div className="w-64 border-r border-slate-200 dark:border-zinc-800/80 bg-slate-50 dark:bg-[#0b0e14] flex flex-col overflow-hidden">
       <div className="p-3 border-b border-slate-200 dark:border-zinc-800/80 flex items-center justify-between">
         <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Scopes</span>
         <button
@@ -43,15 +43,15 @@ export const ScopeList: React.FC<ScopeListProps> = ({
           onClick={() => onSelectScope('globals')}
           className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-all text-left cursor-pointer ${
             selectedEnvIdInModal === 'globals'
-              ? 'bg-slate-200 dark:bg-zinc-800 text-slate-900 dark:text-white shadow-sm border border-slate-300 dark:border-zinc-700'
-              : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-850'
+              ? 'bg-slate-200 dark:bg-[#161c26] text-slate-900 dark:text-white shadow-sm border border-slate-300 dark:border-zinc-700/80'
+              : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-100 dark:hover:bg-[#121620] border border-transparent'
           }`}
         >
           <div className="flex items-center gap-2">
             <Key className="w-3.5 h-3.5 text-amber-400" />
             <span>Globals</span>
           </div>
-          <span className="text-[10px] font-mono text-zinc-500 bg-slate-100 dark:bg-zinc-900 px-1.5 py-0.5 rounded">
+          <span className="text-[10px] font-mono text-zinc-500 bg-slate-100 dark:bg-[#12161f] border border-slate-200 dark:border-zinc-800 px-1.5 py-0.5 rounded">
             {globalVariablesCount}
           </span>
         </button>
@@ -67,8 +67,8 @@ export const ScopeList: React.FC<ScopeListProps> = ({
               onClick={() => onSelectScope(env.id)}
               className={`group flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer ${
                 isSelected
-                  ? 'bg-slate-200 dark:bg-zinc-800 text-slate-900 dark:text-white shadow-sm border border-slate-300 dark:border-zinc-700'
-                  : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-850'
+                  ? 'bg-slate-200 dark:bg-[#161c26] text-slate-900 dark:text-white shadow-sm border border-slate-300 dark:border-zinc-700/80'
+                  : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-100 dark:hover:bg-[#121620] border border-transparent'
               }`}
             >
               <div className="flex items-center gap-2 truncate">

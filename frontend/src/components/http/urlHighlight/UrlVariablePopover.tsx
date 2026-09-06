@@ -34,7 +34,7 @@ export const UrlVariablePopover: React.FC<UrlVariablePopoverProps> = ({
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
       style={{ left: `${Math.min(Math.max(8, popoverLeft), 400)}px` }}
-      className="absolute top-full mt-2 w-80 bg-white dark:bg-[#18181b] border border-slate-200 dark:border-zinc-700/80 rounded-xl shadow-2xl z-50 p-3 animate-in fade-in zoom-in-95 duration-100 font-sans"
+      className="absolute top-full mt-2 w-80 bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-zinc-800/90 rounded-xl shadow-2xl z-50 p-3 animate-in fade-in zoom-in-95 duration-100 font-sans"
     >
       {/* Popover Header */}
       <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-200 dark:border-zinc-800/80">
@@ -59,7 +59,7 @@ export const UrlVariablePopover: React.FC<UrlVariablePopoverProps> = ({
           <div className="text-[11px] text-slate-500 dark:text-zinc-400">
             Generated dynamic macro value:
           </div>
-          <div className="p-2 bg-slate-50 dark:bg-[#121214] border border-slate-200 dark:border-zinc-800 rounded-lg font-mono text-xs text-amber-700 dark:text-amber-300 select-all break-all">
+          <div className="p-2 bg-slate-50 dark:bg-[#0b0e14] border border-slate-200 dark:border-zinc-800/80 rounded-lg font-mono text-xs text-amber-700 dark:text-amber-300 select-all break-all">
             {token.value}
           </div>
         </div>
@@ -79,6 +79,10 @@ export const UrlVariablePopover: React.FC<UrlVariablePopoverProps> = ({
               type="text"
               value={editValue}
               autoFocus
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck={false}
               onChange={(e) => onEditChange(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Escape' || e.key === 'Enter') {
@@ -86,7 +90,7 @@ export const UrlVariablePopover: React.FC<UrlVariablePopoverProps> = ({
                 }
               }}
               placeholder="Enter variable value..."
-              className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-[#121214] border border-slate-200 dark:border-zinc-700/80 focus:border-sky-500 rounded-lg text-xs font-mono text-slate-900 dark:text-zinc-100 placeholder:text-slate-400 dark:placeholder:text-zinc-600 outline-none transition-all shadow-inner"
+              className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-[#12161f] border border-slate-200 dark:border-zinc-700/60 focus:border-sky-500 rounded-lg text-xs font-mono text-slate-900 dark:text-zinc-100 placeholder:text-slate-400 dark:placeholder:text-zinc-600 outline-none transition-all shadow-inner"
             />
           </div>
 

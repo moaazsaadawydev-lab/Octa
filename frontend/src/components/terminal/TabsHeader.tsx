@@ -1,5 +1,5 @@
 import React from 'react';
-import { Columns2, Rows2, Folder, RotateCcw } from 'lucide-react';
+import { Columns2, Rows2, Folder, RotateCcw, Sparkles } from 'lucide-react';
 import clsx from 'clsx';
 import { TerminalTab, ShellInfo } from '../../types/terminal';
 import { ShellDropdown } from './ShellDropdown';
@@ -16,6 +16,7 @@ interface TabsHeaderProps {
   onRenameTab: (tabId: string, newTitle: string) => void;
   onSplitTab: (direction: 'horizontal' | 'vertical') => void;
   onRestartSession: () => void;
+  onTroubleshootAI?: () => void;
 }
 
 export const TabsHeader: React.FC<TabsHeaderProps> = ({
@@ -29,6 +30,7 @@ export const TabsHeader: React.FC<TabsHeaderProps> = ({
   onRenameTab,
   onSplitTab,
   onRestartSession,
+  onTroubleshootAI,
 }) => {
   const activeTab = tabs.find((t) => t.id === activeTabId);
 
@@ -104,6 +106,19 @@ export const TabsHeader: React.FC<TabsHeaderProps> = ({
             >
               <RotateCcw className="w-3.5 h-3.5" />
             </button>
+
+            {/* AI Troubleshoot Button */}
+            {onTroubleshootAI && (
+              <button
+                type="button"
+                onClick={onTroubleshootAI}
+                title="Troubleshoot terminal errors with AI"
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-purple-500/10 hover:bg-purple-500/20 text-purple-600 dark:text-purple-400 border border-purple-500/30 transition-all cursor-pointer shadow-xs"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-purple-500" />
+                <span className="hidden md:inline">Troubleshoot (AI)</span>
+              </button>
+            )}
           </>
         )}
       </div>

@@ -32,3 +32,12 @@ func (a *App) GenerateCommitMessage(repoPath string) (string, error) {
 	return a.aiService.GenerateCommitMessage(repoPath)
 }
 
+func (a *App) ExplainTerminalError(shellType string, terminalOutput string) (*ai.AIExplanationResponse, error) {
+	return a.aiService.ExplainTerminalError(shellType, terminalOutput)
+}
+
+func (a *App) AskAIFollowUp(conversationHistory []ai.ChatMessage, userQuery string) (string, error) {
+	return a.aiService.AskAIFollowUp(conversationHistory, userQuery)
+}
+
+

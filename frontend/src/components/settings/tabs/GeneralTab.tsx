@@ -88,7 +88,7 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({
             type="text"
             readOnly
             value="User Documents / Octa"
-            className="w-48 bg-white dark:bg-zinc-800/80 border border-slate-300 dark:border-zinc-700 text-slate-700 dark:text-zinc-300 text-xs rounded-lg px-2.5 py-1.5 font-mono select-none"
+            className="w-48 bg-white dark:bg-[#0a0d13] border border-slate-300 dark:border-zinc-800/80 text-slate-700 dark:text-zinc-300 text-xs rounded-lg px-2.5 py-1.5 font-mono select-none"
           />
         </div>
       </SettingsRowCard>

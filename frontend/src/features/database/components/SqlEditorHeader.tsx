@@ -46,7 +46,7 @@ export const SqlEditorHeader: React.FC<SqlEditorHeaderProps> = ({
       <div className="flex items-center gap-1.5">
         <button
           type="button"
-          onClick={onExecute}
+          onClick={() => onExecute()}
           disabled={isExecuting}
           title="Run Query (Ctrl + Enter)"
           className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-lg text-xs font-medium shadow-sm transition-all cursor-pointer disabled:cursor-not-allowed"
@@ -62,7 +62,7 @@ export const SqlEditorHeader: React.FC<SqlEditorHeaderProps> = ({
 
         <button
           type="button"
-          onClick={onFormat}
+          onClick={() => onFormat()}
           title="Format SQL (Ctrl+Shift+F)"
           className="flex items-center gap-1 px-2.5 py-1.5 bg-slate-200/80 dark:bg-zinc-800 hover:bg-slate-300 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 rounded-lg text-xs font-medium transition-colors cursor-pointer"
         >

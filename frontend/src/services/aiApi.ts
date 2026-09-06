@@ -136,3 +136,87 @@ export async function generateCommitMessage(
   };
 }
 
+export interface ChatMessage {
+  role: 'user' | 'model' | 'assistant';
+  content: string;
+}
+
+export interface AIExplanationResult {
+  success: boolean;
+  explanation?: string;
+  shellType?: string;
+  error?: string;
+}
+
+export interface AIFollowUpResult {
+  success: boolean;
+  response?: string;
+  error?: string;
+}
+
+/**
+ * Sends terminal session buffer to Gemini for root-cause diagnosis and suggested fixes.
+ */
+export async function explainTerminalError(
+  shellType: string,
+  terminalOutput: string
+): Promise<AIExplanationResult> {
+  try {
+    const w = window as any;
+    if (typeof w?.go?.main?.App?.ExplainTerminalError === 'function') {
+      const res = await w.go.main.App.ExplainTerminalError(shellType, terminalOutput);
+      return {
+        success: true,
+        explanation: res?.explanation || 'No diagnosis returned',
+        shellType: res?.shell_type || shellType,
+      };
+    }
+  } catch (err: any) {
+    const errMsg = err?.message || String(err);
+    console.warn('[AI explainTerminalError Error]:', errMsg);
+    return {
+      success: false,
+      error: errMsg,
+    };
+  }
+
+  // Dev Mock fallback
+  return {
+    success: true,
+    shellType,
+    explanation: `### Root Cause (${shellType})\nThe command failed because the targeted executable or dependency could not be resolved in your current shell path.\n\n### Suggested Fix\nRun the following command to verify or fix the environment:\n\`\`\`bash\nwhich command || echo "Not found"\n\`\`\``,
+  };
+}
+
+/**
+ * Sends a follow-up inquiry preserving conversational chat context.
+ */
+export async function askAIFollowUp(
+  history: ChatMessage[],
+  query: string
+): Promise<AIFollowUpResult> {
+  try {
+    const w = window as any;
+    if (typeof w?.go?.main?.App?.AskAIFollowUp === 'function') {
+      const res = await w.go.main.App.AskAIFollowUp(history, query);
+      return {
+        success: true,
+        response: String(res).trim(),
+      };
+    }
+  } catch (err: any) {
+    const errMsg = err?.message || String(err);
+    console.warn('[AI askAIFollowUp Error]:', errMsg);
+    return {
+      success: false,
+      error: errMsg,
+    };
+  }
+
+  return {
+    success: true,
+    response: `Follow-up response for "${query}": ensure your shell has the necessary path configured.`,
+  };
+}
+
+

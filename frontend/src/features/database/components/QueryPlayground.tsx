@@ -1,23 +1,24 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   ActiveSession,
   QueryTab,
   SqlQueryItem,
   SqlQueryFolder,
-  SqlTreeItem,
   QueryResult,
 } from '../types';
 import { SqlQueryTabBar } from './SqlQueryTabBar';
 import { SqlEditorHeader } from './SqlEditorHeader';
 import { SqlCodeEditor } from './SqlCodeEditor';
-import { QueryResultsTable } from './QueryResultsTable';
 import { QueryExecutionFooter } from './QueryExecutionFooter';
 import { SaveQueryModal } from './SaveQueryModal';
 import { QueryHistoryDrawer } from './QueryHistoryDrawer';
-import { ExplainPlanViewer } from '../../../components/database/ExplainPlanViewer';
 import { HomeLanding } from '../../../components/layout/HomeLanding';
 import { useQueryExecution } from '../hooks/useQueryExecution';
 import { extractFolders } from '../utils/treeHelpers';
+import { useVerticalSplitter } from './playground/useVerticalSplitter';
+import { QueryResultPanel } from './playground/QueryResultPanel';
+import { useQueryTabs } from './playground/useQueryTabs';
+import { usePlaygroundSave } from './playground/usePlaygroundSave';
 
 export interface QueryPlaygroundProps {
   activeSession: ActiveSession | null;
@@ -31,8 +32,6 @@ export interface QueryPlaygroundProps {
   onSaveQueriesTree?: (tree: (SqlQueryFolder | SqlQueryItem)[]) => void;
 }
 
-const DEFAULT_QUERY = `-- Octa SQL Playground\n-- Press Ctrl + Enter to run selected text or full query\n\nSELECT \n  'Octa' AS application,\n  'Database Management & SQL Workspace' AS milestone,\n  NOW() AS executed_at;\n`;
-
 export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
   activeSession,
   onOpenNewModal,
@@ -44,34 +43,30 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
   queriesTree = [],
   onSaveQueriesTree,
 }) => {
-  const [internalTabs, setInternalTabs] = useState<QueryTab[]>([
-    { id: 'tab-1', title: 'Query 1.sql', query: DEFAULT_QUERY, isDirty: false, results: null },
-  ]);
-  const [internalActiveTabId, setInternalActiveTabId] = useState<string | null>('tab-1');
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
-  const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
-  const [saveModalName, setSaveModalName] = useState('Untitled.sql');
-  const [saveModalFolderId, setSaveModalFolderId] = useState('');
   const [resultPage, setResultPage] = useState(1);
   const [resultLimit] = useState(50);
+  const editorInstanceRef = useRef<any>(null);
 
-  const tabs = propTabs !== undefined ? propTabs : internalTabs;
-  const setTabs = (updater: QueryTab[] | ((prev: QueryTab[]) => QueryTab[])) => {
-    if (onTabsChange) {
-      const next = typeof updater === 'function' ? updater(tabs) : updater;
-      onTabsChange(next);
-    } else {
-      setInternalTabs(updater);
-    }
-  };
+  const {
+    tabs,
+    setTabs,
+    activeTab,
+    activeTabId,
+    setActiveTabId,
+    handleAddTab,
+    handleCloseTab,
+    handleRenameTab,
+    handleUpdateTabQuery,
+  } = useQueryTabs({
+    propTabs,
+    propActiveTabId,
+    onTabsChange,
+    onActiveTabChange,
+  });
 
-  const activeTabId = propActiveTabId !== undefined ? propActiveTabId : internalActiveTabId;
-  const setActiveTabId = (id: string | null) => {
-    if (onActiveTabChange) onActiveTabChange(id);
-    else setInternalActiveTabId(id);
-  };
-
-  const activeTab = tabs.find((t) => t.id === activeTabId) || tabs[0] || null;
+  const { resultsHeight, containerRef, handleSplitterMouseDown, isDragging } =
+    useVerticalSplitter();
 
   const queryExec = useQueryExecution({
     activeSession,
@@ -88,15 +83,43 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
     },
   });
 
+  const saveOps = usePlaygroundSave({
+    activeTab,
+    queriesTree,
+    onSaveQueriesTree,
+    activeDatabase: activeSession?.activeDatabase,
+    setTabs,
+    showToast,
+  });
+
+  const getQueryToExecute = (): string => {
+    if (editorInstanceRef.current) {
+      const editor = editorInstanceRef.current;
+      const model = editor.getModel?.();
+      const selection = editor.getSelection?.();
+      if (model && selection && !selection.isEmpty()) {
+        const selected = model.getValueInRange(selection)?.trim();
+        if (selected) return selected;
+      }
+      const fullVal = editor.getValue?.()?.trim();
+      if (fullVal) return fullVal;
+    }
+    return activeTab?.query?.trim() || '';
+  };
+
   const handleExecute = async (queryOverride?: string) => {
     if (!activeTab) return;
-    const sql = queryOverride || activeTab.query;
+    const sql =
+      typeof queryOverride === 'string' && queryOverride.trim()
+        ? queryOverride
+        : getQueryToExecute();
     await queryExec.runQuery(sql);
   };
 
   const handleExplain = async (analyze: boolean) => {
     if (!activeTab) return;
-    const plan = await queryExec.runExplain(activeTab.query, analyze);
+    const sql = getQueryToExecute();
+    const plan = await queryExec.runExplain(sql, analyze);
     if (plan) {
       setTabs((prev) =>
         prev.map((t) =>
@@ -116,41 +139,6 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
     );
   };
 
-  const handleConfirmSave = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!activeTab || !saveModalName.trim() || !onSaveQueriesTree) return;
-    let name = saveModalName.trim();
-    if (!name.endsWith('.sql')) name += '.sql';
-
-    const newQuery: SqlQueryItem = {
-      id: 'query-' + Date.now(),
-      type: 'query',
-      name,
-      content: activeTab.query,
-      database: activeSession?.activeDatabase,
-      createdAt: Date.now(),
-    };
-
-    if (!saveModalFolderId) {
-      onSaveQueriesTree([...queriesTree, newQuery]);
-    } else {
-      const insert = (items: SqlTreeItem[]): SqlTreeItem[] =>
-        items.map((it) =>
-          it.id === saveModalFolderId && it.type === 'folder'
-            ? { ...it, isOpen: true, items: [newQuery, ...it.items] }
-            : it.type === 'folder'
-            ? { ...it, items: insert(it.items) }
-            : it
-        );
-      onSaveQueriesTree(insert(queriesTree) as (SqlQueryFolder | SqlQueryItem)[]);
-    }
-    setTabs((prev) =>
-      prev.map((t) => (t.id === activeTab.id ? { ...t, title: name, isDirty: false } : t))
-    );
-    setIsSaveModalOpen(false);
-    showToast(`Saved query "${name}" to QUERIES`, 'success');
-  };
-
   if (!activeSession) return <HomeLanding onOpenNewModal={onOpenNewModal} />;
 
   const currentResult: QueryResult | null =
@@ -162,62 +150,63 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
         tabs={tabs}
         activeTabId={activeTabId}
         onSelectTab={setActiveTabId}
-        onCloseTab={(id) => {
-          const next = tabs.filter((t) => t.id !== id);
-          setTabs(next);
-          if (activeTabId === id) setActiveTabId(next[0]?.id || null);
-        }}
-        onAddTab={() => {
-          const id = 'tab-' + Date.now();
-          setTabs([...tabs, { id, title: `Query ${tabs.length + 1}.sql`, query: DEFAULT_QUERY }]);
-          setActiveTabId(id);
-        }}
-        onRenameTab={(id, title) =>
-          setTabs((prev) => prev.map((t) => (t.id === id ? { ...t, title } : t)))
-        }
+        onCloseTab={handleCloseTab}
+        onAddTab={handleAddTab}
+        onRenameTab={handleRenameTab}
       />
 
       <SqlEditorHeader
         onExecute={handleExecute}
         onFormat={handleFormat}
         onExplain={handleExplain}
-        onSave={() => {
-          setSaveModalName(activeTab?.title || 'Untitled.sql');
-          setIsSaveModalOpen(true);
-        }}
+        onSave={saveOps.handleTriggerSave}
         onToggleHistory={() => setIsHistoryOpen(!isHistoryOpen)}
         isExecuting={queryExec.isExecuting}
         hasResults={Boolean(currentResult)}
       />
 
-      <div className="flex-1 flex min-h-0 relative overflow-hidden">
+      <div ref={containerRef} className="flex-1 flex min-h-0 relative overflow-hidden">
         <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-          <div className="flex-1 min-h-[140px]">
+          {/* Top Section: Monaco SQL Editor */}
+          <div className="flex-1 min-h-[200px] overflow-hidden relative">
             {activeTab && (
               <SqlCodeEditor
                 value={activeTab.query}
-                onChange={(q) =>
-                  setTabs((prev) =>
-                    prev.map((t) => (t.id === activeTabId ? { ...t, query: q, isDirty: true } : t))
-                  )
-                }
+                onChange={handleUpdateTabQuery}
                 onExecute={handleExecute}
                 onFormat={handleFormat}
+                onSave={saveOps.handleTriggerSave}
+                externalEditorRef={editorInstanceRef}
+                activeSession={activeSession}
               />
             )}
           </div>
 
-          <div className="h-64 border-t border-slate-200 dark:border-zinc-800 bg-white dark:bg-[#111113] overflow-hidden flex flex-col">
-            {activeTab?.explainPlan ? (
-              <ExplainPlanViewer planResult={activeTab.explainPlan} showToast={showToast} />
-            ) : (
-              <QueryResultsTable
-                result={currentResult}
-                page={resultPage}
-                limit={resultLimit}
-                onPageChange={setResultPage}
-              />
-            )}
+          {/* Draggable Vertical Splitter Divider */}
+          <div
+            onMouseDown={handleSplitterMouseDown}
+            className={`h-2 border-y border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-[#141416] hover:bg-brand-500/40 cursor-row-resize flex items-center justify-center transition-colors select-none z-20 flex-shrink-0 ${
+              isDragging ? 'bg-brand-500/60' : ''
+            }`}
+            title="Drag to resize Results Panel"
+          >
+            <div className="w-8 h-0.5 rounded-full bg-slate-300 dark:bg-zinc-600" />
+          </div>
+
+          {/* Bottom Section: Query Results Panel */}
+          <div
+            style={{ height: `${resultsHeight}px`, minHeight: '220px' }}
+            className="overflow-hidden flex flex-col flex-shrink-0 bg-white dark:bg-[#0c0d12]"
+          >
+            <QueryResultPanel
+              explainPlan={activeTab?.explainPlan}
+              currentResult={currentResult}
+              isExecuting={queryExec.isExecuting}
+              page={resultPage}
+              limit={resultLimit}
+              onPageChange={setResultPage}
+              showToast={showToast}
+            />
           </div>
         </div>
 
@@ -226,17 +215,8 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
             isOpen={isHistoryOpen}
             onClose={() => setIsHistoryOpen(false)}
             history={queryExec.history}
-            onInsertQuery={(sql) =>
-              setTabs((prev) =>
-                prev.map((t) => (t.id === activeTabId ? { ...t, query: sql, isDirty: true } : t))
-              )
-            }
-            onRunQuery={(sql) => {
-              setTabs((prev) =>
-                prev.map((t) => (t.id === activeTabId ? { ...t, query: sql, isDirty: true } : t))
-              );
-              handleExecute(sql);
-            }}
+            onInsertQuery={handleUpdateTabQuery}
+            onRunQuery={(sql) => { handleUpdateTabQuery(sql); handleExecute(sql); }}
             onClearHistory={queryExec.clearHistory}
             showToast={showToast}
           />
@@ -248,16 +228,15 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
         isExecuting={queryExec.isExecuting}
         currentResult={currentResult}
       />
-
       <SaveQueryModal
-        isOpen={isSaveModalOpen}
-        onClose={() => setIsSaveModalOpen(false)}
-        queryName={saveModalName}
-        setQueryName={setSaveModalName}
-        folderId={saveModalFolderId}
-        setFolderId={setSaveModalFolderId}
+        isOpen={saveOps.isSaveModalOpen}
+        onClose={() => saveOps.setIsSaveModalOpen(false)}
+        queryName={saveOps.saveModalName}
+        setQueryName={saveOps.setSaveModalName}
+        folderId={saveOps.saveModalFolderId}
+        setFolderId={saveOps.setSaveModalFolderId}
         folders={extractFolders(queriesTree)}
-        onConfirm={handleConfirmSave}
+        onConfirm={saveOps.handleConfirmSave}
       />
     </div>
   );

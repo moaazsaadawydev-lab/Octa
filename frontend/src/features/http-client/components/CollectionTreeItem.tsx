@@ -90,22 +90,26 @@ export const CollectionTreeItem: React.FC<CollectionTreeItemProps> = (props) => 
     }
   }
 
+  const isExpanded = isFolder && (item.isOpen || Boolean(searchQuery.trim()));
+
   return (
-    <div
-      key={item.id}
-      draggable
-      onDragStart={(e) => handleDragStart(e, item.id)}
-      onDragOver={(e) => handleDragOver(e, item)}
-      onDragLeave={(e) => handleDragLeave(e, item.id)}
-      onDrop={(e) => handleDrop(e, item)}
-      className={'relative transition-opacity select-none ' + (isDragging ? 'opacity-40' : 'opacity-100')}
-    >
+    <div key={item.id} className={'relative transition-opacity select-none ' + (isDragging ? 'opacity-40' : 'opacity-100')}>
       {dropPosition === 'before' && (
         <div className="h-0.5 w-full bg-brand-400 my-0.5 rounded shadow-[0_0_8px_rgba(56,189,248,0.8)]" />
       )}
       <div
         style={{ paddingLeft: depth * 14 + 8 }}
+        draggable
+        onDragStart={(e) => handleDragStart(e, item.id)}
+        onDragOver={(e) => handleDragOver(e, item)}
+        onDragLeave={(e) => handleDragLeave(e, item.id)}
+        onDrop={(e) => handleDrop(e, item)}
         onClick={() => (isFolder ? toggleFolderOpen(item.id) : handleOpenRequestInTab(item as HttpRequestItem))}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setMenuOpenId(item.id);
+        }}
         className={
           'group relative flex items-center justify-between py-1.5 pr-2 rounded-lg text-xs cursor-pointer transition-all ' +
           (dropPosition === 'inside' ? 'bg-brand-500/20 ring-1 ring-brand-400/50 ' : '') +
@@ -117,8 +121,8 @@ export const CollectionTreeItem: React.FC<CollectionTreeItemProps> = (props) => 
         <div className="flex items-center gap-2 truncate flex-1 mr-1">
           {isFolder ? (
             <div className="flex items-center gap-1.5 flex-shrink-0">
-              {item.isOpen ? <ChevronDown className="w-3.5 h-3.5 text-zinc-500" /> : <ChevronRight className="w-3.5 h-3.5 text-zinc-500" />}
-              {isCollection ? <Layers className="w-3.5 h-3.5 text-brand-400" /> : item.isOpen ? <FolderOpen className="w-3.5 h-3.5 text-amber-400" /> : <Folder className="w-3.5 h-3.5 text-amber-400/80" />}
+              {isExpanded ? <ChevronDown className="w-3.5 h-3.5 text-zinc-500" /> : <ChevronRight className="w-3.5 h-3.5 text-zinc-500" />}
+              {isCollection ? <Layers className="w-3.5 h-3.5 text-brand-400" /> : isExpanded ? <FolderOpen className="w-3.5 h-3.5 text-amber-400" /> : <Folder className="w-3.5 h-3.5 text-amber-400/80" />}
             </div>
           ) : (
             <span className={'text-[9px] font-mono font-bold px-1 py-0.2 rounded border flex-shrink-0 ' + (METHOD_COLORS[(item as HttpRequestItem).method]?.badge || METHOD_COLORS.GET.badge)}>
@@ -130,11 +134,19 @@ export const CollectionTreeItem: React.FC<CollectionTreeItemProps> = (props) => 
             <form onSubmit={(e) => { e.preventDefault(); commitNameEdit(); }} onClick={(e) => e.stopPropagation()} className="flex items-center flex-1">
               <input
                 ref={editInputRef}
+                autoFocus
                 type="text"
                 value={editingName}
                 onChange={(e) => setEditingName(e.target.value)}
+                onFocus={(e) => e.target.select()}
                 onBlur={commitNameEdit}
-                className="w-full px-1.5 py-0.5 text-xs bg-[#1f1f23] border border-brand-500 rounded text-white outline-none font-mono"
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') {
+                    e.stopPropagation();
+                    setEditingId(null);
+                  }
+                }}
+                className="w-full px-1.5 py-0.5 text-xs bg-slate-100 dark:bg-[#1f1f23] border border-brand-500 rounded text-slate-900 dark:text-white outline-none font-mono"
               />
             </form>
           ) : (
@@ -174,7 +186,7 @@ export const CollectionTreeItem: React.FC<CollectionTreeItemProps> = (props) => 
         <div className="h-0.5 w-full bg-brand-400 my-0.5 rounded shadow-[0_0_8px_rgba(56,189,248,0.8)]" />
       )}
 
-      {isFolder && item.isOpen && item.items.length > 0 && (
+      {isFolder && isExpanded && item.items.length > 0 && (
         <div className="space-y-0.5">
           {item.items.map((child) => (
             <CollectionTreeItem key={child.id} {...props} item={child} depth={depth + 1} />
@@ -182,7 +194,7 @@ export const CollectionTreeItem: React.FC<CollectionTreeItemProps> = (props) => 
         </div>
       )}
 
-      {isFolder && item.isOpen && item.items.length === 0 && (
+      {isFolder && isExpanded && item.items.length === 0 && (
         <div style={{ paddingLeft: (depth + 1) * 14 + 12 }} className="py-1 text-[11px] text-zinc-600 italic select-none">
           Empty folder
         </div>

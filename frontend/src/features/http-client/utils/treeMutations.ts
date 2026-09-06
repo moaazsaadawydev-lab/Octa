@@ -96,7 +96,7 @@ export function reorderTreeAfterDrop(
   targetItem: HttpTreeItem,
   position: 'before' | 'inside' | 'after'
 ): HttpFolderItem[] {
-  if (isDescendant(tree, draggedId, targetItem.id)) return tree;
+  if (draggedId === targetItem.id || isDescendant(tree, draggedId, targetItem.id)) return tree;
   const extracted = findItemById(tree, draggedId);
   if (!extracted) return tree;
 
@@ -108,6 +108,9 @@ export function reorderTreeAfterDrop(
 
   const parentInfo = findParentOfItem(withoutDragged, targetItem.id);
   if (!parentInfo || parentInfo.parent === null) {
+    if (extracted.type === 'request') {
+      return insertItemInTree(withoutDragged, targetItem.id, extracted);
+    }
     const targetIdx = withoutDragged.findIndex((c) => c.id === targetItem.id);
     const insertIdx = position === 'before' ? Math.max(0, targetIdx) : targetIdx + 1;
     const newCols = [...withoutDragged];

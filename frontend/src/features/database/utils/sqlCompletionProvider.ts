@@ -41,8 +41,8 @@ const SQL_KEYWORDS = [
 
 export function registerSqlProviders(
   monacoInstance: any,
-  getTables: () => string[],
-  getColumns: () => string[]
+  getTables?: () => string[],
+  getColumns?: () => string[]
 ) {
   if (isProvidersRegistered) return;
   isProvidersRegistered = true;
@@ -104,7 +104,7 @@ export function registerSqlProviders(
         range,
       });
 
-      getTables().forEach((tbl) => {
+      getTables?.()?.forEach((tbl) => {
         suggestions.push({
           label: tbl,
           kind: monacoInstance.languages.CompletionItemKind.Class,
@@ -114,7 +114,7 @@ export function registerSqlProviders(
         });
       });
 
-      getColumns().forEach((col) => {
+      getColumns?.()?.forEach((col) => {
         suggestions.push({
           label: col,
           kind: monacoInstance.languages.CompletionItemKind.Field,

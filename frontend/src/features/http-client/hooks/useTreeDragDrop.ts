@@ -38,7 +38,7 @@ export function useTreeDragDrop({ collections, saveTreeData }: UseTreeDragDropOp
 
   const handleDragLeave = (e: React.DragEvent, id: string) => {
     e.stopPropagation();
-    if (dragOverTarget?.id === id) {
+    if (dragOverTarget?.id === id && !e.currentTarget.contains(e.relatedTarget as Node)) {
       setDragOverTarget(null);
     }
   };
@@ -46,8 +46,9 @@ export function useTreeDragDrop({ collections, saveTreeData }: UseTreeDragDropOp
   const handleDrop = (e: React.DragEvent, targetItem: HttpTreeItem) => {
     e.preventDefault();
     e.stopPropagation();
-    if (draggedId && dragOverTarget && draggedId !== targetItem.id) {
-      saveTreeData(reorderTreeAfterDrop(collections, draggedId, targetItem, dragOverTarget.position));
+    const effectivePosition = dragOverTarget?.id === targetItem.id ? dragOverTarget.position : 'inside';
+    if (draggedId && draggedId !== targetItem.id) {
+      saveTreeData(reorderTreeAfterDrop(collections, draggedId, targetItem, effectivePosition));
     }
     setDraggedId(null);
     setDragOverTarget(null);

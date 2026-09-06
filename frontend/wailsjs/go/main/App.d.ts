@@ -7,6 +7,8 @@ import {docker} from '../models';
 
 export function AddColumn(arg1:main.ConnectionConfig,arg2:string,arg3:string,arg4:string,arg5:string,arg6:boolean):Promise<boolean>;
 
+export function AskAIFollowUp(arg1:Array<ai.ChatMessage>,arg2:string):Promise<string>;
+
 export function CheckConnection():Promise<boolean|string>;
 
 export function CheckDockerAvailability():Promise<boolean|string>;
@@ -50,6 +52,8 @@ export function ExecuteRawQuery(arg1:main.ConnectionConfig,arg2:string,arg3:stri
 export function ExecuteRedisCommand(arg1:main.RedisConnectionConfig,arg2:string):Promise<main.RedisCommandResult>;
 
 export function ExplainQuery(arg1:main.ConnectionConfig,arg2:string,arg3:string,arg4:boolean):Promise<main.ExplainPlanResult>;
+
+export function ExplainTerminalError(arg1:string,arg2:string):Promise<ai.AIExplanationResponse>;
 
 export function ExportDatabaseSQL(arg1:main.ConnectionConfig,arg2:string,arg3:boolean):Promise<string>;
 

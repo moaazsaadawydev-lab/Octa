@@ -54,7 +54,7 @@ export const TerminalTab: React.FC<TerminalTabProps> = ({
                 onUpdateSettings({ ...settings, terminalFontSize: val });
               }
             }}
-            className="w-20 bg-white dark:bg-zinc-800 border border-slate-300 dark:border-zinc-700 text-slate-800 dark:text-zinc-200 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-brand-500 font-mono text-center shadow-2xs"
+            className="w-20 bg-white dark:bg-[#0a0d13] border border-slate-300 dark:border-zinc-800/80 text-slate-800 dark:text-zinc-200 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 font-mono text-center shadow-2xs"
           />
           <span className="text-xs text-slate-400 dark:text-zinc-500">px</span>
         </div>

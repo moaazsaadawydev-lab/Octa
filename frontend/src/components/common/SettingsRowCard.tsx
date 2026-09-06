@@ -19,13 +19,13 @@ export const SettingsRowCard: React.FC<SettingsRowCardProps> = ({
   return (
     <div
       className={clsx(
-        'flex items-center justify-between p-3.5 bg-slate-50 dark:bg-[#16171d] border border-slate-200 dark:border-zinc-800/80 rounded-xl transition-all hover:border-slate-300 dark:hover:border-zinc-700/80 gap-4',
+        'flex items-center justify-between p-3.5 bg-slate-50/70 dark:bg-[#0e1219] border border-slate-200 dark:border-zinc-800/80 rounded-xl transition-all hover:border-slate-300 dark:hover:border-zinc-700/70 gap-4',
         className
       )}
     >
       <div className="flex items-start gap-3 min-w-0 pr-2">
         {icon && (
-          <div className="p-2 rounded-lg bg-slate-200/60 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 flex-shrink-0 mt-0.5">
+          <div className="p-2 rounded-lg bg-slate-200/60 dark:bg-[#161c28] border border-transparent dark:border-zinc-800/80 text-slate-600 dark:text-zinc-300 flex-shrink-0 mt-0.5">
             {icon}
           </div>
         )}

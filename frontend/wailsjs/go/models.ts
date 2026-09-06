@@ -14,6 +14,34 @@ export namespace ai {
 	        this.gemini_selected_model = source["gemini_selected_model"];
 	    }
 	}
+	export class AIExplanationResponse {
+	    explanation: string;
+	    shell_type: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new AIExplanationResponse(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.explanation = source["explanation"];
+	        this.shell_type = source["shell_type"];
+	    }
+	}
+	export class ChatMessage {
+	    role: string;
+	    content: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ChatMessage(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.role = source["role"];
+	        this.content = source["content"];
+	    }
+	}
 	export class ConnectionResult {
 	    success: boolean;
 	    message: string;

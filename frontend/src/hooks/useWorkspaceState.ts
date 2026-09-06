@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   ConnectionConfig,
   ActiveSession,
@@ -13,6 +13,8 @@ import { ActiveModule } from '../components/layout/ActivityBar';
 import { useToastState } from './useToastState';
 import { useProjectPersistence } from './useProjectPersistence';
 import { useDatabaseServers } from './useDatabaseServers';
+import { DEFAULT_INITIAL_QUERIES } from '../features/database/utils/treeHelpers';
+import { loadSqlQueriesData, saveSqlQueriesData } from '../services/api';
 
 const DEFAULT_PLAYGROUND_QUERY = `-- Octa SQL Playground
 -- Press Ctrl + Enter to run selected text or full query
@@ -52,7 +54,29 @@ export function useWorkspaceState({ settings, updateSettings }: UseWorkspaceStat
   const [sidebarImportSession, setSidebarImportSession] = useState<ActiveSession | null>(null);
 
   // SQL Queries Tree State
-  const [queriesTree, setQueriesTree] = useState<(SqlQueryFolder | SqlQueryItem)[]>([]);
+  const [queriesTree, setQueriesTree] = useState<(SqlQueryFolder | SqlQueryItem)[]>(() => {
+    try {
+      const saved = localStorage.getItem('octa_sql_queries_tree');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return DEFAULT_INITIAL_QUERIES;
+  });
+
+  useEffect(() => {
+    loadSqlQueriesData()
+      .then((diskData) => {
+        if (diskData && diskData.trim()) {
+          const parsed = JSON.parse(diskData);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setQueriesTree(parsed);
+          }
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Query Playground Tabs State
   const [queryTabs, setQueryTabs] = useState<QueryTab[]>([
@@ -98,17 +122,52 @@ export function useWorkspaceState({ settings, updateSettings }: UseWorkspaceStat
 
   const handleSaveQueriesTree = useCallback((nextTree: (SqlQueryFolder | SqlQueryItem)[]) => {
     setQueriesTree(nextTree);
+    try {
+      const json = JSON.stringify(nextTree);
+      localStorage.setItem('octa_sql_queries_tree', json);
+      saveSqlQueriesData(json).catch((err) => console.warn('Failed saveSqlQueriesData:', err));
+    } catch (e) {
+      console.warn('Failed saving sql queries:', e);
+    }
   }, []);
 
   const handleSelectQueryFromSidebar = (query: SqlQueryItem) => {
     setActiveModule('databases');
     setDbSubView('playground');
 
+    let targetTabId = query.id;
+
     setQueryTabs((prev) => {
       const existing = prev.find((t) => t.id === query.id || t.savedQueryId === query.id);
       if (existing) {
+        targetTabId = existing.id;
         return prev;
       }
+
+      if (
+        prev.length === 1 &&
+        prev[0].title === 'Query 1.sql' &&
+        !prev[0].isDirty &&
+        !prev[0].savedQueryId &&
+        prev[0].results === null
+      ) {
+        targetTabId = query.id;
+        return [
+          {
+            id: query.id,
+            savedQueryId: query.id,
+            title: query.name,
+            query: query.content,
+            isDirty: false,
+            results: null,
+            activeResultIndex: 0,
+            isExecuting: false,
+            activeConnectionName: activeSession?.connection.name || 'Local Postgres',
+            activeDatabaseName: activeSession?.activeDatabase || 'postgres',
+          },
+        ];
+      }
+
       const newTab: QueryTab = {
         id: query.id,
         savedQueryId: query.id,
@@ -124,7 +183,7 @@ export function useWorkspaceState({ settings, updateSettings }: UseWorkspaceStat
       return [...prev, newTab];
     });
 
-    setActiveQueryTabId(query.id);
+    setActiveQueryTabId(targetTabId);
   };
 
   return {
@@ -145,6 +204,9 @@ export function useWorkspaceState({ settings, updateSettings }: UseWorkspaceStat
     setIsSettingsModalOpen,
     isSidebarVisible,
     setIsSidebarVisible,
+    toast,
+    setToast,
+    showToast,
     connections,
     setConnections,
     redisConnections,
@@ -161,12 +223,8 @@ export function useWorkspaceState({ settings, updateSettings }: UseWorkspaceStat
     setQueryTabs,
     activeQueryTabId,
     setActiveQueryTabId,
-    databasesMap: dbServers.databasesMap,
-    loadingMap: dbServers.loadingMap,
-    expandedServers: dbServers.expandedServers,
-    toast,
-    setToast,
-    showToast,
+    handleSaveQueriesTree,
+    handleSelectQueryFromSidebar,
     handleCreateProject: persistence.handleCreateProject,
     handleOpenProject: persistence.handleOpenProject,
     handleSelectRecent: persistence.handleSelectRecent,
@@ -175,14 +233,15 @@ export function useWorkspaceState({ settings, updateSettings }: UseWorkspaceStat
     handleCloseProject: persistence.handleCloseProject,
     handleSaveProject: persistence.handleSaveProject,
     handleSaveProjectAs: persistence.handleSaveProjectAs,
-    handleSaveQueriesTree,
-    handleToggleExpand: dbServers.handleToggleExpand,
-    handleConnectToDatabase: dbServers.handleConnectToDatabase,
-    handleConnectDirect: dbServers.handleConnectDirect,
-    handleDeleteConnection: dbServers.handleDeleteConnection,
     handleSavedConnection: dbServers.handleSavedConnection,
+    handleConnectDirect: dbServers.handleConnectDirect,
     handleExportDatabase: dbServers.handleExportDatabase,
     handleImportSQL: dbServers.handleImportSQL,
-    handleSelectQueryFromSidebar,
+    databasesMap: dbServers.databasesMap,
+    loadingMap: dbServers.loadingMap,
+    expandedServers: dbServers.expandedServers,
+    handleToggleExpand: dbServers.handleToggleExpand,
+    handleConnectToDatabase: dbServers.handleConnectToDatabase,
+    handleDeleteConnection: dbServers.handleDeleteConnection,
   };
 }

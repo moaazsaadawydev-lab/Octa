@@ -150,6 +150,8 @@ export const UrlHighlightInput: React.FC<UrlHighlightInputProps> = ({
         placeholder={placeholder}
         spellCheck={false}
         autoComplete="off"
+        autoCorrect="off"
+        autoCapitalize="off"
         style={SHARED_TYPOGRAPHY_STYLE}
         className="w-full h-full px-3 py-1.5 bg-slate-100 dark:bg-[#1a1a1d] border border-slate-200 dark:border-[#2b2b30] rounded-lg text-transparent caret-brand-600 dark:caret-brand-400 placeholder:text-slate-400 dark:placeholder:text-zinc-500 selection:bg-brand-500/30 focus:border-brand-500 focus:ring-1 focus:ring-brand-500/20 outline-none transition-all relative z-0"
       />

@@ -20,11 +20,11 @@ export const CookieJarModal: React.FC<CookieJarModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in">
-      <div className="w-full max-w-xl bg-white dark:bg-[#161619] border border-slate-200 dark:border-zinc-700/80 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm animate-fade-in p-4">
+      <div className="w-full max-w-xl bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-zinc-800/80 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
         {/* Modal Header */}
-        <div className="px-4 py-3 border-b border-slate-200 dark:border-[#26262a] bg-slate-50 dark:bg-[#1a1a1e] flex items-center justify-between">
-          <div className="flex items-center gap-2">
+        <div className="px-5 py-3.5 border-b border-slate-200 dark:border-zinc-800/80 bg-slate-50 dark:bg-[#0f141c] flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
             <CookieIcon className="w-4 h-4 text-amber-400" />
             <span className="text-sm font-bold text-slate-800 dark:text-zinc-200">Cookie Jar</span>
             <span className="text-xs font-mono px-2 py-0.5 rounded-full bg-amber-950/70 border border-amber-500/30 text-amber-300">
@@ -34,7 +34,7 @@ export const CookieJarModal: React.FC<CookieJarModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-1 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors cursor-pointer"
+            className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -51,9 +51,9 @@ export const CookieJarModal: React.FC<CookieJarModalProps> = ({
               </p>
             </div>
           ) : (
-            <div className="border border-slate-200 dark:border-[#26262a] rounded-xl overflow-hidden divide-y divide-slate-100 dark:divide-[#222226]">
+            <div className="border border-slate-200 dark:border-zinc-800/80 rounded-xl overflow-hidden divide-y divide-slate-100 dark:divide-zinc-800/60">
               {cookieJar.map((c, idx) => (
-                <div key={idx} className="p-3 bg-white dark:bg-[#131316] hover:bg-slate-50 dark:hover:bg-[#18181c] transition-colors flex items-start justify-between gap-3 text-xs">
+                <div key={idx} className="p-3 bg-white dark:bg-[#12161f] hover:bg-slate-50 dark:hover:bg-[#161c28] transition-colors flex items-start justify-between gap-3 text-xs">
                   <div className="space-y-1 flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="font-mono font-bold text-amber-600 dark:text-amber-300">{c.name}</span>
@@ -90,7 +90,7 @@ export const CookieJarModal: React.FC<CookieJarModalProps> = ({
         </div>
 
         {/* Modal Footer */}
-        <div className="px-4 py-3 border-t border-slate-200 dark:border-[#26262a] bg-slate-50 dark:bg-[#1a1a1e] flex items-center justify-between">
+        <div className="px-5 py-3 border-t border-slate-200 dark:border-zinc-800/80 bg-slate-50 dark:bg-[#0f141c] flex items-center justify-between">
           {cookieJar.length > 0 ? (
             <button
               type="button"
@@ -110,7 +110,7 @@ export const CookieJarModal: React.FC<CookieJarModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-1.5 rounded-lg bg-slate-200 hover:bg-slate-300 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-slate-800 dark:text-zinc-200 text-xs font-medium transition-colors cursor-pointer"
+            className="px-4 py-1.5 rounded-lg bg-slate-200 hover:bg-slate-300 dark:bg-[#1c2331] dark:hover:bg-[#232c3d] text-slate-800 dark:text-zinc-200 border border-slate-300 dark:border-zinc-700/80 text-xs font-medium transition-colors cursor-pointer"
           >
             Close
           </button>

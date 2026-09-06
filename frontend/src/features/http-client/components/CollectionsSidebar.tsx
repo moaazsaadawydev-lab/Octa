@@ -1,5 +1,5 @@
 import React from 'react';
-import { Globe, Upload, FolderPlus, Plus, Search } from 'lucide-react';
+import { Globe, Upload, FolderPlus, Plus, Search, X } from 'lucide-react';
 import { HttpFolderItem } from '../types';
 import { CollectionTreeItem, CollectionTreeItemProps } from './CollectionTreeItem';
 
@@ -68,8 +68,18 @@ export const CollectionsSidebar: React.FC<CollectionsSidebarProps> = (props) => 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Filter requests & folders..."
-              className="w-full pl-8 pr-2.5 py-1 text-xs bg-slate-100 dark:bg-[#1a1a1c] border border-slate-200 dark:border-[#2b2b30] rounded-md text-slate-900 dark:text-zinc-200 placeholder-slate-400 dark:placeholder-zinc-500 focus:border-brand-500 outline-none font-mono"
+              className="w-full pl-8 pr-7 py-1 text-xs bg-slate-100 dark:bg-[#1a1a1c] border border-slate-200 dark:border-[#2b2b30] rounded-md text-slate-900 dark:text-zinc-200 placeholder-slate-400 dark:placeholder-zinc-500 focus:border-brand-500 outline-none font-mono"
             />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 p-0.5 cursor-pointer"
+                title="Clear filter"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            )}
           </div>
         </div>
       )}

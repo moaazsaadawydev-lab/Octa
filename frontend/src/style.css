@@ -166,3 +166,38 @@
   font-variant-ligatures: none !important;
   font-feature-settings: "liga" 0, "calt" 0 !important;
 }
+
+/* ========================================================================= */
+/* React Flow ERD Overlays Dark Theming                                      */
+/* ========================================================================= */
+
+.dark .react-flow__minimap {
+  background-color: #0c0d12 !important;
+  border-color: #27272a !important;
+}
+
+.dark .react-flow__controls {
+  background-color: #0c0d12 !important;
+  border-color: #27272a !important;
+}
+
+.dark .react-flow__controls-button {
+  background-color: transparent !important;
+  border-bottom-color: #27272a !important;
+  color: #d4d4d8 !important;
+  fill: #d4d4d8 !important;
+}
+
+.dark .react-flow__controls-button:hover {
+  background-color: rgba(39, 39, 42, 0.8) !important;
+  color: #ffffff !important;
+  fill: #ffffff !important;
+}
+
+.dark .react-flow__controls-button:last-child {
+  border-bottom: none !important;
+}
+
+.dark .react-flow__controls-button svg {
+  fill: currentColor !important;
+}

@@ -18,6 +18,10 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
 }) => {
   const { monacoTheme } = useTheme();
   const envDropdownRef = useRef<HTMLDivElement>(null);
+  const lastEmittedRef = useRef<string>('');
+  const lastReceivedRef = useRef<string>('');
+  const emittedHashesRef = useRef<Set<string>>(new Set());
+  const latestPayloadRef = useRef<any>(null);
 
   const envs = useEnvironments({
     initialEnvironments: propData?.environments || [],
@@ -26,48 +30,83 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
     showToast,
   });
 
+  const recordAndEmit = (payload: any) => {
+    const str = JSON.stringify(payload);
+    lastEmittedRef.current = str;
+    emittedHashesRef.current.add(str);
+    if (emittedHashesRef.current.size > 150) {
+      const first = emittedHashesRef.current.values().next().value;
+      if (first) emittedHashesRef.current.delete(first);
+    }
+    onUpdateData?.(payload);
+  };
+
   const cols = useCollections({
     initialCollections: propData?.collections || [],
-    showToast,
-    onPostmanImport: (result) => {
-      if (result.variables.length > 0) {
-        const newEnv = {
-          id: 'env-' + Date.now(),
-          name: `${result.collection.name} Env`,
-          variables: result.variables,
-        };
-        const nextEnvs = [...envs.environments, newEnv];
-        envs.setEnvironments(nextEnvs);
-        if (!envs.activeEnvironmentId) envs.setActiveEnvironmentId(newEnv.id);
-        onUpdateData?.({
-          collections: cols.collections,
-          environments: nextEnvs,
-          globalVariables: envs.globalVariables,
-          activeEnvironmentId: envs.activeEnvironmentId || newEnv.id,
-        });
-      }
-    },
-  });
-
-  useEffect(() => {
-    if (propData) {
-      cols.setCollections(propData.collections || []);
-      envs.setEnvironments(propData.environments || []);
-      envs.setGlobalVariables(propData.globalVariables || []);
-      envs.setActiveEnvironmentId(propData.activeEnvironmentId ?? null);
-    }
-  }, [propData]);
-
-  useEffect(() => {
-    if (onUpdateData) {
-      onUpdateData({
-        collections: cols.collections,
+    onDataChange: (nextCols) => {
+      recordAndEmit({
+        collections: nextCols,
         environments: envs.environments,
         globalVariables: envs.globalVariables,
         activeEnvironmentId: envs.activeEnvironmentId,
       });
-    }
-  }, [cols.collections, envs.environments, envs.globalVariables, envs.activeEnvironmentId]);
+    },
+    showToast,
+    onPostmanImport: (result, nextCols) => {
+      let nextEnvs = envs.environments;
+      let nextActiveEnvId = envs.activeEnvironmentId;
+      if (result.variables.length > 0) {
+        const newEnv = { id: 'env-' + Date.now(), name: `${result.collection.name} Env`, variables: result.variables };
+        nextEnvs = [...envs.environments, newEnv];
+        envs.setEnvironments(nextEnvs);
+        if (!nextActiveEnvId) {
+          nextActiveEnvId = newEnv.id;
+          envs.setActiveEnvironmentId(newEnv.id);
+        }
+      }
+      recordAndEmit({ collections: nextCols, environments: nextEnvs, globalVariables: envs.globalVariables, activeEnvironmentId: nextActiveEnvId });
+    },
+  });
+
+  useEffect(() => {
+    if (!propData) return;
+    const str = JSON.stringify(propData);
+    if (str === lastEmittedRef.current || str === lastReceivedRef.current || emittedHashesRef.current.has(str)) return;
+    lastReceivedRef.current = str;
+    cols.setCollections(propData.collections || []);
+    envs.setEnvironments(propData.environments || []);
+    envs.setGlobalVariables(propData.globalVariables || []);
+    envs.setActiveEnvironmentId(propData.activeEnvironmentId ?? null);
+  }, [propData]);
+
+  latestPayloadRef.current = {
+    collections: cols.collections,
+    environments: envs.environments,
+    globalVariables: envs.globalVariables,
+    activeEnvironmentId: envs.activeEnvironmentId,
+  };
+
+  useEffect(() => {
+    if (!onUpdateData) return;
+    const timer = setTimeout(() => {
+      const payload = latestPayloadRef.current;
+      const str = JSON.stringify(payload);
+      if (str === lastEmittedRef.current || str === lastReceivedRef.current) return;
+      recordAndEmit(payload);
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [cols.collections, envs.environments, envs.globalVariables, envs.activeEnvironmentId, onUpdateData]);
+
+  useEffect(() => {
+    return () => {
+      if (onUpdateData && latestPayloadRef.current) {
+        const str = JSON.stringify(latestPayloadRef.current);
+        if (str !== lastEmittedRef.current && str !== lastReceivedRef.current) {
+          recordAndEmit(latestPayloadRef.current);
+        }
+      }
+    };
+  }, [onUpdateData]);
 
   const http = useHttpClient({
     activeRequest: cols.activeRequest,

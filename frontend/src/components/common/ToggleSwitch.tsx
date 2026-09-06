@@ -27,13 +27,13 @@ export const ToggleSwitch: React.FC<ToggleSwitchProps> = ({
       className={clsx(
         'w-11 h-6 flex items-center rounded-full p-1 transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-brand-500/40',
         disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer',
-        checked ? 'bg-brand-600 dark:bg-brand-500' : 'bg-slate-300 dark:bg-zinc-700',
+        checked ? 'bg-brand-600 dark:bg-brand-500' : 'bg-slate-300 dark:bg-zinc-700/60 border border-transparent dark:border-zinc-600/30',
         className
       )}
     >
       <div
         className={clsx(
-          'bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-200 ease-in-out',
+          'bg-white dark:bg-zinc-100 w-4 h-4 rounded-full shadow-sm transform transition-transform duration-200 ease-in-out',
           checked ? 'translate-x-5' : 'translate-x-0'
         )}
       />

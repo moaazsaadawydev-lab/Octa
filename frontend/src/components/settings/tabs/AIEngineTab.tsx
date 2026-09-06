@@ -72,13 +72,13 @@ export const AIEngineTab: React.FC<AIEngineTabProps> = ({
     }
     if (!apiKey.trim()) {
       return (
-        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 border border-slate-200 dark:border-zinc-700">
+        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-slate-100 dark:bg-[#12161f] text-slate-500 dark:text-zinc-400 border border-slate-200 dark:border-zinc-800">
           <span>Not Configured</span>
         </div>
       );
     }
     return (
-      <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700">
+      <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium bg-slate-100 dark:bg-[#12161f] text-slate-600 dark:text-zinc-300 border border-slate-200 dark:border-zinc-800">
         <span>Configured (Not Verified)</span>
       </div>
     );
@@ -99,7 +99,7 @@ export const AIEngineTab: React.FC<AIEngineTabProps> = ({
       <div
         className={clsx(
           'p-5 rounded-2xl border transition-all duration-200',
-          'bg-slate-50/50 dark:bg-[#0c0d12]/40 border-slate-200 dark:border-zinc-800',
+          'bg-slate-50/50 dark:bg-[#0e1219] border-slate-200 dark:border-zinc-800/80',
           !aiEnabled && 'opacity-60 pointer-events-none'
         )}
       >
@@ -163,7 +163,7 @@ export const AIEngineTab: React.FC<AIEngineTabProps> = ({
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
                 placeholder="AIzaSy..."
-                className="w-full bg-white dark:bg-zinc-900 border border-slate-300 dark:border-zinc-700 text-slate-900 dark:text-zinc-100 text-xs rounded-xl pl-3 pr-10 py-2 focus:outline-none focus:ring-1 focus:ring-brand-500 font-mono"
+                className="w-full bg-white dark:bg-[#0a0d13] border border-slate-300 dark:border-zinc-800/80 text-slate-900 dark:text-zinc-100 placeholder:text-slate-400 dark:placeholder:text-zinc-600 text-xs rounded-xl pl-3 pr-10 py-2 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 font-mono transition-colors"
               />
               <button
                 type="button"
@@ -197,7 +197,7 @@ export const AIEngineTab: React.FC<AIEngineTabProps> = ({
               type="button"
               disabled={isTesting || !apiKey.trim()}
               onClick={handleTestConnection}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-200 dark:bg-zinc-800 hover:bg-slate-300 dark:hover:bg-zinc-700 text-slate-800 dark:text-zinc-200 disabled:opacity-50 transition-all cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-200 dark:bg-[#161c26] hover:bg-slate-300 dark:hover:bg-[#1c2331] text-slate-800 dark:text-zinc-200 border border-slate-300/60 dark:border-zinc-700/60 disabled:opacity-50 transition-all cursor-pointer"
             >
               {isTesting ? (
                 <>

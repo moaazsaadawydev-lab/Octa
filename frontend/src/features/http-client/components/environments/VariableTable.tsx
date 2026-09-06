@@ -18,10 +18,10 @@ export const VariableTable: React.FC<VariableTableProps> = ({
   placeholderKey = 'e.g. key',
 }) => {
   return (
-    <div className="flex-1 border border-slate-200 dark:border-zinc-800 rounded-xl overflow-y-auto bg-slate-50 dark:bg-[#18181b]/40">
+    <div className="flex-1 border border-slate-200 dark:border-zinc-800/80 rounded-xl overflow-y-auto bg-white dark:bg-[#0b0e14]/80">
       <table className="w-full text-left border-collapse">
         <thead>
-          <tr className="border-b border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-900/60 text-[11px] font-semibold text-slate-600 dark:text-zinc-400 uppercase tracking-wider">
+          <tr className="border-b border-slate-200 dark:border-zinc-800/80 bg-slate-50 dark:bg-[#0f141c] text-[11px] font-semibold text-slate-600 dark:text-zinc-400 uppercase tracking-wider">
             <th className="py-2.5 px-3 w-10 text-center">Active</th>
             <th className="py-2.5 px-3 w-1/3">Variable (Key)</th>
             <th className="py-2.5 px-3 w-28">Type</th>
@@ -34,7 +34,7 @@ export const VariableTable: React.FC<VariableTableProps> = ({
             const isSecret = v.type === 'secret';
             const isRevealed = revealedSecrets[v.id];
             return (
-              <tr key={v.id} className="hover:bg-slate-100/50 dark:hover:bg-zinc-850/40 transition-colors">
+              <tr key={v.id} className="hover:bg-slate-50 dark:hover:bg-[#121620]/60 transition-colors">
                 <td className="py-2 px-3 text-center">
                   <input
                     type="checkbox"
@@ -44,7 +44,7 @@ export const VariableTable: React.FC<VariableTableProps> = ({
                       next[idx] = { ...next[idx], enabled: e.target.checked };
                       onChange(next);
                     }}
-                    className="accent-brand-500 rounded cursor-pointer"
+                    className="accent-brand-500 rounded cursor-pointer w-3.5 h-3.5"
                   />
                 </td>
                 <td className="py-2 px-3">
@@ -57,7 +57,11 @@ export const VariableTable: React.FC<VariableTableProps> = ({
                       onChange(next);
                     }}
                     placeholder={placeholderKey}
-                    className="w-full bg-transparent outline-none text-slate-900 dark:text-zinc-100 placeholder:text-zinc-500 focus:text-brand-500"
+                    autoComplete="off"
+                    autoCorrect="off"
+                    autoCapitalize="off"
+                    spellCheck={false}
+                    className="w-full px-2 py-1 rounded bg-slate-50 dark:bg-[#12161f] border border-transparent hover:border-slate-300 dark:hover:border-zinc-700/60 focus:border-brand-500 dark:focus:border-brand-500 focus:bg-white dark:focus:bg-[#161c28] outline-none text-slate-900 dark:text-zinc-100 placeholder:text-slate-400 dark:placeholder:text-zinc-600 text-xs transition-colors"
                   />
                 </td>
                 <td className="py-2 px-3">
@@ -68,7 +72,7 @@ export const VariableTable: React.FC<VariableTableProps> = ({
                       next[idx] = { ...next[idx], type: e.target.value as EnvironmentVariableType };
                       onChange(next);
                     }}
-                    className="bg-slate-100 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700/60 rounded px-2 py-0.5 text-[11px] text-slate-800 dark:text-zinc-300 outline-none cursor-pointer"
+                    className="bg-slate-100 dark:bg-[#12161f] border border-slate-200 dark:border-zinc-700/60 hover:border-slate-300 dark:hover:border-zinc-600 rounded px-2 py-1 text-[11px] text-slate-800 dark:text-zinc-300 outline-none cursor-pointer transition-colors"
                   >
                     <option value="default">Default</option>
                     <option value="secret">Secret</option>
@@ -85,13 +89,17 @@ export const VariableTable: React.FC<VariableTableProps> = ({
                         onChange(next);
                       }}
                       placeholder="Value"
-                      className="flex-1 bg-transparent outline-none text-slate-900 dark:text-zinc-100 placeholder:text-zinc-500"
+                      autoComplete="off"
+                      autoCorrect="off"
+                      autoCapitalize="off"
+                      spellCheck={false}
+                      className="flex-1 px-2 py-1 rounded bg-slate-50 dark:bg-[#12161f] border border-transparent hover:border-slate-300 dark:hover:border-zinc-700/60 focus:border-brand-500 dark:focus:border-brand-500 focus:bg-white dark:focus:bg-[#161c28] outline-none text-slate-900 dark:text-zinc-100 placeholder:text-slate-400 dark:placeholder:text-zinc-600 text-xs transition-colors"
                     />
                     {isSecret && (
                       <button
                         type="button"
                         onClick={() => onToggleSecret(v.id)}
-                        className="p-1 text-zinc-500 hover:text-slate-800 dark:hover:text-zinc-300 transition-colors cursor-pointer"
+                        className="p-1 text-zinc-500 hover:text-slate-800 dark:hover:text-zinc-200 hover:bg-slate-200 dark:hover:bg-zinc-800 rounded transition-colors cursor-pointer"
                       >
                         {isRevealed ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                       </button>
@@ -102,7 +110,7 @@ export const VariableTable: React.FC<VariableTableProps> = ({
                   <button
                     type="button"
                     onClick={() => onChange(variables.filter((_, i) => i !== idx))}
-                    className="p-1 text-zinc-500 hover:text-rose-400 transition-colors cursor-pointer"
+                    className="p-1.5 text-zinc-500 hover:text-rose-400 hover:bg-rose-950/30 rounded transition-colors cursor-pointer"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>

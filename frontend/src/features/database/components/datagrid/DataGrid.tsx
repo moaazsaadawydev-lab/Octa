@@ -8,6 +8,7 @@ import { DataGridTableBody } from './DataGridTableBody';
 import { DataGridPagination } from './DataGridPagination';
 import { DataGridModals } from './DataGridModals';
 import { useDataGridModals } from './useDataGridModals';
+import { useColumnResize } from './useColumnResize';
 
 export interface DataGridProps {
   tableName: string;
@@ -32,30 +33,28 @@ export interface DataGridProps {
   onDeleteRows: (primaryKeyCol: string, rowIds: string[], isAllTable: boolean) => Promise<void>;
 }
 
-export const DataGrid: React.FC<DataGridProps> = (props) => {
-  const {
-    tableName,
-    schema,
-    dataResult,
-    loading,
-    page,
-    limit,
-    sortColumn,
-    sortOrder,
-    filterColumn,
-    filterOp,
-    filterValue,
-    onPageChange,
-    onLimitChange,
-    onSortChange,
-    onApplyFilter,
-    onClearFilter,
-    onDropColumn,
-    onRenameColumn,
-    onSaveUpdates,
-    onDeleteRows,
-  } = props;
-
+export const DataGrid: React.FC<DataGridProps> = ({
+  tableName,
+  schema,
+  dataResult,
+  loading,
+  page,
+  limit,
+  sortColumn,
+  sortOrder,
+  filterColumn,
+  filterOp,
+  filterValue,
+  onPageChange,
+  onLimitChange,
+  onSortChange,
+  onApplyFilter,
+  onClearFilter,
+  onDropColumn,
+  onRenameColumn,
+  onSaveUpdates,
+  onDeleteRows,
+}) => {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [stagedUpdates, setStagedUpdates] = useState<Record<string, Record<string, any>>>({});
   const [savingUpdates, setSavingUpdates] = useState(false);
@@ -68,6 +67,7 @@ export const DataGrid: React.FC<DataGridProps> = (props) => {
 
   const inputRef = useRef<HTMLInputElement | HTMLSelectElement | null>(null);
   const headerCheckboxRef = useRef<HTMLInputElement | null>(null);
+  const { columnWidths, handleResizeStart, handleAutoFit } = useColumnResize();
 
   const columns: TableColumn[] = schema.length > 0 ? schema : (dataResult?.columns || []).map((c) => ({
     name: c,
@@ -93,7 +93,6 @@ export const DataGrid: React.FC<DataGridProps> = (props) => {
     (sum, id) => sum + Object.keys(stagedUpdates[id]).length,
     0
   );
-
   const allPageSelected = rows.length > 0 && rows.every((r, i) => selectedRowIds.has(String(r[pkCol] ?? i)));
 
   const handleToggleSelectAll = () => {
@@ -167,10 +166,10 @@ export const DataGrid: React.FC<DataGridProps> = (props) => {
           </div>
         )}
 
-        <table className="w-full border-collapse text-xs font-mono">
+        <table className="w-full border-collapse text-xs font-mono table-fixed">
           <DataGridTableHead
             columns={columns}
-            columnWidths={{}}
+            columnWidths={columnWidths}
             sortColumn={sortColumn}
             sortOrder={sortOrder}
             onSortChange={onSortChange}
@@ -178,11 +177,13 @@ export const DataGrid: React.FC<DataGridProps> = (props) => {
             onToggleSelectAll={handleToggleSelectAll}
             headerCheckboxRef={headerCheckboxRef}
             onOpenColumnMenu={(col) => modals.setColumnToRename({ oldName: col, newName: col })}
-            onResizeStart={() => {}}
+            onResizeStart={handleResizeStart}
+            onAutoFit={handleAutoFit}
           />
           <DataGridTableBody
             rows={rows}
             columns={columns}
+            columnWidths={columnWidths}
             pkCol={pkCol}
             selectedRowIds={selectedRowIds}
             onToggleRowSelect={(rowId) => {

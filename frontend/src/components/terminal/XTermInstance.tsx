@@ -7,16 +7,14 @@ import '@xterm/xterm/css/xterm.css';
 import { useTheme } from '../../context/ThemeContext';
 import { AppSettings } from '../../types/settings';
 import {
-  startTerminalSession,
-  writeTerminalSession,
-  resizeTerminalSession,
-  closeTerminalSession,
+  startTerminalSession, writeTerminalSession, resizeTerminalSession, closeTerminalSession
 } from '../../services/api';
 import * as runtime from '../../../wailsjs/runtime/runtime';
 import { PasteConfirmModal } from './PasteConfirmModal';
 import { DARK_THEME, LIGHT_THEME, mapCursorStyle } from './terminalThemes';
 import { useTerminalClipboard } from './useTerminalClipboard';
 import { useTerminalSettingsSync } from './useTerminalSettingsSync';
+import { registerTerminal, unregisterTerminal } from './terminalRegistry';
 
 interface XTermInstanceProps {
   sessionId: string;
@@ -99,6 +97,7 @@ export const XTermInstance: React.FC<XTermInstanceProps> = ({
 
     termRef.current = term;
     fitAddonRef.current = fitAddon;
+    registerTerminal(sessionId, term);
 
     let webglAddon: WebglAddon | null = null;
     try {
@@ -203,6 +202,7 @@ export const XTermInstance: React.FC<XTermInstanceProps> = ({
       term.dispose();
       termRef.current = null;
       fitAddonRef.current = null;
+      unregisterTerminal(sessionId);
     };
   }, [sessionId, createCustomKeyEventHandler, handleContextMenu, handleNativePaste, resolvedTheme]);
 

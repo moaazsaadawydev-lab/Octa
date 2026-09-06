@@ -5,6 +5,8 @@ import { useTheme } from '../../../context/ThemeContext';
 import { registerOctaMonacoThemes } from '../../../utils/monacoThemes';
 import { useEditorLigatures, EDITOR_FONT_FAMILY } from '../../../utils/editorSettings';
 import { registerSqlProviders } from '../utils/sqlCompletionProvider';
+import { ActiveSession } from '../types';
+import { useMonacoSQLCompletion, SchemaTable, SchemaColumn } from '../hooks/useMonacoSQLCompletion';
 
 loader.config({ monaco });
 
@@ -17,6 +19,10 @@ export interface SqlCodeEditorProps {
   isExecuting?: boolean;
   tables?: string[];
   columns?: string[];
+  schemaTables?: SchemaTable[];
+  schemaColumns?: SchemaColumn[];
+  activeSession?: ActiveSession | null;
+  externalEditorRef?: React.MutableRefObject<any>;
 }
 
 export const SqlCodeEditor: React.FC<SqlCodeEditorProps> = ({
@@ -27,21 +33,25 @@ export const SqlCodeEditor: React.FC<SqlCodeEditorProps> = ({
   onSave,
   tables = [],
   columns = [],
+  schemaTables,
+  schemaColumns,
+  activeSession,
+  externalEditorRef,
 }) => {
   const { monacoTheme } = useTheme();
   const editorRef = useRef<any>(null);
   const monacoRef = useRef<any>(null);
-  const tablesRef = useRef<string[]>(tables);
-  const columnsRef = useRef<string[]>(columns);
+  const [monacoInstance, setMonacoInstance] = React.useState<any>(() => monaco);
   const editorFontLigatures = useEditorLigatures(editorRef);
 
-  useEffect(() => {
-    tablesRef.current = tables;
-  }, [tables]);
-
-  useEffect(() => {
-    columnsRef.current = columns;
-  }, [columns]);
+  useMonacoSQLCompletion({
+    activeSession,
+    schemaTables,
+    schemaColumns,
+    tables,
+    columns,
+    monacoInstance,
+  });
 
   useEffect(() => {
     if (monacoRef.current) {
@@ -49,19 +59,20 @@ export const SqlCodeEditor: React.FC<SqlCodeEditorProps> = ({
     }
   }, [monacoTheme]);
 
-  const handleBeforeMount: BeforeMount = (monacoInstance) => {
-    registerOctaMonacoThemes(monacoInstance);
-    registerSqlProviders(
-      monacoInstance,
-      () => tablesRef.current,
-      () => columnsRef.current
-    );
+  const handleBeforeMount: BeforeMount = (instance) => {
+    setMonacoInstance(instance);
+    registerOctaMonacoThemes(instance);
+    registerSqlProviders(instance);
   };
 
-  const handleEditorDidMount: OnMount = (editor, monacoInstance) => {
+  const handleEditorDidMount: OnMount = (editor, instance) => {
     editorRef.current = editor;
-    monacoRef.current = monacoInstance;
-    monacoInstance.editor.setTheme(monacoTheme);
+    if (externalEditorRef) {
+      externalEditorRef.current = editor;
+    }
+    monacoRef.current = instance;
+    setMonacoInstance(instance);
+    instance.editor.setTheme(monacoTheme);
 
     editor.addCommand(monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.Enter, () => {
       const model = editor.getModel();
@@ -122,7 +133,7 @@ export const SqlCodeEditor: React.FC<SqlCodeEditorProps> = ({
           lineNumbers: 'on',
           renderLineHighlight: 'all',
           suggestOnTriggerCharacters: true,
-          quickSuggestions: { other: true, comments: false, strings: false },
+          quickSuggestions: { other: true, comments: false, strings: true },
           tabSize: 2,
           wordWrap: 'on',
           padding: { top: 10, bottom: 10 },

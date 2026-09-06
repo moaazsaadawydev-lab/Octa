@@ -29,7 +29,7 @@ export const AppearanceTab: React.FC<AppearanceTabProps> = ({
   return (
     <div className="space-y-4">
       {/* 1. Theme Selector */}
-      <div className="p-4 bg-slate-50 dark:bg-[#16171d] border border-slate-200 dark:border-zinc-800/80 rounded-xl space-y-3">
+      <div className="p-4 bg-slate-50/70 dark:bg-[#0e1219] border border-slate-200 dark:border-zinc-800/80 rounded-xl space-y-3">
         <div className="flex items-center gap-2">
           <Palette className="w-4 h-4 text-brand-500" />
           <span className="text-xs font-semibold text-slate-900 dark:text-zinc-100">
@@ -56,7 +56,7 @@ export const AppearanceTab: React.FC<AppearanceTabProps> = ({
                   'flex flex-col items-center justify-center p-3 rounded-xl border text-xs font-medium transition-all gap-2 cursor-pointer shadow-2xs',
                   isSelected
                     ? 'border-brand-500 bg-brand-50/50 dark:bg-brand-950/40 text-brand-600 dark:text-brand-400 shadow-sm'
-                    : 'border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-850 text-slate-600 dark:text-zinc-400 hover:border-slate-300 dark:hover:border-zinc-700'
+                    : 'border-slate-200 dark:border-zinc-800 bg-white dark:bg-[#12161f] text-slate-600 dark:text-zinc-400 hover:border-slate-300 dark:hover:border-zinc-700 hover:dark:bg-[#161c28]'
                 )}
               >
                 <Icon className="w-4 h-4" />

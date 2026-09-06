@@ -87,9 +87,11 @@ export function useEnvironments({
 
   const handleUpdateCurrentEnv = (updated: Partial<Environment>) => {
     if (selectedEnvIdInModal === 'globals') return;
-    const nextEnvs = environments.map((e) => (e.id === selectedEnvIdInModal ? { ...e, ...updated } : e));
-    setEnvironments(nextEnvs);
-    onDataChange?.({ environments: nextEnvs, globalVariables, activeEnvironmentId });
+    setEnvironments((prev) => {
+      const nextEnvs = prev.map((e) => (e.id === selectedEnvIdInModal ? { ...e, ...updated } : e));
+      onDataChange?.({ environments: nextEnvs, globalVariables, activeEnvironmentId });
+      return nextEnvs;
+    });
   };
 
   const handleOpenManageEnvironments = (scopeId?: string) => {
@@ -101,29 +103,34 @@ export function useEnvironments({
 
   const handleUpdateVariableFromInput = (key: string, newValue: string, source?: 'environment' | 'global') => {
     if (source === 'global') {
-      const existing = globalVariables.find((v) => v.key.trim().toLowerCase() === key.trim().toLowerCase());
-      const nextGlobals = existing
-        ? globalVariables.map((v) =>
-            v.key.trim().toLowerCase() === key.trim().toLowerCase() ? { ...v, value: newValue } : v
-          )
-        : [...globalVariables, { id: 'gv-' + Date.now(), key, value: newValue, enabled: true, type: 'default' as const }];
-      setGlobalVariables(nextGlobals);
-      onDataChange?.({ environments, globalVariables: nextGlobals, activeEnvironmentId });
+      setGlobalVariables((prev) => {
+        const existing = prev.find((v) => v.key.trim().toLowerCase() === key.trim().toLowerCase());
+        const nextGlobals = existing
+          ? prev.map((v) => (v.key.trim().toLowerCase() === key.trim().toLowerCase() ? { ...v, value: newValue } : v))
+          : [...prev, { id: 'gv-' + Date.now(), key, value: newValue, enabled: true, type: 'default' as const }];
+        onDataChange?.({ environments, globalVariables: nextGlobals, activeEnvironmentId });
+        return nextGlobals;
+      });
     } else {
       if (!activeEnvironment) {
         handleUpdateVariableFromInput(key, newValue, 'global');
         return;
       }
-      const currentVars = [...activeEnvironment.variables];
-      const existingIdx = currentVars.findIndex((v) => v.key.trim().toLowerCase() === key.trim().toLowerCase());
-      if (existingIdx !== -1) {
-        currentVars[existingIdx] = { ...currentVars[existingIdx], value: newValue };
-      } else {
-        currentVars.push({ id: 'var-' + Date.now(), key, value: newValue, enabled: true, type: 'default' });
-      }
-      const updatedEnvs = environments.map((e) => (e.id === activeEnvironment.id ? { ...e, variables: currentVars } : e));
-      setEnvironments(updatedEnvs);
-      onDataChange?.({ environments: updatedEnvs, globalVariables, activeEnvironmentId });
+      setEnvironments((prev) => {
+        const updatedEnvs = prev.map((e) => {
+          if (e.id !== activeEnvironment.id) return e;
+          const currentVars = [...e.variables];
+          const existingIdx = currentVars.findIndex((v) => v.key.trim().toLowerCase() === key.trim().toLowerCase());
+          if (existingIdx !== -1) {
+            currentVars[existingIdx] = { ...currentVars[existingIdx], value: newValue };
+          } else {
+            currentVars.push({ id: 'var-' + Date.now(), key, value: newValue, enabled: true, type: 'default' });
+          }
+          return { ...e, variables: currentVars };
+        });
+        onDataChange?.({ environments: updatedEnvs, globalVariables, activeEnvironmentId });
+        return updatedEnvs;
+      });
     }
   };
 

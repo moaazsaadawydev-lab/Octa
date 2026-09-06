@@ -136,6 +136,10 @@ export const HeadersTab: React.FC<HeadersTabProps> = ({
                 onHeadersChange(next);
               }}
               placeholder="Header Name"
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck={false}
               className="flex-1 px-2.5 py-1 text-xs bg-slate-50 dark:bg-[#1a1a1e] border border-slate-200 dark:border-[#2b2b30] rounded text-slate-900 dark:text-zinc-200 font-mono outline-none focus:border-brand-500"
             />
             <input
@@ -147,6 +151,10 @@ export const HeadersTab: React.FC<HeadersTabProps> = ({
                 onHeadersChange(next);
               }}
               placeholder="Value"
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck={false}
               className="flex-1 px-2.5 py-1 text-xs bg-slate-50 dark:bg-[#1a1a1e] border border-slate-200 dark:border-[#2b2b30] rounded text-slate-900 dark:text-zinc-200 font-mono outline-none focus:border-brand-500"
             />
             <button

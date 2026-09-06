@@ -6,6 +6,9 @@ import { AppSettings } from '../../types/settings';
 import { XTermInstance } from './XTermInstance';
 import { TabsHeader } from './TabsHeader';
 import { useTerminalManager, getShellDisplayName } from '../../hooks/useTerminalManager';
+import { TerminalAIDrawer } from './TerminalAIDrawer';
+import { useTerminalAI } from '../../features/ai/hooks/useTerminalAI';
+import { writeTerminalSession } from '../../services/api';
 
 interface TerminalWorkspaceProps {
   activeProject?: ProjectWorkspace | null;
@@ -44,7 +47,29 @@ export const TerminalWorkspace: React.FC<TerminalWorkspaceProps> = ({
     showToast,
   });
 
-  // Global Keyboard Shortcuts for active terminal (Ctrl+Shift+T, Ctrl+Shift+W)
+  const ai = useTerminalAI({ showToast });
+
+  const handleTroubleshoot = () => {
+    const activeTab = tabs.find((t) => t.id === activeTabId);
+    if (!activeTab) return;
+    const activePaneId = activeTab.activePaneId || activeTab.panes[0]?.id;
+    if (!activePaneId) return;
+
+    const shellName =
+      activeTab.panes[0]?.shellName || activeTab.shell || settings?.terminalShell || 'PowerShell';
+    ai.openDrawer(shellName, activePaneId);
+  };
+
+  const handleInsertCommand = (cmd: string) => {
+    const targetId =
+      ai.activeSessionId || (activeTabId ? tabs.find((t) => t.id === activeTabId)?.activePaneId : null);
+    if (targetId) {
+      writeTerminalSession(targetId, cmd + '\n');
+      showToast?.('Command inserted into terminal', 'success');
+    }
+  };
+
+  // Global Keyboard Shortcuts (Ctrl+Shift+T, Ctrl+Shift+W)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'T' || e.key === 't')) {
@@ -64,7 +89,6 @@ export const TerminalWorkspace: React.FC<TerminalWorkspaceProps> = ({
   return (
     <div className="flex-1 flex flex-col h-full w-full min-h-0 min-w-0 bg-slate-50 dark:bg-[#090a0f] text-slate-900 dark:text-zinc-100 overflow-hidden select-none font-sans relative transition-colors">
       {tabs.length === 0 ? (
-        /* Zero State Viewport */
         <div className="flex-1 w-full h-full flex flex-col items-center justify-center p-8 text-center select-none text-slate-500 dark:text-zinc-500">
           <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 flex items-center justify-center mb-3 text-slate-400 dark:text-zinc-400 shadow-sm">
             <TerminalIcon className="w-6 h-6 text-brand-500 dark:text-brand-400" />
@@ -81,15 +105,11 @@ export const TerminalWorkspace: React.FC<TerminalWorkspaceProps> = ({
             className="mt-4 flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 text-white font-medium text-xs shadow transition-all cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />
-            <span>
-              New Terminal Session (
-              {getShellDisplayName(settings?.terminalShell || 'powershell', availableShells)})
-            </span>
+            <span>New Terminal ({getShellDisplayName(settings?.terminalShell || 'powershell', availableShells)})</span>
           </button>
         </div>
       ) : (
         <div className="flex-1 flex flex-col w-full h-full min-h-0 min-w-0 overflow-hidden">
-          {/* Top Multi-Tab Header Bar */}
           <TabsHeader
             tabs={tabs}
             activeTabId={activeTabId}
@@ -101,9 +121,9 @@ export const TerminalWorkspace: React.FC<TerminalWorkspaceProps> = ({
             onRenameTab={handleRenameTab}
             onSplitTab={handleSplitTab}
             onRestartSession={handleRestartSession}
+            onTroubleshootAI={handleTroubleshoot}
           />
 
-          {/* Main Terminal Viewport Area */}
           <div className="flex-1 relative w-full h-full min-h-0 min-w-0 overflow-hidden bg-slate-50 dark:bg-[#090a0f] transition-colors">
             {tabs.map((tab) => {
               const isTabActive = tab.id === activeTabId;
@@ -135,21 +155,12 @@ export const TerminalWorkspace: React.FC<TerminalWorkspaceProps> = ({
                             className={clsx(
                               'flex-1 flex flex-col min-h-0 min-w-0 relative transition-all',
                               tab.splitDirection === 'horizontal' ? 'w-1/2 h-full' : 'w-full h-1/2',
-                              isPaneActive
-                                ? 'bg-slate-50 dark:bg-[#090a0f]'
-                                : 'bg-slate-100/40 dark:bg-[#07080b]'
+                              isPaneActive ? 'bg-slate-50 dark:bg-[#090a0f]' : 'bg-slate-100/40 dark:bg-[#07080b]'
                             )}
                           >
                             <div className="h-6 bg-slate-100/80 dark:bg-[#0f1016] border-b border-slate-200 dark:border-zinc-800/80 flex items-center justify-between px-2 text-[10px] text-slate-500 dark:text-zinc-400 select-none flex-shrink-0">
                               <div className="flex items-center gap-1.5">
-                                <span
-                                  className={clsx(
-                                    'w-1.5 h-1.5 rounded-full',
-                                    isPaneActive
-                                      ? 'bg-emerald-500 shadow-sm shadow-emerald-500/50'
-                                      : 'bg-slate-400 dark:bg-zinc-600'
-                                  )}
-                                />
+                                <span className={clsx('w-1.5 h-1.5 rounded-full', isPaneActive ? 'bg-emerald-500 shadow-sm shadow-emerald-500/50' : 'bg-slate-400 dark:bg-zinc-600')} />
                                 <span className="font-mono">{pane.title || 'Pane ' + (pIdx + 1)}</span>
                               </div>
                               <button
@@ -166,15 +177,7 @@ export const TerminalWorkspace: React.FC<TerminalWorkspaceProps> = ({
                               <XTermInstance
                                 sessionId={pane.id}
                                 workDir={pane.workDir}
-                                shell={
-                                  pane.shellPath ||
-                                  pane.shell ||
-                                  pane.shellId ||
-                                  tab.shellPath ||
-                                  tab.shell ||
-                                  settings?.terminalShell ||
-                                  'powershell'
-                                }
+                                shell={pane.shellPath || pane.shell || pane.shellId || tab.shellPath || tab.shell || settings?.terminalShell || 'powershell'}
                                 isActive={isVisible && isTabActive && isPaneActive}
                                 settings={settings}
                               />
@@ -189,15 +192,7 @@ export const TerminalWorkspace: React.FC<TerminalWorkspaceProps> = ({
                         <XTermInstance
                           sessionId={tab.panes[0].id}
                           workDir={tab.panes[0].workDir}
-                          shell={
-                            tab.panes[0].shellPath ||
-                            tab.panes[0].shell ||
-                            tab.panes[0].shellId ||
-                            tab.shellPath ||
-                            tab.shell ||
-                            settings?.terminalShell ||
-                            'powershell'
-                          }
+                          shell={tab.panes[0].shellPath || tab.panes[0].shell || tab.panes[0].shellId || tab.shellPath || tab.shell || settings?.terminalShell || 'powershell'}
                           isActive={isVisible && isTabActive}
                           settings={settings}
                         />
@@ -210,6 +205,27 @@ export const TerminalWorkspace: React.FC<TerminalWorkspaceProps> = ({
           </div>
         </div>
       )}
+
+      {/* Terminal AI Assistant Slide-Over Drawer */}
+      <TerminalAIDrawer
+        isOpen={ai.isOpen}
+        onClose={ai.closeDrawer}
+        shellType={ai.currentShell}
+        viewMode={ai.viewMode}
+        onSwitchToPicker={ai.switchToPicker}
+        isExplaining={ai.isExplaining}
+        isSendingFollowUp={ai.isSendingFollowUp}
+        messages={ai.messages}
+        onSendFollowUp={ai.sendFollowUp}
+        onInsertCommand={handleInsertCommand}
+        onClearHistory={ai.clearHistory}
+        blocks={ai.history.blocks}
+        selectedIds={ai.history.selectedIds}
+        onToggleSelect={ai.history.toggleSelect}
+        onSelectAll={ai.history.selectAll}
+        onDeselectAll={ai.history.deselectAll}
+        onExplainSelected={ai.explainSelected}
+      />
     </div>
   );
 };

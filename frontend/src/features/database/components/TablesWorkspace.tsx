@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Database, Plus } from 'lucide-react';
+import { Database } from 'lucide-react';
 import { ActiveSession } from '../types';
 import { SchemaTreeView } from './SchemaTreeView';
 import { TableTabsHeader } from './TableTabsHeader';
@@ -41,26 +41,6 @@ export const TablesWorkspace: React.FC<TablesWorkspaceProps> = ({
 
   return (
     <div className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-[#090a0f] text-slate-900 dark:text-zinc-100 overflow-hidden font-sans">
-      <div className="px-4 py-2 border-b border-slate-200 dark:border-zinc-800 bg-white dark:bg-[#0c0d12] flex items-center justify-between text-xs select-none flex-shrink-0">
-        <div className="flex items-center gap-2">
-          <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-          <span className="font-semibold text-slate-800 dark:text-zinc-200">
-            {activeSession.activeDatabase}
-          </span>
-          <span className="text-slate-400 dark:text-zinc-500 font-mono">
-            ({activeSession.connection.name || activeSession.connection.host})
-          </span>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => setIsConsoleExpanded(!isConsoleExpanded)}
-          className="text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white"
-        >
-          {isConsoleExpanded ? 'Hide Console' : 'Console'}
-        </button>
-      </div>
-
       <div className="flex-1 flex min-h-0 relative overflow-hidden">
         <SchemaTreeView
           tables={schema.tables}

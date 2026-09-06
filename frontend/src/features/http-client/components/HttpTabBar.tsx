@@ -115,7 +115,7 @@ export const HttpTabBar: React.FC<HttpTabBarProps> = ({
           type="button"
           onClick={() => setIsCookieJarOpen(true)}
           title="Cookie Jar (Manage active session cookies)"
-          className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-950/70 border border-amber-500/30 transition-colors cursor-pointer"
+          className="flex items-center gap-1.5 px-2.5 py-1 h-[28px] rounded-lg text-xs font-medium text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 bg-amber-50 dark:bg-[#0f141c] hover:bg-amber-100 dark:hover:bg-[#161c26] border border-amber-500/30 dark:border-zinc-800/80 hover:border-amber-500/50 dark:hover:border-amber-500/40 transition-colors cursor-pointer"
         >
           <CookieIcon className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
           <span className="text-[11px] font-mono">Cookies ({cookieJarCount})</span>
@@ -126,7 +126,7 @@ export const HttpTabBar: React.FC<HttpTabBarProps> = ({
             type="button"
             onClick={() => setLayoutOrientation(layoutOrientation === 'horizontal' ? 'vertical' : 'horizontal')}
             title={layoutOrientation === 'horizontal' ? 'Switch to Stacked View (Top/Bottom)' : 'Switch to Side-by-Side View (Left/Right)'}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800/80 border border-slate-200 dark:border-zinc-800 transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 px-2.5 py-1 h-[28px] rounded-lg text-xs font-medium text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 bg-slate-100 dark:bg-[#0f141c] hover:bg-slate-200 dark:hover:bg-[#161c26] border border-slate-200 dark:border-zinc-800/80 hover:border-slate-300 dark:hover:border-zinc-700 transition-colors cursor-pointer"
           >
             {layoutOrientation === 'horizontal' ? (
               <>

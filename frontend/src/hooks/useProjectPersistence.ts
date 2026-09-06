@@ -10,6 +10,7 @@ import {
   closeProjectConnections,
   wipeLegacyStorage,
 } from '../services/api';
+import { loadHttpClientData, saveHttpClientData } from '../services/httpApi';
 import { useRecentProjects } from './useRecentProjects';
 import { useProjectFileOps } from './useProjectFileOps';
 
@@ -93,6 +94,26 @@ export function useProjectPersistence({
     httpData,
   });
 
+  const restoreStandaloneHttpData = useCallback(async () => {
+    try {
+      const raw = await loadHttpClientData();
+      if (raw?.trim()) {
+        const parsed = JSON.parse(raw);
+        if (parsed && (parsed.collections?.length || parsed.environments?.length)) {
+          setHttpData(parsed);
+          return;
+        }
+      }
+    } catch {}
+    try {
+      const local = localStorage.getItem('octa_http_client_data');
+      if (local) {
+        const parsed = JSON.parse(local);
+        if (parsed && (parsed.collections?.length || parsed.environments?.length)) setHttpData(parsed);
+      }
+    } catch {}
+  }, [setHttpData]);
+
   useEffect(() => {
     const hasResetLegacy = localStorage.getItem('octa_legacy_wiped_v2');
     if (!hasResetLegacy) {
@@ -114,14 +135,18 @@ export function useProjectPersistence({
             loadProjectIntoWorkspace(res.project, res.filePath);
             showToast(`Restored "${res.project.name}"`, 'info');
           } else {
+            restoreStandaloneHttpData();
             showToast('Previous project not found, opened Welcome Screen', 'info');
           }
         } catch {
+          restoreStandaloneHttpData();
           showToast('Previous project not found, opened Welcome Screen', 'info');
         } finally {
           setIsOpeningProject(false);
         }
       })();
+    } else {
+      restoreStandaloneHttpData();
     }
   }, []);
 
@@ -137,13 +162,8 @@ export function useProjectPersistence({
     setConnections([]);
     setQueriesTree([]);
     setRedisConnections([]);
-    setHttpData({
-      collections: [],
-      environments: [],
-      globalVariables: [],
-      activeEnvironmentId: null,
-    });
     setActiveModule('welcome');
+    restoreStandaloneHttpData();
     showToast('Project closed', 'info');
   };
 
@@ -171,6 +191,19 @@ export function useProjectPersistence({
 
     return () => clearTimeout(timer);
   }, [activeProject, projectFilePath, connections, queriesTree, redisConnections, httpData]);
+
+  useEffect(() => {
+    if (activeProject && projectFilePath) return;
+    if (!httpData || (!httpData.collections?.length && !httpData.environments?.length)) return;
+    const timer = setTimeout(() => {
+      try {
+        const json = JSON.stringify(httpData);
+        localStorage.setItem('octa_http_client_data', json);
+        saveHttpClientData(json).catch(() => {});
+      } catch {}
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [activeProject, projectFilePath, httpData]);
 
   return {
     activeProject,

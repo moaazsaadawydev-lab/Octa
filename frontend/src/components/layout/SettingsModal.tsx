@@ -83,10 +83,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs select-none">
-      <div className="w-full max-w-3xl bg-white dark:bg-[#101116] border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl flex flex-col h-[580px] overflow-hidden transition-all animate-in fade-in zoom-in-95 duration-150">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm select-none">
+      <div className="w-full max-w-3xl bg-white dark:bg-[#0d1117] border border-slate-200 dark:border-zinc-800/80 rounded-2xl shadow-2xl flex flex-col h-[580px] overflow-hidden transition-all animate-in fade-in zoom-in-95 duration-150">
         {/* Top Modal Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-zinc-800 bg-slate-50/50 dark:bg-[#0c0d12]/50">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-zinc-800/80 bg-slate-50 dark:bg-[#0f141c]">
           <div className="flex items-center gap-2.5">
             <Sliders className="w-4 h-4 text-brand-500" />
             <h2 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight">
@@ -97,7 +97,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             type="button"
             onClick={onClose}
             title="Close (Esc)"
-            className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:text-zinc-500 dark:hover:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+            className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-slate-100 dark:hover:bg-zinc-800/60 transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -106,7 +106,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         {/* Modal Main Body (Sidebar + Content Area) */}
         <div className="flex flex-1 min-h-0">
           {/* Left Navigation Sidebar */}
-          <div className="w-52 border-r border-slate-200 dark:border-zinc-800 p-2.5 space-y-1 bg-slate-50/30 dark:bg-[#0c0d12]/20 flex-shrink-0">
+          <div className="w-52 border-r border-slate-200 dark:border-zinc-800/80 p-2.5 space-y-1 bg-slate-50/50 dark:bg-[#090b10] flex-shrink-0">
             {NAV_ITEMS.map((item) => {
               const Icon = item.icon;
               const isActive = activeTab === item.id;
@@ -116,10 +116,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   type="button"
                   onClick={() => setActiveTab(item.id as SettingsCategory)}
                   className={clsx(
-                    'w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium transition-all text-left cursor-pointer',
+                    'w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium transition-all text-left cursor-pointer rounded-lg',
                     isActive
-                      ? 'bg-brand-500/10 text-brand-600 dark:text-brand-400 border border-brand-500/20 font-semibold'
-                      : 'text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800/60 hover:text-slate-900 dark:hover:text-zinc-200 border border-transparent'
+                      ? 'bg-brand-50/80 dark:bg-[#161c26] text-brand-600 dark:text-white font-medium border-l-2 border-brand-500 shadow-xs'
+                      : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100 hover:bg-slate-100 dark:hover:bg-[#161c26] border-l-2 border-transparent'
                   )}
                 >
                   <Icon
@@ -137,7 +137,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </div>
 
           {/* Right Scrollable Viewport */}
-          <div className="flex-1 p-6 overflow-y-auto no-scrollbar">
+          <div className="flex-1 p-6 overflow-y-auto no-scrollbar bg-white dark:bg-[#0d1117]">
             {activeTab === 'general' && (
               <GeneralTab
                 settings={settings}

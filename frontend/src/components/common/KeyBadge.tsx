@@ -11,7 +11,7 @@ export const KeyBadge: React.FC<KeyBadgeProps> = ({ keys, className }) => {
     <div className={clsx('flex items-center gap-1', className)}>
       {keys.map((k, i) => (
         <React.Fragment key={i}>
-          <kbd className="px-2 py-0.5 rounded bg-slate-200 dark:bg-zinc-800 border border-slate-300 dark:border-zinc-700 font-mono text-[11px] text-slate-800 dark:text-zinc-200 font-semibold shadow-xs select-none">
+          <kbd className="px-2 py-0.5 rounded bg-slate-200 dark:bg-[#12161f] border border-slate-300 dark:border-zinc-800 font-mono text-[11px] text-slate-800 dark:text-zinc-200 font-semibold shadow-xs select-none">
             {k}
           </kbd>
           {i < keys.length - 1 && (

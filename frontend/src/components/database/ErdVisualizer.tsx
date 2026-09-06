@@ -23,6 +23,7 @@ import { TableNode } from './erd/TableNode';
 import { getLayoutedElements } from './erd/erdLayout';
 import { ErdToolbar } from './erd/ErdToolbar';
 import { HomeLanding } from '../layout/HomeLanding';
+import { useTheme } from '../../context/ThemeContext';
 
 export interface ErdVisualizerProps {
   activeSession: ActiveSession | null;
@@ -46,6 +47,8 @@ const ErdCanvas: React.FC<ErdVisualizerProps> = ({
   const [direction, setDirection] = useState<'LR' | 'TB'>('LR');
   const [isExporting, setIsExporting] = useState(false);
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === 'dark';
 
   const { fitView, setCenter, getNode } = useReactFlow();
 
@@ -185,13 +188,20 @@ const ErdCanvas: React.FC<ErdVisualizerProps> = ({
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           nodeTypes={nodeTypes}
+          colorMode={resolvedTheme}
           fitView
           minZoom={0.1}
           maxZoom={2.5}
         >
-          <Background variant={BackgroundVariant.Dots} gap={20} size={1.2} />
-          <Controls />
-          <MiniMap nodeColor="#3b82f6" />
+          <Background variant={BackgroundVariant.Dots} gap={20} size={1.2} color={isDark ? '#27272a' : '#cbd5e1'} />
+          <Controls
+            className="!bg-white dark:!bg-[#0c0d12] !border !border-slate-200 dark:!border-zinc-800 !rounded-lg overflow-hidden shadow-lg [&>button]:!bg-transparent [&>button]:!border-b [&>button]:!border-slate-200 dark:[&>button]:!border-zinc-800 [&>button:last-child]:!border-b-0 [&>button]:!text-slate-600 dark:[&>button]:!text-zinc-300 hover:[&>button]:!text-slate-900 dark:hover:[&>button]:!text-white hover:[&>button]:!bg-slate-100 dark:hover:[&>button]:!bg-zinc-800/80 [&>button>svg]:!fill-current"
+          />
+          <MiniMap
+            className="!bg-white dark:!bg-[#0c0d12] !border !border-slate-200 dark:!border-zinc-800 !rounded-lg overflow-hidden shadow-xl"
+            nodeColor={() => '#3b82f6'}
+            maskColor={isDark ? 'rgba(0, 0, 0, 0.7)' : 'rgba(240, 240, 240, 0.6)'}
+          />
           {!loading && nodes.length === 0 && (
             <Panel position="top-center" className="mt-20">
               <div className="p-6 rounded-2xl bg-white dark:bg-[#181818] border border-slate-200 dark:border-[#2d2d2d] shadow-2xl flex flex-col items-center text-center max-w-sm">
