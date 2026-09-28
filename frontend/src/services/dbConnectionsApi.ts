@@ -143,3 +143,16 @@ export async function clearAppCache(): Promise<boolean> {
     return false;
   }
 }
+
+export async function resetToFactoryDefaults(): Promise<boolean> {
+  try {
+    if (typeof (window as any)?.go?.main?.App?.ResetToFactoryDefaults === 'function') {
+      return await (window as any).go.main.App.ResetToFactoryDefaults();
+    }
+    return true;
+  } catch (err) {
+    console.warn('[FactoryReset] Backend ResetToFactoryDefaults error:', err);
+    return false;
+  }
+}
+

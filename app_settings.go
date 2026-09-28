@@ -12,6 +12,11 @@ func (a *App) ClearAppCache() (bool, error) {
 	return a.settingsService.ClearAppCache()
 }
 
+func (a *App) ResetToFactoryDefaults() (bool, error) {
+	return a.settingsService.ResetToFactoryDefaults()
+}
+
+
 // ============================================================================
 // AI DOMAIN (Delegated to AIService)
 // ============================================================================

@@ -242,6 +242,10 @@ export function RenameColumn(arg1, arg2, arg3, arg4, arg5) {
   return window['go']['main']['App']['RenameColumn'](arg1, arg2, arg3, arg4, arg5);
 }
 
+export function ResetToFactoryDefaults() {
+  return window['go']['main']['App']['ResetToFactoryDefaults']();
+}
+
 export function ResizeContainerExec(arg1, arg2, arg3) {
   return window['go']['main']['App']['ResizeContainerExec'](arg1, arg2, arg3);
 }

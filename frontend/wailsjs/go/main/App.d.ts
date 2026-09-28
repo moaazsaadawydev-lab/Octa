@@ -125,6 +125,8 @@ export function RemoveContainer(arg1:string,arg2:boolean):Promise<boolean>;
 
 export function RenameColumn(arg1:main.ConnectionConfig,arg2:string,arg3:string,arg4:string,arg5:string):Promise<boolean>;
 
+export function ResetToFactoryDefaults():Promise<boolean>;
+
 export function ResizeContainerExec(arg1:string,arg2:number,arg3:number):Promise<void>;
 
 export function ResizeTerminalSession(arg1:string,arg2:number,arg3:number):Promise<void>;

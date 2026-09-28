@@ -5,11 +5,12 @@ import {
   Loader2,
   Check,
   Zap,
+  RotateCcw,
 } from 'lucide-react';
 import clsx from 'clsx';
-import { AppSettings, StartupBehavior } from '../../../types/settings';
+import { AppSettings, StartupBehavior, DEFAULT_APP_SETTINGS } from '../../../types/settings';
 import { SettingsRowCard, ToggleSwitch, SelectDropdown } from '../../common';
-import { clearAppCache, clearQueryLogs } from '../../../services/api';
+import { clearAppCache, clearQueryLogs, resetToFactoryDefaults } from '../../../services/api';
 
 interface GeneralTabProps {
   settings: AppSettings;
@@ -24,6 +25,8 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({
 }) => {
   const [isClearingCache, setIsClearingCache] = useState(false);
   const [cacheClearedSuccess, setCacheClearedSuccess] = useState(false);
+  const [isResettingZero, setIsResettingZero] = useState(false);
+
 
   const handleClearCache = async () => {
     setIsClearingCache(true);
@@ -56,6 +59,38 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({
       showToast('Cache cleared with minor warnings', 'info');
     } finally {
       setIsClearingCache(false);
+    }
+  };
+
+  const handleResetToZeroState = async () => {
+    if (!window.confirm('Are you sure you want to reset Octa to Zero State? All saved connections, queries, tabs, and caches will be completely wiped.')) {
+      return;
+    }
+
+    setIsResettingZero(true);
+    try {
+      // 1. Purge backend configurations and scratch buffers
+      await resetToFactoryDefaults();
+
+      // 2. Clear all web storage and cache
+      localStorage.clear();
+      sessionStorage.clear();
+      if ('caches' in window) {
+        const cacheNames = await caches.keys();
+        await Promise.all(cacheNames.map((name) => caches.delete(name)));
+      }
+      await clearQueryLogs();
+
+      onUpdateSettings(DEFAULT_APP_SETTINGS);
+      showToast('Octa reset to zero state. Restarting...', 'success');
+
+      setTimeout(() => {
+        window.location.reload();
+      }, 800);
+    } catch (e) {
+      console.warn('[FactoryReset] Error resetting to zero state:', e);
+      showToast('Failed to completely reset memory', 'error');
+      setIsResettingZero(false);
     }
   };
 
@@ -141,6 +176,33 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({
           )}
         </button>
       </SettingsRowCard>
+
+      {/* 5. Zero State Factory Reset */}
+      <SettingsRowCard
+        icon={<RotateCcw className="w-4 h-4 text-rose-500" />}
+        title="Zero State Reset"
+        description="Completely wipe all stored memory, tabs, connections, and reset Octa to clean factory zero state"
+      >
+        <button
+          type="button"
+          disabled={isResettingZero}
+          onClick={handleResetToZeroState}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer border bg-rose-500/10 hover:bg-rose-500/20 border-rose-500/40 text-rose-600 dark:text-rose-400 disabled:opacity-50"
+        >
+          {isResettingZero ? (
+            <>
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              <span>Resetting...</span>
+            </>
+          ) : (
+            <>
+              <RotateCcw className="w-3.5 h-3.5 text-rose-500" />
+              <span>Reset to Zero State</span>
+            </>
+          )}
+        </button>
+      </SettingsRowCard>
     </div>
   );
 };
+

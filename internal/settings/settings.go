@@ -51,3 +51,28 @@ func (s *SettingsService) ClearAppCache() (bool, error) {
 
 	return true, nil
 }
+
+// ResetToFactoryDefaults purges all saved configuration files and scratch buffers.
+func (s *SettingsService) ResetToFactoryDefaults() (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// 1. Purge temporary scratch files
+	tmpDir := os.TempDir()
+	matches, err := filepath.Glob(filepath.Join(tmpDir, "octa-*"))
+	if err == nil {
+		for _, m := range matches {
+			_ = os.RemoveAll(m)
+		}
+	}
+
+	// 2. Purge application configuration files in UserConfigDir/octa
+	configDir, err := os.UserConfigDir()
+	if err == nil {
+		appDir := filepath.Join(configDir, "octa")
+		_ = os.RemoveAll(appDir)
+	}
+
+	return true, nil
+}
+
