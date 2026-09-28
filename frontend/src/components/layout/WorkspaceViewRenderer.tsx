@@ -68,21 +68,32 @@ export const WorkspaceViewRenderer: React.FC<WorkspaceViewRendererProps> = ({
         />
       )}
 
-      {/* 3. HTTP Client Workspace */}
-      {state.activeModule === 'http' && (
+      {/* 3. Persistent HTTP Client Workspace (Kept alive in DOM across module switches) */}
+      <div
+        className={clsx(
+          'w-full h-full min-h-0 min-w-0',
+          state.activeModule === 'http' ? 'flex flex-col' : 'hidden'
+        )}
+      >
         <HttpClientWorkspace
           data={state.httpData}
           onUpdateData={state.setHttpData}
           showToast={state.showToast}
         />
-      )}
+      </div>
 
-      {/* 4. Git Workspace */}
-      {state.activeModule === 'git' && (
+      {/* 4. Persistent Git Workspace (Kept alive in DOM across module switches) */}
+      <div
+        className={clsx(
+          'w-full h-full min-h-0 min-w-0',
+          state.activeModule === 'git' ? 'flex flex-col' : 'hidden'
+        )}
+      >
         <GitWorkspace
           activeProject={state.activeProject}
           projectFilePath={state.projectFilePath}
           activeProjectPath={getProjectRootDir(state.projectFilePath) || undefined}
+          isVisible={state.activeModule === 'git'}
           onUpdateGitConfig={(gitConfig) => {
             if (state.activeProject) {
               state.setActiveProject((prev) => (prev ? { ...prev, git: gitConfig } : prev));
@@ -90,7 +101,7 @@ export const WorkspaceViewRenderer: React.FC<WorkspaceViewRendererProps> = ({
           }}
           showToast={state.showToast}
         />
-      )}
+      </div>
 
       {/* 5. Persistent Docker Workspace (Kept alive in DOM across module switches) */}
       <div

@@ -11,7 +11,6 @@ import (
 
 // StartContainer starts a container by ID
 func (s *DockerService) StartContainer(containerID string) (bool, error) {
-	println("[DEBUG DockerService] Starting container:", containerID)
 	cli, err := s.initClient()
 	if err == nil && cli != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
@@ -32,7 +31,6 @@ func (s *DockerService) StartContainer(containerID string) (bool, error) {
 
 // StopContainer stops a container by ID
 func (s *DockerService) StopContainer(containerID string) (bool, error) {
-	println("[DEBUG DockerService] Stopping container:", containerID)
 	cli, err := s.initClient()
 	if err == nil && cli != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
@@ -54,7 +52,6 @@ func (s *DockerService) StopContainer(containerID string) (bool, error) {
 
 // RestartContainer restarts a container by ID
 func (s *DockerService) RestartContainer(containerID string) (bool, error) {
-	println("[DEBUG DockerService] Restarting container:", containerID)
 	cli, err := s.initClient()
 	if err == nil && cli != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
@@ -76,7 +73,6 @@ func (s *DockerService) RestartContainer(containerID string) (bool, error) {
 
 // RemoveContainer removes a container by ID
 func (s *DockerService) RemoveContainer(containerID string, force bool) (bool, error) {
-	println("[DEBUG DockerService] Removing container:", containerID)
 	cli, err := s.initClient()
 	if err == nil && cli != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

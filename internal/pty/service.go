@@ -87,8 +87,6 @@ func (s *TerminalService) StartTerminalSession(sessionID string, workDir string,
 	cmdLine := ResolveShellCommand(shellPath, targetWorkDir, available)
 	instanceID := uuid.NewString()
 
-	fmt.Printf("[DEBUG TerminalService] Starting ConPTY session %s [%s] (cmd: %s, workDir: %s, cols: %d, rows: %d)\n", sessionID, instanceID[:8], cmdLine, targetWorkDir, cols, rows)
-
 	// Start ConPTY
 	cpty, err := conpty.Start(
 		cmdLine,
@@ -96,7 +94,6 @@ func (s *TerminalService) StartTerminalSession(sessionID string, workDir string,
 		conpty.ConPtyWorkDir(targetWorkDir),
 	)
 	if err != nil {
-		fmt.Printf("[DEBUG TerminalService ERROR] Failed to start ConPTY: %v\n", err)
 		return fmt.Errorf("failed to start ConPTY shell: %w", err)
 	}
 
@@ -137,7 +134,6 @@ func (s *TerminalService) WriteTerminalSession(sessionID string, data string) er
 
 	_, err := session.Cpty.Write([]byte(data))
 	if err != nil {
-		fmt.Printf("[DEBUG TerminalService Write Error]: %v\n", err)
 		return fmt.Errorf("failed to write to terminal session: %w", err)
 	}
 

@@ -3,24 +3,19 @@ package main
 import (
 	"context"
 	"fmt"
-	"io"
-	"strings"
 	"time"
 
 	"github.com/docker/docker/api/types/container"
 	wailsRuntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
-// StartContainerExec creates and attaches to an interactive shell session in a running container
+// StartContainer starts and attaches to an interactive shell session in a running container
 func (s *DockerService) StartContainerExec(sessionID string, containerID string, cols int, rows int) error {
-	println(fmt.Sprintf("[DEBUG DockerService] StartContainerExec invoked for session %s (container: %s, %dx%d)", sessionID, containerID, cols, rows))
-
 	// Close existing session with same ID if any
 	_ = s.CloseContainerExec(sessionID)
 
 	cli, err := s.initClient()
 	if err != nil {
-		println("[DEBUG DockerService] StartContainerExec SDK init error:", err.Error())
 		return fmt.Errorf("failed to connect to Docker engine: %w", err)
 	}
 
@@ -37,7 +32,6 @@ func (s *DockerService) StartContainerExec(sessionID string, containerID string,
 	execIDResp, err := cli.ContainerExecCreate(ctx, containerID, execConfig)
 	if err != nil {
 		cancel()
-		println("[DEBUG DockerService] ContainerExecCreate error:", err.Error())
 		return fmt.Errorf("failed to create exec instance: %w", err)
 	}
 
@@ -48,7 +42,6 @@ func (s *DockerService) StartContainerExec(sessionID string, containerID string,
 	resp, err := cli.ContainerExecAttach(ctx, execIDResp.ID, attachConfig)
 	if err != nil {
 		cancel()
-		println("[DEBUG DockerService] ContainerExecAttach error:", err.Error())
 		return fmt.Errorf("failed to attach to exec instance: %w", err)
 	}
 
@@ -79,7 +72,6 @@ func (s *DockerService) StartContainerExec(sessionID string, containerID string,
 			s.mu.Lock()
 			delete(s.execSessions, sessionID)
 			s.mu.Unlock()
-			println("[DEBUG DockerService] Exec reader terminated for session:", sessionID)
 		}()
 
 		buf := make([]byte, 4096)
@@ -92,9 +84,6 @@ func (s *DockerService) StartContainerExec(sessionID string, containerID string,
 				}
 			}
 			if err != nil {
-				if err != io.EOF && !strings.Contains(err.Error(), "closed") && !strings.Contains(err.Error(), "use of closed network connection") {
-					println("[DEBUG DockerService] Exec read ended for", sessionID, ":", err.Error())
-				}
 				return
 			}
 		}
@@ -147,7 +136,6 @@ func (s *DockerService) CloseContainerExec(sessionID string) error {
 	s.mu.Unlock()
 
 	if exists && sess != nil {
-		println("[DEBUG DockerService] Closing exec session:", sessionID)
 		if sess.cancel != nil {
 			sess.cancel()
 		}

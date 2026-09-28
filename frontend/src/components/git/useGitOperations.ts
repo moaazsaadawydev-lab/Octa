@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { GitStatusResult, GitFileChange, InitRepoOptions } from '../../types/git';
 import { ProjectWorkspace, ProjectGitConfig } from '../../types/project';
 import {
@@ -14,6 +14,7 @@ import { useGitFileActions } from './useGitFileActions';
 interface UseGitOperationsOptions {
   activeProject?: ProjectWorkspace | null;
   activeProjectPath?: string | null;
+  isVisible?: boolean;
   onUpdateGitConfig?: (config: ProjectGitConfig) => void;
   showToast?: (message: string, type?: 'success' | 'error' | 'info') => void;
 }
@@ -21,6 +22,7 @@ interface UseGitOperationsOptions {
 export function useGitOperations({
   activeProject,
   activeProjectPath,
+  isVisible = true,
   onUpdateGitConfig,
   showToast,
 }: UseGitOperationsOptions) {
@@ -58,9 +60,12 @@ export function useGitOperations({
     }
   }, []);
 
+  const isFetchingStatusRef = useRef(false);
+  const queuedRefreshRef = useRef(false);
+
   const fetchStatus = useCallback(
     async (targetPath?: string, forceDiff = false) => {
-      const p = targetPath || repoDetection.repoPath;
+      const p = targetPath || repoDetectionRef.current;
       if (!p) {
         setStatus(null);
         setSelectedFile(null);
@@ -70,6 +75,12 @@ export function useGitOperations({
         currentDiffKeyRef.current = null;
         return;
       }
+
+      if (isFetchingStatusRef.current) {
+        queuedRefreshRef.current = true;
+        return;
+      }
+      isFetchingStatusRef.current = true;
 
       try {
         const res = await getGitRepoStatus(p);
@@ -102,16 +113,19 @@ export function useGitOperations({
         }
       } catch (err: any) {
         console.error('[Git FetchStatus Error]:', err);
+      } finally {
+        isFetchingStatusRef.current = false;
+        if (queuedRefreshRef.current) {
+          queuedRefreshRef.current = false;
+          fetchStatus(p, forceDiff);
+        }
       }
     },
     [loadDiff]
   );
 
-  const repoDetection = useGitRepoDetection({
-    activeProject,
-    activeProjectPath,
-    onUpdateGitConfig,
-    onRepoChanged: (newRepo) => {
+  const handleRepoChanged = useCallback(
+    (newRepo: string | null) => {
       if (newRepo) fetchStatus(newRepo);
       else {
         setStatus(null);
@@ -119,15 +133,40 @@ export function useGitOperations({
         setDiffContent('');
       }
     },
-    onStatusRefreshNeeded: (repo) => fetchStatus(repo, true),
+    [fetchStatus]
+  );
+
+  const handleStatusRefreshNeeded = useCallback(
+    (repo: string) => {
+      fetchStatus(repo, true);
+    },
+    [fetchStatus]
+  );
+
+  const repoDetection = useGitRepoDetection({
+    activeProject,
+    activeProjectPath,
+    onUpdateGitConfig,
+    onRepoChanged: handleRepoChanged,
+    onStatusRefreshNeeded: handleStatusRefreshNeeded,
   });
+
+  const repoDetectionRef = useRef(repoDetection.repoPath);
+  repoDetectionRef.current = repoDetection.repoPath;
+
+  // Refresh status when transitioning from hidden to visible
+  const prevVisibleRef = useRef(isVisible);
+  useEffect(() => {
+    if (isVisible && !prevVisibleRef.current && repoDetection.repoPath) {
+      fetchStatus(repoDetection.repoPath, true);
+    }
+    prevVisibleRef.current = isVisible;
+  }, [isVisible, repoDetection.repoPath, fetchStatus]);
 
   const fileActions = useGitFileActions({
     repoPath: repoDetection.repoPath,
     status,
-    fetchStatus: async () => {
-      await fetchStatus();
-    },
+    fetchStatus,
     showToast,
   });
 
@@ -139,7 +178,7 @@ export function useGitOperations({
     }
   };
 
-  const handleOpenRepo = async () => {
+  const handleOpenOrInitRepo = async (actionLabel: string) => {
     try {
       const selected = await openGitRepositoryDialog();
       if (selected) {
@@ -153,27 +192,12 @@ export function useGitOperations({
         }
       }
     } catch (err: any) {
-      if (showToast) showToast(err?.message || 'Failed to open repository', 'error');
+      if (showToast) showToast(err?.message || `Failed to ${actionLabel} repository`, 'error');
     }
   };
 
-  const handleInitRepo = async () => {
-    try {
-      const selected = await openGitRepositoryDialog();
-      if (selected) {
-        const isRepo = await isGitRepository(selected);
-        if (!isRepo) {
-          setPendingInitPath(selected);
-          setIsInitModalOpen(true);
-        } else {
-          repoDetection.handleSetRepo(selected);
-          fetchStatus(selected);
-        }
-      }
-    } catch (err: any) {
-      if (showToast) showToast(err?.message || 'Failed to init repository', 'error');
-    }
-  };
+  const handleOpenRepo = () => handleOpenOrInitRepo('open');
+  const handleInitRepo = () => handleOpenOrInitRepo('init');
 
   const handleConfirmInit = async (opts: InitRepoOptions) => {
     setIsInitializing(true);

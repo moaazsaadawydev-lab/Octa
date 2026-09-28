@@ -88,7 +88,6 @@ func (s *GitService) StartAutoWatch(repoPath string) error {
 
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
-		println("[DEBUG GitWatcher] Failed to create fsnotify watcher:", err.Error())
 		return err
 	}
 
@@ -109,8 +108,6 @@ func (s *GitService) StartAutoWatch(repoPath string) error {
 		return nil
 	})
 
-	println("[DEBUG GitWatcher] Started watching repo path:", repoPath)
-
 	go func(stopCh chan struct{}, w *fsnotify.Watcher, targetRepo string) {
 		var debounceTimer *time.Timer
 		var timerMu sync.Mutex
@@ -118,7 +115,6 @@ func (s *GitService) StartAutoWatch(repoPath string) error {
 		for {
 			select {
 			case <-stopCh:
-				println("[DEBUG GitWatcher] Stop signal received for repo:", targetRepo)
 				return
 			case event, ok := <-w.Events:
 				if !ok {
@@ -147,17 +143,15 @@ func (s *GitService) StartAutoWatch(repoPath string) error {
 					}
 					debounceTimer = time.AfterFunc(300*time.Millisecond, func() {
 						if s.ctx != nil {
-							println("[DEBUG GitWatcher] Emitting git:status:changed for:", targetRepo)
 							wailsRuntime.EventsEmit(s.ctx, "git:status:changed", targetRepo)
 						}
 					})
 					timerMu.Unlock()
 				}
-			case err, ok := <-w.Errors:
+			case _, ok := <-w.Errors:
 				if !ok {
 					return
 				}
-				println("[DEBUG GitWatcher Error]:", err.Error())
 			}
 		}
 	}(s.stopWatcher, watcher, repoPath)
@@ -186,9 +180,7 @@ func (s *GitService) StopAutoWatch() {
 
 // OpenRepositoryDialog opens native directory picker and verifies if it is a git repo
 func (s *GitService) OpenRepositoryDialog() (string, error) {
-	println("[DEBUG GitService] OpenRepositoryDialog invoked from Frontend")
 	if s.ctx == nil {
-		println("[DEBUG GitService] Error: app context is nil")
 		return "", fmt.Errorf("app context not initialized")
 	}
 
@@ -196,15 +188,12 @@ func (s *GitService) OpenRepositoryDialog() (string, error) {
 		Title: "Select Git Repository Directory",
 	})
 	if err != nil {
-		println("[DEBUG GitService] OpenDirectoryDialog error:", err.Error())
 		return "", err
 	}
 	if selectedDir == "" {
-		println("[DEBUG GitService] OpenDirectoryDialog cancelled by user")
 		return "", nil // User cancelled
 	}
 
-	println("[DEBUG GitService] User selected path:", selectedDir)
 	return selectedDir, nil
 }
 
@@ -230,7 +219,6 @@ func (s *GitService) InitializeRepositoryWithOptions(opts InitRepoOptions) error
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	println("[DEBUG GitService] InitializeRepositoryWithOptions for path:", opts.Path)
 	if opts.Path == "" {
 		return fmt.Errorf("repository path cannot be empty")
 	}
@@ -239,7 +227,6 @@ func (s *GitService) InitializeRepositoryWithOptions(opts InitRepoOptions) error
 	cmd := gitCommand( "-C", opts.Path, "init")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		println("[DEBUG GitService] git init failed:", string(out))
 		return fmt.Errorf("git init failed: %s", strings.TrimSpace(string(out)))
 	}
 
@@ -285,21 +272,16 @@ func (s *GitService) InitRepository(repoPath string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	println("[DEBUG GitService] InitRepository invoked for path:", repoPath)
 	cmd := gitCommand( "-C", repoPath, "init")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		println("[DEBUG GitService] InitRepository error:", string(out))
 		return fmt.Errorf("failed to init git repository: %s", strings.TrimSpace(string(out)))
 	}
 	return nil
 }
 
-// GetRepoStatus gathers branch, upstream tracking, ahead/behind count, and changes
+// GetRepoStatus gathers branch, upstream tracking, ahead/behind count, and changes in a single fast command
 func (s *GitService) GetRepoStatus(repoPath string) (*GitStatusResult, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	res := &GitStatusResult{
 		IsRepo:         false,
 		RepoPath:       repoPath,
@@ -312,62 +294,60 @@ func (s *GitService) GetRepoStatus(repoPath string) (*GitStatusResult, error) {
 		return res, nil
 	}
 
-	// Verify if inside a git work tree
-	checkCmd := gitCommand( "-C", repoPath, "rev-parse", "--is-inside-work-tree")
-	if out, err := checkCmd.Output(); err != nil || strings.TrimSpace(string(out)) != "true" {
-		return res, nil
-	}
-	res.IsRepo = true
-
-	// Refresh Git's index cache so reverted file timestamps don't trigger false positives
-	refreshCmd := gitCommand( "-C", repoPath, "update-index", "-q", "--refresh")
-	_ = refreshCmd.Run() // Silent run; exit code non-zero if worktree has changes, which is expected
-
-	// Get current branch
-	branchCmd := gitCommand( "-C", repoPath, "branch", "--show-current")
-	if out, err := branchCmd.Output(); err == nil {
-		res.Branch = strings.TrimSpace(string(out))
-	}
-	if res.Branch == "" {
-		// Try short HEAD for detached state
-		headCmd := gitCommand( "-C", repoPath, "rev-parse", "--short", "HEAD")
-		if out, err := headCmd.Output(); err == nil {
-			res.Branch = "HEAD (" + strings.TrimSpace(string(out)) + ")"
-		} else {
-			res.Branch = "main"
-		}
-	}
-
-	// Get upstream branch
-	upstreamCmd := gitCommand( "-C", repoPath, "rev-parse", "--abbrev-ref", "@{u}")
-	if out, err := upstreamCmd.Output(); err == nil {
-		res.Upstream = strings.TrimSpace(string(out))
-	}
-
-	// Get ahead / behind count if upstream exists
-	if res.Upstream != "" {
-		countCmd := gitCommand( "-C", repoPath, "rev-list", "--left-right", "--count", "HEAD...@{u}")
-		if out, err := countCmd.Output(); err == nil {
-			parts := strings.Fields(strings.TrimSpace(string(out)))
-			if len(parts) >= 2 {
-				ahead, _ := strconv.Atoi(parts[0])
-				behind, _ := strconv.Atoi(parts[1])
-				res.Ahead = ahead
-				res.Behind = behind
-			}
-		}
-	}
-
-	// Parse porcelain status
-	statusCmd := gitCommand( "-C", repoPath, "status", "--porcelain=v1", "-u")
+	statusCmd := gitCommand("-C", repoPath, "status", "--porcelain=v1", "-b", "-u")
 	out, err := statusCmd.Output()
 	if err != nil {
 		return res, nil
 	}
+	res.IsRepo = true
 
 	scanner := bufio.NewScanner(bytes.NewReader(out))
 	for scanner.Scan() {
 		line := scanner.Text()
+		if len(line) < 3 {
+			continue
+		}
+
+		// Header line: ## <branch>...<upstream> [ahead X, behind Y]
+		if strings.HasPrefix(line, "## ") {
+			header := strings.TrimPrefix(line, "## ")
+			if strings.HasPrefix(header, "No commits yet on ") {
+				res.Branch = strings.TrimPrefix(header, "No commits yet on ")
+				continue
+			}
+			if strings.HasPrefix(header, "Initial commit on ") {
+				res.Branch = strings.TrimPrefix(header, "Initial commit on ")
+				continue
+			}
+			if strings.HasPrefix(header, "HEAD (no branch)") {
+				res.Branch = "HEAD (detached)"
+				continue
+			}
+
+			branchPart := header
+			bracketIdx := strings.Index(header, "[")
+			if bracketIdx != -1 {
+				branchPart = strings.TrimSpace(header[:bracketIdx])
+				meta := strings.Trim(header[bracketIdx:], "[] ")
+				for _, item := range strings.Split(meta, ",") {
+					item = strings.TrimSpace(item)
+					if strings.HasPrefix(item, "ahead ") {
+						res.Ahead, _ = strconv.Atoi(strings.TrimPrefix(item, "ahead "))
+					} else if strings.HasPrefix(item, "behind ") {
+						res.Behind, _ = strconv.Atoi(strings.TrimPrefix(item, "behind "))
+					}
+				}
+			}
+
+			if dotIdx := strings.Index(branchPart, "..."); dotIdx != -1 {
+				res.Branch = branchPart[:dotIdx]
+				res.Upstream = branchPart[dotIdx+3:]
+			} else {
+				res.Branch = branchPart
+			}
+			continue
+		}
+
 		if len(line) < 4 {
 			continue
 		}
@@ -425,23 +405,24 @@ func (s *GitService) GetRepoStatus(repoPath string) (*GitStatusResult, error) {
 		}
 	}
 
+	if res.Branch == "" {
+		res.Branch = "main"
+	}
+
 	return res, nil
 }
 
 // GetFileDiff returns unified diff for a staged, modified, or untracked file
 func (s *GitService) GetFileDiff(repoPath string, filePath string, staged bool) (string, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	if repoPath == "" || filePath == "" {
 		return "", fmt.Errorf("invalid path parameters")
 	}
 
 	var cmd *exec.Cmd
 	if staged {
-		cmd = gitCommand( "-C", repoPath, "diff", "--staged", "--", filePath)
+		cmd = gitCommand("-C", repoPath, "diff", "--staged", "--", filePath)
 	} else {
-		cmd = gitCommand( "-C", repoPath, "diff", "--", filePath)
+		cmd = gitCommand("-C", repoPath, "diff", "--", filePath)
 	}
 
 	out, err := cmd.Output()
@@ -466,10 +447,7 @@ func (s *GitService) GetFileDiff(repoPath string, filePath string, staged bool) 
 
 // StageFile stages a single file
 func (s *GitService) StageFile(repoPath string, filePath string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	cmd := gitCommand( "-C", repoPath, "add", "--", filePath)
+	cmd := gitCommand("-C", repoPath, "add", "--", filePath)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("failed to stage file %s: %s", filePath, strings.TrimSpace(string(out)))
@@ -479,14 +457,11 @@ func (s *GitService) StageFile(repoPath string, filePath string) error {
 
 // UnstageFile unstages a single file
 func (s *GitService) UnstageFile(repoPath string, filePath string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	cmd := gitCommand( "-C", repoPath, "restore", "--staged", "--", filePath)
+	cmd := gitCommand("-C", repoPath, "restore", "--staged", "--", filePath)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		// Fallback for older git: git reset HEAD -- filePath
-		fallback := gitCommand( "-C", repoPath, "reset", "HEAD", "--", filePath)
+		fallback := gitCommand("-C", repoPath, "reset", "HEAD", "--", filePath)
 		if _, fErr := fallback.CombinedOutput(); fErr != nil {
 			return fmt.Errorf("failed to unstage file %s: %s", filePath, strings.TrimSpace(string(out)))
 		}
@@ -496,10 +471,7 @@ func (s *GitService) UnstageFile(repoPath string, filePath string) error {
 
 // StageAll stages all changed and untracked files
 func (s *GitService) StageAll(repoPath string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	cmd := gitCommand( "-C", repoPath, "add", "-A")
+	cmd := gitCommand("-C", repoPath, "add", "-A")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("failed to stage all files: %s", strings.TrimSpace(string(out)))
@@ -509,14 +481,11 @@ func (s *GitService) StageAll(repoPath string) error {
 
 // UnstageAll unstages all staged files
 func (s *GitService) UnstageAll(repoPath string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	cmd := gitCommand( "-C", repoPath, "restore", "--staged", ".")
+	cmd := gitCommand("-C", repoPath, "restore", "--staged", ".")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		// Fallback: git reset HEAD
-		fallback := gitCommand( "-C", repoPath, "reset", "HEAD")
+		fallback := gitCommand("-C", repoPath, "reset", "HEAD")
 		if _, fErr := fallback.CombinedOutput(); fErr != nil {
 			return fmt.Errorf("failed to unstage all files: %s", strings.TrimSpace(string(out)))
 		}
@@ -526,15 +495,12 @@ func (s *GitService) UnstageAll(repoPath string) error {
 
 // CommitChanges commits staged changes with a commit message
 func (s *GitService) CommitChanges(repoPath string, message string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	trimmed := strings.TrimSpace(message)
 	if trimmed == "" {
 		return fmt.Errorf("commit message cannot be empty")
 	}
 
-	cmd := gitCommand( "-C", repoPath, "commit", "-m", trimmed)
+	cmd := gitCommand("-C", repoPath, "commit", "-m", trimmed)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("failed to commit changes: %s", strings.TrimSpace(string(out)))
@@ -544,20 +510,17 @@ func (s *GitService) CommitChanges(repoPath string, message string) error {
 
 // PushChanges pushes commits to remote tracking branch
 func (s *GitService) PushChanges(repoPath string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	cmd := gitCommand( "-C", repoPath, "push")
+	cmd := gitCommand("-C", repoPath, "push")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		outStr := strings.TrimSpace(string(out))
 		// If no upstream is set, check current branch and push with -u origin <branch>
 		if strings.Contains(outStr, "no upstream branch") || strings.Contains(outStr, "--set-upstream") {
-			branchCmd := gitCommand( "-C", repoPath, "branch", "--show-current")
+			branchCmd := gitCommand("-C", repoPath, "branch", "--show-current")
 			branchOut, bErr := branchCmd.Output()
 			if bErr == nil && len(strings.TrimSpace(string(branchOut))) > 0 {
 				branch := strings.TrimSpace(string(branchOut))
-				pushUpstreamCmd := gitCommand( "-C", repoPath, "push", "-u", "origin", branch)
+				pushUpstreamCmd := gitCommand("-C", repoPath, "push", "-u", "origin", branch)
 				uOut, uErr := pushUpstreamCmd.CombinedOutput()
 				if uErr != nil {
 					return fmt.Errorf("failed to push changes: %s", strings.TrimSpace(string(uOut)))
@@ -572,10 +535,7 @@ func (s *GitService) PushChanges(repoPath string) error {
 
 // PullChanges pulls changes from remote
 func (s *GitService) PullChanges(repoPath string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	cmd := gitCommand( "-C", repoPath, "pull")
+	cmd := gitCommand("-C", repoPath, "pull")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("failed to pull changes: %s", strings.TrimSpace(string(out)))
@@ -585,10 +545,7 @@ func (s *GitService) PullChanges(repoPath string) error {
 
 // FetchChanges fetches metadata from remote
 func (s *GitService) FetchChanges(repoPath string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	cmd := gitCommand( "-C", repoPath, "fetch")
+	cmd := gitCommand("-C", repoPath, "fetch")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("failed to fetch changes: %s", strings.TrimSpace(string(out)))

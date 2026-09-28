@@ -1,22 +1,13 @@
 import { useState, useRef, useCallback, useMemo, useEffect } from 'react';
 import {
-  HttpFolderItem,
-  HttpRequestItem,
-  HttpParam,
-  HttpBodyType,
-  createDefaultCollection,
-  createDefaultFolder,
-  createDefaultRequest,
-  parseQueryParamsFromUrl,
-  buildUrlWithParams,
+  HttpFolderItem, HttpRequestItem, HttpParam, HttpBodyType,
+  createDefaultCollection, createDefaultFolder, createDefaultRequest,
+  parseQueryParamsFromUrl, buildUrlWithParams,
 } from '../types';
 import { normalizeCollections, findItemById } from '../utils/treeHelpers';
 import {
-  toggleFolderInTree,
-  renameItemInTree,
-  deleteItemFromTree,
-  duplicateRequestInTree,
-  insertItemInTree,
+  toggleFolderInTree, renameItemInTree, deleteItemFromTree,
+  duplicateRequestInTree, insertItemInTree,
 } from '../utils/treeMutations';
 import { useTreeDragDrop } from './useTreeDragDrop';
 import { mapPostmanCollection } from '../../../services/postmanMapper';
@@ -36,12 +27,30 @@ export function useCollections({
   onPostmanImport,
 }: UseCollectionsOptions) {
   const [collections, setCollections] = useState<HttpFolderItem[]>(() => normalizeCollections(initialCollections));
-  const [openTabs, setOpenTabs] = useState<HttpRequestItem[]>([]);
-  const [activeTabId, setActiveTabId] = useState<string>('');
+  const [openTabs, setOpenTabs] = useState<HttpRequestItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('octa_http_open_tabs');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return [];
+  });
+  const [activeTabId, setActiveTabId] = useState<string>(() => {
+    try { return localStorage.getItem('octa_http_active_tab_id') || ''; } catch { return ''; }
+  });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState<string>('');
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('octa_http_open_tabs', JSON.stringify(openTabs));
+      localStorage.setItem('octa_http_active_tab_id', activeTabId);
+    } catch {}
+  }, [openTabs, activeTabId]);
 
   const editInputRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -51,9 +60,7 @@ export function useCollections({
 
   useEffect(() => {
     if (!menuOpenId) return;
-    const onPointerDown = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpenId(null);
-    };
+    const onPointerDown = (e: MouseEvent) => { if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpenId(null); };
     const onKeyDown = (e: KeyboardEvent) => { if (e.key === 'Escape') setMenuOpenId(null); };
     document.addEventListener('pointerdown', onPointerDown);
     document.addEventListener('keydown', onKeyDown);
@@ -124,9 +131,7 @@ export function useCollections({
   const handleCreateNewCollection = () => {
     const newCol = createDefaultCollection('Untitled Collection');
     saveTreeData([...collections, newCol]);
-    setEditingId(newCol.id);
-    setEditingName(newCol.name);
-    setMenuOpenId(null);
+    setEditingId(newCol.id); setEditingName(newCol.name); setMenuOpenId(null);
     showToast('Created new collection', 'success');
   };
 

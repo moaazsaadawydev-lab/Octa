@@ -211,6 +211,7 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
         cookieJar={http.cookieJar}
         saveCookieJar={http.saveCookieJar}
         showToast={showToast}
+        activeUrl={cols.activeRequest?.url}
       />
 
       <EnvironmentModal

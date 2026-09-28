@@ -27,17 +27,22 @@ export function useGitRepoDetection({
   });
 
   const statusDebounceRef = useRef<any>(null);
+  const onRepoChangedRef = useRef(onRepoChanged);
+  onRepoChangedRef.current = onRepoChanged;
+  const onStatusRefreshNeededRef = useRef(onStatusRefreshNeeded);
+  onStatusRefreshNeededRef.current = onStatusRefreshNeeded;
+  const onUpdateGitConfigRef = useRef(onUpdateGitConfig);
+  onUpdateGitConfigRef.current = onUpdateGitConfig;
+  const repoPathRef = useRef(repoPath);
+  repoPathRef.current = repoPath;
 
-  const handleSetRepo = useCallback(
-    (newPath: string) => {
-      setRepoPath(newPath);
-      onRepoChanged(newPath);
-      if (onUpdateGitConfig) {
-        onUpdateGitConfig({ repoPath: newPath, autoWatch: true });
-      }
-    },
-    [onRepoChanged, onUpdateGitConfig]
-  );
+  const handleSetRepo = useCallback((newPath: string) => {
+    setRepoPath(newPath);
+    onRepoChangedRef.current(newPath);
+    if (onUpdateGitConfigRef.current) {
+      onUpdateGitConfigRef.current({ repoPath: newPath, autoWatch: true });
+    }
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -47,9 +52,9 @@ export function useGitRepoDetection({
         try {
           const isValid = await isGitRepository(configuredPath);
           if (isValid && isMounted) {
-            if (repoPath !== configuredPath) {
+            if (repoPathRef.current !== configuredPath) {
               setRepoPath(configuredPath);
-              onRepoChanged(configuredPath);
+              onRepoChangedRef.current(configuredPath);
             }
             return;
           }
@@ -62,12 +67,12 @@ export function useGitRepoDetection({
         try {
           const isRootGit = await isGitRepository(activeProjectPath);
           if (isRootGit && isMounted) {
-            if (repoPath !== activeProjectPath) {
+            if (repoPathRef.current !== activeProjectPath) {
               setRepoPath(activeProjectPath);
-              onRepoChanged(activeProjectPath);
+              onRepoChangedRef.current(activeProjectPath);
             }
-            if (onUpdateGitConfig) {
-              onUpdateGitConfig({ repoPath: activeProjectPath, autoWatch: true });
+            if (onUpdateGitConfigRef.current) {
+              onUpdateGitConfigRef.current({ repoPath: activeProjectPath, autoWatch: true });
             }
             return;
           }
@@ -76,16 +81,16 @@ export function useGitRepoDetection({
         }
       }
 
-      if (isMounted) {
+      if (isMounted && repoPathRef.current !== null) {
         setRepoPath(null);
-        onRepoChanged(null);
+        onRepoChangedRef.current(null);
       }
     })();
 
     return () => {
       isMounted = false;
     };
-  }, [activeProject?.id, activeProject?.git?.repoPath, activeProjectPath, onRepoChanged, onUpdateGitConfig]);
+  }, [activeProject?.id, activeProject?.git?.repoPath, activeProjectPath]);
 
   useEffect(() => {
     if (!repoPath) return;
@@ -103,8 +108,8 @@ export function useGitRepoDetection({
             clearTimeout(statusDebounceRef.current);
           }
           statusDebounceRef.current = setTimeout(() => {
-            onStatusRefreshNeeded(repoPath);
-          }, 150);
+            onStatusRefreshNeededRef.current(repoPath);
+          }, 200);
         }
       });
     }
@@ -120,7 +125,7 @@ export function useGitRepoDetection({
       }
       stopGitAutoWatch().catch(() => {});
     };
-  }, [repoPath, onStatusRefreshNeeded]);
+  }, [repoPath]);
 
   return {
     repoPath,

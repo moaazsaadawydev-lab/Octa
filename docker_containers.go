@@ -67,7 +67,6 @@ func (s *DockerService) listContainersViaCLI(onlyRunning bool) ([]DockerProjectG
 	cmd := s.dockerCommand(args...)
 	out, err := cmd.Output()
 	if err != nil {
-		println("[DEBUG DockerService] CLI listContainers error:", err.Error())
 		return nil, fmt.Errorf("failed to query containers via CLI: %w", err)
 	}
 
@@ -152,11 +151,8 @@ func groupAndSortContainers(containers []DockerContainer) []DockerProjectGroup {
 
 // ListContainers queries and groups containers by Compose project (SDK + CLI fallback)
 func (s *DockerService) ListContainers(onlyRunning bool) ([]DockerProjectGroup, error) {
-	println(fmt.Sprintf("[DEBUG DockerService] ListContainers invoked from Frontend (onlyRunning: %v)", onlyRunning))
-
 	cli, err := s.initClient()
 	if err != nil {
-		println("[DEBUG DockerService] SDK client unavailable, using CLI fallback...")
 		return s.listContainersViaCLI(onlyRunning)
 	}
 
@@ -169,7 +165,6 @@ func (s *DockerService) ListContainers(onlyRunning bool) ([]DockerProjectGroup, 
 
 	rawList, err := cli.ContainerList(ctx, listOpts)
 	if err != nil {
-		println("[DEBUG DockerService] SDK ContainerList failed:", err.Error(), "- using CLI fallback...")
 		return s.listContainersViaCLI(onlyRunning)
 	}
 
@@ -234,6 +229,5 @@ func (s *DockerService) ListContainers(onlyRunning bool) ([]DockerProjectGroup, 
 	}
 
 	result := groupAndSortContainers(containers)
-	println(fmt.Sprintf("[DEBUG DockerService] Retrieved %d groups (%d containers) via SDK", len(result), len(containers)))
 	return result, nil
 }

@@ -3,7 +3,6 @@ package settings
 import (
 	"context"
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
@@ -50,6 +49,5 @@ func (s *SettingsService) ClearAppCache() (bool, error) {
 		}
 	}
 
-	fmt.Println("[DEBUG SettingsService] Cleared application temporary caches and scratch buffers.")
 	return true, nil
 }

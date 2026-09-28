@@ -162,7 +162,7 @@ func (s *DockerService) initClient() (*client.Client, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	ping, err := cli.Ping(ctx)
+	_, err = cli.Ping(ctx)
 	if err != nil && runtime.GOOS == "windows" && s.activeEngine != "wsl" {
 		// Fallback for Docker Desktop Linux Engine pipe
 		fallbackOpts := []client.Opt{
@@ -171,10 +171,9 @@ func (s *DockerService) initClient() (*client.Client, error) {
 			client.WithHost("npipe:////./pipe/dockerDesktopLinuxEngine"),
 		}
 		if fallbackCli, fallbackErr := client.NewClientWithOpts(fallbackOpts...); fallbackErr == nil {
-			if fallbackPing, pErr := fallbackCli.Ping(ctx); pErr == nil {
+			if _, pErr := fallbackCli.Ping(ctx); pErr == nil {
 				_ = cli.Close()
 				cli = fallbackCli
-				ping = fallbackPing
 				err = nil
 			} else {
 				_ = fallbackCli.Close()
@@ -187,7 +186,6 @@ func (s *DockerService) initClient() (*client.Client, error) {
 		return nil, fmt.Errorf("docker daemon ping failed: %w", err)
 	}
 
-	println("[DEBUG DockerService] Connected successfully! Engine:", s.activeEngine, "Docker API Version:", ping.APIVersion)
 	s.cli = cli
 	return s.cli, nil
 }
@@ -204,8 +202,6 @@ func (s *DockerService) checkDockerCliAvailable() (bool, string) {
 
 // CheckDockerAvailability / CheckConnection tests connection via SDK or CLI fallback
 func (s *DockerService) CheckDockerAvailability() (bool, string) {
-	println("[DEBUG DockerService] CheckConnection / CheckDockerAvailability invoked from Frontend! ActiveEngine:", s.activeEngine)
-
 	cli, err := s.initClient()
 	if err == nil && cli != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -215,12 +211,7 @@ func (s *DockerService) CheckDockerAvailability() (bool, string) {
 		}
 	}
 
-	if err != nil {
-		println("[DEBUG DockerService] Docker SDK init error:", err.Error(), "- testing CLI fallback...")
-	}
-
 	if available, ver := s.checkDockerCliAvailable(); available {
-		println("[DEBUG DockerService] Fallback: Docker CLI is available and working! Server Version:", ver)
 		return true, ver
 	}
 
@@ -228,6 +219,5 @@ func (s *DockerService) CheckDockerAvailability() (bool, string) {
 	if err != nil {
 		errMsg = err.Error()
 	}
-	println("[DEBUG DockerService] Docker connection check failed:", errMsg)
 	return false, errMsg
 }

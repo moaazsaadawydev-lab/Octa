@@ -109,10 +109,6 @@ func TestGeminiConnection(apiKey string, model string) (*ConnectionResult, error
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 
-	// Log with redacted API key for safety
-	redactedUrl := fmt.Sprintf("%s/%s:generateContent?key=[REDACTED]", geminiApiBaseUrl, selectedModel)
-	fmt.Printf("[AI Service] Executing Gemini handshake to %s\n", redactedUrl)
-
 	client := &http.Client{Timeout: handshakeTimeout}
 	resp, err := client.Do(httpReq)
 	if err != nil {

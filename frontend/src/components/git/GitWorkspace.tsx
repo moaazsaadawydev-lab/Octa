@@ -9,6 +9,7 @@ interface GitWorkspaceProps {
   activeProject?: ProjectWorkspace | null;
   projectFilePath?: string | null;
   activeProjectPath?: string | null;
+  isVisible?: boolean;
   onUpdateGitConfig?: (config: ProjectGitConfig) => void;
   showToast?: (message: string, type?: 'success' | 'error' | 'info') => void;
 }
@@ -16,6 +17,7 @@ interface GitWorkspaceProps {
 export const GitWorkspace: React.FC<GitWorkspaceProps> = ({
   activeProject,
   activeProjectPath,
+  isVisible,
   onUpdateGitConfig,
   showToast,
 }) => {
@@ -26,6 +28,7 @@ export const GitWorkspace: React.FC<GitWorkspaceProps> = ({
   const git = useGitOperations({
     activeProject,
     activeProjectPath,
+    isVisible,
     onUpdateGitConfig,
     showToast,
   });

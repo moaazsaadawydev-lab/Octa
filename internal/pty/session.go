@@ -1,8 +1,6 @@
 package pty
 
 import (
-	"fmt"
-	"io"
 	"sync"
 	"time"
 
@@ -43,14 +41,6 @@ func (s *TerminalService) readLoop(session *TerminalSession) {
 		}
 
 		if err != nil {
-			if err != io.EOF {
-				session.mu.Lock()
-				isClosedByService := session.closedByService
-				session.mu.Unlock()
-				if !isClosedByService {
-					fmt.Printf("[DEBUG TerminalService] Read ended for session %s: %v\n", session.ID, err)
-				}
-			}
 			break
 		}
 	}
