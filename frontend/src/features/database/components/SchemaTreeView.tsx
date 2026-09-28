@@ -83,7 +83,7 @@ export const SchemaTreeView: React.FC<SchemaTreeViewProps> = ({
 
       <div className="flex-1 overflow-y-auto p-1 space-y-0.5">
         {loadingTables && (
-          <div className="p-4 text-center flex items-center justify-center gap-2 text-xs text-slate-400 dark:text-zinc-400">
+          <div className="p-4 text-center flex items-center justify-center gap-2 text-xs text-slate-400 dark:text-zinc-100">
             <Loader2 className="w-3.5 h-3.5 animate-spin text-brand-500" />
             <span>Loading schema...</span>
           </div>
@@ -110,7 +110,7 @@ export const SchemaTreeView: React.FC<SchemaTreeViewProps> = ({
                     (isSelected
                       ? 'bg-brand-600 text-white font-medium shadow-sm'
                       : isOpenInTabs
-                      ? 'text-brand-700 dark:text-brand-300 bg-slate-100/80 dark:bg-zinc-800/70 hover:bg-slate-200 dark:hover:bg-zinc-800'
+                      ? 'text-brand-200 dark:text-brand-200'
                       : 'text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 hover:text-slate-900 dark:hover:text-zinc-100')
                   }
                   onClick={() => onSelectTable(tbl)}

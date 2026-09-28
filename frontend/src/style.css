@@ -4,7 +4,7 @@
 
 @layer base {
   :root {
-    --bg-app: #f8fafc;         /* slate-50 */
+    --bg-app: #0080ff;         /* slate-50 */
     --bg-surface: #ffffff;     /* pure white */
     --bg-subtle: #f1f5f9;      /* slate-100 */
     --bg-panel: #ffffff;       /* sidebars & modals */
@@ -20,7 +20,7 @@
     --bg-subtle: #171922;      /* elevated components */
     --bg-panel: #0d0e14;       /* sidebar dark */
     --border-color: #27272a;   /* zinc-800 */
-    --text-main: #f8fafc;      /* slate-50 */
+    --text-main: #0080ff;      /* slate-50 */
     --text-muted: #94a3b8;     /* slate-400 */
     color-scheme: dark;
   }

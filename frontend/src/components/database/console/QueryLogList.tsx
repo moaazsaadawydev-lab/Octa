@@ -28,7 +28,7 @@ export const QueryLogList: React.FC<QueryLogListProps> = ({
         return (
           <div
             key={log.id}
-            className="flex items-start justify-between p-2 hover:bg-slate-50 dark:hover:bg-zinc-850/60 transition-colors group"
+            className="flex items-start justify-between p-2 hover:bg-slate-100/60 dark:hover:bg-zinc-800/60 transition-colors group"
           >
             <div className="flex items-start gap-2.5 flex-1 min-w-0">
               <span className="mt-0.5 flex-shrink-0">

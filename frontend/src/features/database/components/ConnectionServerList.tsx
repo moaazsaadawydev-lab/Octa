@@ -76,7 +76,7 @@ export const ConnectionServerList: React.FC<ConnectionServerListProps> = ({
               className={
                 'w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-colors cursor-pointer text-left ' +
                 (isServerConnected
-                  ? 'bg-brand-50 dark:bg-zinc-800 text-brand-700 dark:text-brand-300 font-medium'
+                  ? 'bg-brand-50 dark:bg-zinc-800 font-medium'
                   : 'text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 hover:text-slate-900 dark:hover:text-gray-100')
               }
             >
