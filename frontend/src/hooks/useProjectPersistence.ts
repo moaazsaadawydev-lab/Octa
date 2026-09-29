@@ -115,7 +115,7 @@ export function useProjectPersistence({
   }, [setHttpData]);
 
   useEffect(() => {
-    const hasResetLegacy = localStorage.getItem('octa_legacy_wiped_v2');
+    const hasResetLegacy = localStorage.getItem('octa_legacy_wiped_v3');
     if (!hasResetLegacy) {
       wipeLegacyStorage();
       localStorage.removeItem('octa_connections');
@@ -123,7 +123,7 @@ export function useProjectPersistence({
       localStorage.removeItem('octa_redis_connections');
       localStorage.removeItem('octa_http_client_data');
       localStorage.removeItem('octa_http_environments');
-      localStorage.setItem('octa_legacy_wiped_v2', 'true');
+      localStorage.setItem('octa_legacy_wiped_v3', 'true');
     }
 
     if (settings.onStartup === 'last_project' && settings.lastOpenedProjectFilePath) {

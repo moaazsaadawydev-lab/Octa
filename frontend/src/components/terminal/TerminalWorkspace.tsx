@@ -71,11 +71,13 @@ export const TerminalWorkspace: React.FC<TerminalWorkspaceProps> = ({
 
   // Global Keyboard Shortcuts (Ctrl+Shift+T, Ctrl+Shift+W)
   useEffect(() => {
+    if (!isVisible) return;
+
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'T' || e.key === 't')) {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.code === 'KeyT' || e.key === 'T' || e.key === 't')) {
         e.preventDefault();
         handleAddTab();
-      } else if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'W' || e.key === 'w')) {
+      } else if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.code === 'KeyW' || e.key === 'W' || e.key === 'w')) {
         if (activeTabId) {
           e.preventDefault();
           handleCloseTab(activeTabId);
@@ -84,7 +86,8 @@ export const TerminalWorkspace: React.FC<TerminalWorkspaceProps> = ({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleAddTab, handleCloseTab, activeTabId]);
+  }, [handleAddTab, handleCloseTab, activeTabId, isVisible]);
+
 
   return (
     <div className="flex-1 flex flex-col h-full w-full min-h-0 min-w-0 bg-slate-50 dark:bg-[#090a0f] text-slate-900 dark:text-zinc-100 overflow-hidden select-none font-sans relative transition-colors">

@@ -8,12 +8,9 @@ import {
   Globe,
   Clock,
   Trash2,
-  ExternalLink,
   ChevronRight,
   FileCode,
-  Sparkles,
   ShieldCheck,
-  Zap
 } from 'lucide-react';
 import { RecentProject } from '../../types/project';
 
@@ -38,12 +35,6 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
 }) => {
   return (
     <div className="flex-1 flex flex-col h-full bg-[#0c0c0e] text-zinc-100 font-sans overflow-y-auto select-none">
-      {/* Background Subtle Gradient Glow */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -left-40 w-96 h-96 rounded-full bg-brand-500/10 blur-3xl" />
-        <div className="absolute top-1/2 -right-40 w-96 h-96 rounded-full bg-cyan-500/10 blur-3xl" />
-      </div>
-
       <div className="relative z-10 max-w-5xl mx-auto w-full px-8 py-12 flex-1 flex flex-col justify-between">
         {/* Header Hero Section */}
         <div className="space-y-4">
@@ -55,7 +46,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
               <h1 className="text-2xl font-bold text-zinc-100 tracking-tight flex items-center gap-2">
                 <span>Octa</span>
                 <span className="text-[10px] font-mono font-medium px-2 py-0.5 rounded-full bg-brand-500/10 border border-brand-500/20 text-brand-400">
-                  v2.0 Project-First
+                  v1.0 Project-First
                 </span>
               </h1>
               <p className="text-xs text-zinc-400 mt-0.5">

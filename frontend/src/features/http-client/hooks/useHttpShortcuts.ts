@@ -5,6 +5,7 @@ export interface UseHttpShortcutsOptions {
   onSendRequest: () => void;
   onNewTab: () => void;
   onCloseTab: (tabId: string) => void;
+  isVisible?: boolean;
 }
 
 export function useHttpShortcuts({
@@ -12,8 +13,11 @@ export function useHttpShortcuts({
   onSendRequest,
   onNewTab,
   onCloseTab,
+  isVisible = true,
 }: UseHttpShortcutsOptions) {
   useEffect(() => {
+    if (!isVisible) return;
+
     const handleGlobalSend = () => onSendRequest();
     const handleGlobalNew = () => onNewTab();
     window.addEventListener('octa:http:send-request', handleGlobalSend);
@@ -22,18 +26,20 @@ export function useHttpShortcuts({
       window.removeEventListener('octa:http:send-request', handleGlobalSend);
       window.removeEventListener('octa:http:new-request', handleGlobalNew);
     };
-  }, [onSendRequest, onNewTab]);
+  }, [onSendRequest, onNewTab, isVisible]);
 
   useEffect(() => {
+    if (!isVisible) return;
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey) {
-        if (e.key === 'w' || e.key === 'W') {
+        if (e.code === 'KeyW' || e.key === 'w' || e.key === 'W') {
           e.preventDefault();
           if (activeTabId) onCloseTab(activeTabId);
-        } else if (e.key === 't' || e.key === 'T') {
+        } else if (e.code === 'KeyT' || e.key === 't' || e.key === 'T') {
           e.preventDefault();
           onNewTab();
-        } else if (e.key === 'Enter') {
+        } else if (e.code === 'Enter' || e.key === 'Enter') {
           e.preventDefault();
           onSendRequest();
         }
@@ -41,5 +47,5 @@ export function useHttpShortcuts({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeTabId, onCloseTab, onNewTab, onSendRequest]);
+  }, [activeTabId, onCloseTab, onNewTab, onSendRequest, isVisible]);
 }

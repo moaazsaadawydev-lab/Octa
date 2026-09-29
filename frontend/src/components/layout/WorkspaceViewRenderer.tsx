@@ -79,6 +79,7 @@ export const WorkspaceViewRenderer: React.FC<WorkspaceViewRendererProps> = ({
           data={state.httpData}
           onUpdateData={state.setHttpData}
           showToast={state.showToast}
+          isVisible={state.activeModule === 'http'}
         />
       </div>
 

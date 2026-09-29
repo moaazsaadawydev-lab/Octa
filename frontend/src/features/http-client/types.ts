@@ -7,4 +7,6 @@ export interface HttpClientWorkspaceProps {
   data?: import('../../types/project').ProjectHttpClient;
   onUpdateData?: (data: import('../../types/project').ProjectHttpClient) => void;
   showToast: (message: string, type?: 'success' | 'error' | 'info') => void;
+  isVisible?: boolean;
 }
+

@@ -1,43 +1,7 @@
 import { SqlTreeItem, SqlQueryFolder, SqlQueryItem } from '../types';
 
-export const DEFAULT_INITIAL_QUERIES: (SqlQueryFolder | SqlQueryItem)[] = [
-  {
-    id: 'folder-general',
-    type: 'folder',
-    name: 'General Queries',
-    isOpen: true,
-    items: [
-      {
-        id: 'q-table-info',
-        type: 'query',
-        name: 'Get Table Info.sql',
-        content: `-- Check all tables and row counts in public schema
-SELECT 
-  schemaname,
-  relname AS table_name,
-  n_live_tup AS estimated_rows
-FROM pg_stat_user_tables
-ORDER BY n_live_tup DESC;`,
-      },
-      {
-        id: 'q-activity',
-        type: 'query',
-        name: 'Active Connections.sql',
-        content: `-- List current running queries and connections
-SELECT 
-  pid,
-  usename,
-  client_addr,
-  state,
-  query_start,
-  query
-FROM pg_stat_activity
-WHERE state != 'idle'
-ORDER BY query_start DESC;`,
-      },
-    ],
-  },
-];
+export const DEFAULT_INITIAL_QUERIES: (SqlQueryFolder | SqlQueryItem)[] = [];
+
 
 export const createDefaultQuery = (name: string = 'Untitled.sql'): SqlQueryItem => ({
   id: 'query-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7),

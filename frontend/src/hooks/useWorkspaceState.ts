@@ -13,7 +13,6 @@ import { ActiveModule } from '../components/layout/ActivityBar';
 import { useToastState } from './useToastState';
 import { useProjectPersistence } from './useProjectPersistence';
 import { useDatabaseServers } from './useDatabaseServers';
-import { DEFAULT_INITIAL_QUERIES } from '../features/database/utils/treeHelpers';
 import { loadSqlQueriesData, saveSqlQueriesData } from '../services/api';
 
 const DEFAULT_PLAYGROUND_QUERY = `-- Octa SQL Playground
@@ -59,10 +58,10 @@ export function useWorkspaceState({ settings, updateSettings }: UseWorkspaceStat
       const saved = localStorage.getItem('octa_sql_queries_tree');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) return parsed;
       }
     } catch {}
-    return DEFAULT_INITIAL_QUERIES;
+    return [];
   });
 
   useEffect(() => {
@@ -70,9 +69,7 @@ export function useWorkspaceState({ settings, updateSettings }: UseWorkspaceStat
       .then((diskData) => {
         if (diskData && diskData.trim()) {
           const parsed = JSON.parse(diskData);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setQueriesTree(parsed);
-          }
+          if (Array.isArray(parsed)) setQueriesTree(parsed);
         }
       })
       .catch(() => {});

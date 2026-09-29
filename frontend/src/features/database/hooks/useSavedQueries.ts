@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { SqlQueryFolder, SqlQueryItem, SqlTreeItem } from '../types';
 import { loadSqlQueriesData, saveSqlQueriesData } from '../../../services/api';
 import {
-  DEFAULT_INITIAL_QUERIES,
   createDefaultFolder,
   createDefaultQuery,
   isDescendantQuery,
@@ -19,12 +18,12 @@ export function useSavedQueries({ propQueriesTree, onSaveQueriesTree }: UseSaved
       const saved = localStorage.getItem('octa_sql_queries_tree');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) return parsed;
       }
     } catch (e) {
       console.warn('Failed to parse SQL queries from storage', e);
     }
-    return DEFAULT_INITIAL_QUERIES;
+    return [];
   });
 
   const queriesTree = propQueriesTree !== undefined ? propQueriesTree : internalQueriesTree;
@@ -47,7 +46,7 @@ export function useSavedQueries({ propQueriesTree, onSaveQueriesTree }: UseSaved
         const diskData = await loadSqlQueriesData();
         if (diskData && diskData.trim() && isMounted) {
           const parsed = JSON.parse(diskData);
-          if (Array.isArray(parsed) && parsed.length > 0) {
+          if (Array.isArray(parsed)) {
             setInternalQueriesTree(parsed);
           }
         }

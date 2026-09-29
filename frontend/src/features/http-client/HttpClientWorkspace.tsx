@@ -15,7 +15,9 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
   data: propData,
   onUpdateData,
   showToast,
+  isVisible = true,
 }) => {
+
   const { monacoTheme } = useTheme();
   const envDropdownRef = useRef<HTMLDivElement>(null);
   const lastEmittedRef = useRef<string>('');
@@ -121,6 +123,7 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
     onSendRequest: http.handleSendRequest,
     onNewTab: cols.handleNewTab,
     onCloseTab: cols.handleCloseTab,
+    isVisible,
   });
 
   const computedAutoHeaders = getComputedAutoHeaders(cols.activeRequest, http.cookieJar);
