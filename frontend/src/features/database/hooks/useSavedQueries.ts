@@ -48,6 +48,9 @@ export function useSavedQueries({ propQueriesTree, onSaveQueriesTree }: UseSaved
           const parsed = JSON.parse(diskData);
           if (Array.isArray(parsed)) {
             setInternalQueriesTree(parsed);
+            try {
+              localStorage.setItem('octa_sql_queries_tree', JSON.stringify(parsed));
+            } catch (e) {}
           }
         }
       } catch (err) {

@@ -1,14 +1,11 @@
 package main
 
 import (
-	"bufio"
-	"bytes"
 	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -26,27 +23,6 @@ type InitRepoOptions struct {
 	GitignoreType string `json:"gitignoreType"` // "Node", "Go", "Python", "General"
 	AddReadme     bool   `json:"addReadme"`
 	RepoName      string `json:"repoName"`
-}
-
-// GitFileChange describes a modified, staged, untracked, or deleted file
-type GitFileChange struct {
-	Path    string `json:"path"`
-	OldPath string `json:"oldPath,omitempty"`
-	Status  string `json:"status"` // "modified", "added", "deleted", "untracked", "renamed"
-	Staged  bool   `json:"staged"`
-}
-
-// GitStatusResult contains the complete status of the active repository
-type GitStatusResult struct {
-	IsRepo         bool            `json:"isRepo"`
-	RepoPath       string          `json:"repoPath"`
-	Branch         string          `json:"branch"`
-	Upstream       string          `json:"upstream"`
-	Ahead          int             `json:"ahead"`
-	Behind         int             `json:"behind"`
-	StagedFiles    []GitFileChange `json:"stagedFiles"`
-	UnstagedFiles  []GitFileChange `json:"unstagedFiles"`
-	UntrackedFiles []GitFileChange `json:"untrackedFiles"`
 }
 
 // gitCommand creates an exec.Cmd with suppressed console window on Windows
@@ -209,7 +185,7 @@ func (s *GitService) IsGitRepository(repoPath string) bool {
 	}
 
 	// Fallback to git rev-parse check
-	checkCmd := gitCommand( "-C", repoPath, "rev-parse", "--is-inside-work-tree")
+	checkCmd := gitCommand("-C", repoPath, "rev-parse", "--is-inside-work-tree")
 	out, cErr := checkCmd.Output()
 	return cErr == nil && strings.TrimSpace(string(out)) == "true"
 }
@@ -224,7 +200,7 @@ func (s *GitService) InitializeRepositoryWithOptions(opts InitRepoOptions) error
 	}
 
 	// 1. Run git init
-	cmd := gitCommand( "-C", opts.Path, "init")
+	cmd := gitCommand("-C", opts.Path, "init")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("git init failed: %s", strings.TrimSpace(string(out)))
@@ -272,283 +248,10 @@ func (s *GitService) InitRepository(repoPath string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	cmd := gitCommand( "-C", repoPath, "init")
+	cmd := gitCommand("-C", repoPath, "init")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("failed to init git repository: %s", strings.TrimSpace(string(out)))
-	}
-	return nil
-}
-
-// GetRepoStatus gathers branch, upstream tracking, ahead/behind count, and changes in a single fast command
-func (s *GitService) GetRepoStatus(repoPath string) (*GitStatusResult, error) {
-	res := &GitStatusResult{
-		IsRepo:         false,
-		RepoPath:       repoPath,
-		StagedFiles:    []GitFileChange{},
-		UnstagedFiles:  []GitFileChange{},
-		UntrackedFiles: []GitFileChange{},
-	}
-
-	if repoPath == "" {
-		return res, nil
-	}
-
-	statusCmd := gitCommand("-C", repoPath, "status", "--porcelain=v1", "-b", "-u")
-	out, err := statusCmd.Output()
-	if err != nil {
-		return res, nil
-	}
-	res.IsRepo = true
-
-	scanner := bufio.NewScanner(bytes.NewReader(out))
-	for scanner.Scan() {
-		line := scanner.Text()
-		if len(line) < 3 {
-			continue
-		}
-
-		// Header line: ## <branch>...<upstream> [ahead X, behind Y]
-		if strings.HasPrefix(line, "## ") {
-			header := strings.TrimPrefix(line, "## ")
-			if strings.HasPrefix(header, "No commits yet on ") {
-				res.Branch = strings.TrimPrefix(header, "No commits yet on ")
-				continue
-			}
-			if strings.HasPrefix(header, "Initial commit on ") {
-				res.Branch = strings.TrimPrefix(header, "Initial commit on ")
-				continue
-			}
-			if strings.HasPrefix(header, "HEAD (no branch)") {
-				res.Branch = "HEAD (detached)"
-				continue
-			}
-
-			branchPart := header
-			bracketIdx := strings.Index(header, "[")
-			if bracketIdx != -1 {
-				branchPart = strings.TrimSpace(header[:bracketIdx])
-				meta := strings.Trim(header[bracketIdx:], "[] ")
-				for _, item := range strings.Split(meta, ",") {
-					item = strings.TrimSpace(item)
-					if strings.HasPrefix(item, "ahead ") {
-						res.Ahead, _ = strconv.Atoi(strings.TrimPrefix(item, "ahead "))
-					} else if strings.HasPrefix(item, "behind ") {
-						res.Behind, _ = strconv.Atoi(strings.TrimPrefix(item, "behind "))
-					}
-				}
-			}
-
-			if dotIdx := strings.Index(branchPart, "..."); dotIdx != -1 {
-				res.Branch = branchPart[:dotIdx]
-				res.Upstream = branchPart[dotIdx+3:]
-			} else {
-				res.Branch = branchPart
-			}
-			continue
-		}
-
-		if len(line) < 4 {
-			continue
-		}
-
-		x := line[0]
-		y := line[1]
-		filePath := strings.TrimSpace(line[3:])
-
-		// Untracked files (??)
-		if x == '?' && y == '?' {
-			res.UntrackedFiles = append(res.UntrackedFiles, GitFileChange{
-				Path:   filePath,
-				Status: "untracked",
-				Staged: false,
-			})
-			continue
-		}
-
-		// Staged changes (X index)
-		if x != ' ' && x != '?' {
-			status := "modified"
-			switch x {
-			case 'A':
-				status = "added"
-			case 'M':
-				status = "modified"
-			case 'D':
-				status = "deleted"
-			case 'R':
-				status = "renamed"
-			}
-			res.StagedFiles = append(res.StagedFiles, GitFileChange{
-				Path:   filePath,
-				Status: status,
-				Staged: true,
-			})
-		}
-
-		// Unstaged changes (Y index)
-		if y != ' ' && y != '?' {
-			status := "modified"
-			switch y {
-			case 'M':
-				status = "modified"
-			case 'D':
-				status = "deleted"
-			case 'A':
-				status = "added"
-			}
-			res.UnstagedFiles = append(res.UnstagedFiles, GitFileChange{
-				Path:   filePath,
-				Status: status,
-				Staged: false,
-			})
-		}
-	}
-
-	if res.Branch == "" {
-		res.Branch = "main"
-	}
-
-	return res, nil
-}
-
-// GetFileDiff returns unified diff for a staged, modified, or untracked file
-func (s *GitService) GetFileDiff(repoPath string, filePath string, staged bool) (string, error) {
-	if repoPath == "" || filePath == "" {
-		return "", fmt.Errorf("invalid path parameters")
-	}
-
-	var cmd *exec.Cmd
-	if staged {
-		cmd = gitCommand("-C", repoPath, "diff", "--staged", "--", filePath)
-	} else {
-		cmd = gitCommand("-C", repoPath, "diff", "--", filePath)
-	}
-
-	out, err := cmd.Output()
-	if err == nil && len(out) > 0 {
-		return string(out), nil
-	}
-
-	// If empty diff, test if untracked new file on disk
-	fullPath := filepath.Join(repoPath, filePath)
-	if data, readErr := os.ReadFile(fullPath); readErr == nil {
-		lines := strings.Split(string(data), "\n")
-		var diffBuilder strings.Builder
-		diffBuilder.WriteString(fmt.Sprintf("--- /dev/null\n+++ b/%s\n@@ -0,0 +1,%d @@\n", filePath, len(lines)))
-		for _, l := range lines {
-			diffBuilder.WriteString("+" + l + "\n")
-		}
-		return diffBuilder.String(), nil
-	}
-
-	return string(out), nil
-}
-
-// StageFile stages a single file
-func (s *GitService) StageFile(repoPath string, filePath string) error {
-	cmd := gitCommand("-C", repoPath, "add", "--", filePath)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("failed to stage file %s: %s", filePath, strings.TrimSpace(string(out)))
-	}
-	return nil
-}
-
-// UnstageFile unstages a single file
-func (s *GitService) UnstageFile(repoPath string, filePath string) error {
-	cmd := gitCommand("-C", repoPath, "restore", "--staged", "--", filePath)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		// Fallback for older git: git reset HEAD -- filePath
-		fallback := gitCommand("-C", repoPath, "reset", "HEAD", "--", filePath)
-		if _, fErr := fallback.CombinedOutput(); fErr != nil {
-			return fmt.Errorf("failed to unstage file %s: %s", filePath, strings.TrimSpace(string(out)))
-		}
-	}
-	return nil
-}
-
-// StageAll stages all changed and untracked files
-func (s *GitService) StageAll(repoPath string) error {
-	cmd := gitCommand("-C", repoPath, "add", "-A")
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("failed to stage all files: %s", strings.TrimSpace(string(out)))
-	}
-	return nil
-}
-
-// UnstageAll unstages all staged files
-func (s *GitService) UnstageAll(repoPath string) error {
-	cmd := gitCommand("-C", repoPath, "restore", "--staged", ".")
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		// Fallback: git reset HEAD
-		fallback := gitCommand("-C", repoPath, "reset", "HEAD")
-		if _, fErr := fallback.CombinedOutput(); fErr != nil {
-			return fmt.Errorf("failed to unstage all files: %s", strings.TrimSpace(string(out)))
-		}
-	}
-	return nil
-}
-
-// CommitChanges commits staged changes with a commit message
-func (s *GitService) CommitChanges(repoPath string, message string) error {
-	trimmed := strings.TrimSpace(message)
-	if trimmed == "" {
-		return fmt.Errorf("commit message cannot be empty")
-	}
-
-	cmd := gitCommand("-C", repoPath, "commit", "-m", trimmed)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("failed to commit changes: %s", strings.TrimSpace(string(out)))
-	}
-	return nil
-}
-
-// PushChanges pushes commits to remote tracking branch
-func (s *GitService) PushChanges(repoPath string) error {
-	cmd := gitCommand("-C", repoPath, "push")
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		outStr := strings.TrimSpace(string(out))
-		// If no upstream is set, check current branch and push with -u origin <branch>
-		if strings.Contains(outStr, "no upstream branch") || strings.Contains(outStr, "--set-upstream") {
-			branchCmd := gitCommand("-C", repoPath, "branch", "--show-current")
-			branchOut, bErr := branchCmd.Output()
-			if bErr == nil && len(strings.TrimSpace(string(branchOut))) > 0 {
-				branch := strings.TrimSpace(string(branchOut))
-				pushUpstreamCmd := gitCommand("-C", repoPath, "push", "-u", "origin", branch)
-				uOut, uErr := pushUpstreamCmd.CombinedOutput()
-				if uErr != nil {
-					return fmt.Errorf("failed to push changes: %s", strings.TrimSpace(string(uOut)))
-				}
-				return nil
-			}
-		}
-		return fmt.Errorf("failed to push changes: %s", outStr)
-	}
-	return nil
-}
-
-// PullChanges pulls changes from remote
-func (s *GitService) PullChanges(repoPath string) error {
-	cmd := gitCommand("-C", repoPath, "pull")
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("failed to pull changes: %s", strings.TrimSpace(string(out)))
-	}
-	return nil
-}
-
-// FetchChanges fetches metadata from remote
-func (s *GitService) FetchChanges(repoPath string) error {
-	cmd := gitCommand("-C", repoPath, "fetch")
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("failed to fetch changes: %s", strings.TrimSpace(string(out)))
 	}
 	return nil
 }

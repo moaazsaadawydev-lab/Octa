@@ -18,12 +18,14 @@ interface DockerLogViewerProps {
   container: DockerContainer | null;
   onRefreshList: () => void;
   showToast?: (message: string, type?: 'success' | 'error' | 'info') => void;
+  isVisible?: boolean;
 }
 
 export const DockerLogViewer: React.FC<DockerLogViewerProps> = ({
   container,
   onRefreshList,
   showToast,
+  isVisible = true,
 }) => {
   const [activeTab, setActiveTab] = useState<'logs' | 'terminal'>('logs');
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -39,6 +41,7 @@ export const DockerLogViewer: React.FC<DockerLogViewerProps> = ({
   const logStream = useDockerLogStream({
     containerId: container?.id,
     activeTab,
+    isVisible,
   });
 
   if (!container) {

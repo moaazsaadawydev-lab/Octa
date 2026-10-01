@@ -13,11 +13,11 @@ import (
 
 func TestHttpClientDataPersistence(t *testing.T) {
 	app := NewApp()
+	orig, _ := app.LoadHttpClientData()
+	t.Cleanup(func() { _ = app.SaveHttpClientData(orig) })
 
 	testJSON := `[{"id":"req1","name":"Get Users","url":"http://localhost:8080/users","method":"GET"}]`
-
-	err := app.SaveHttpClientData(testJSON)
-	if err != nil {
+	if err := app.SaveHttpClientData(testJSON); err != nil {
 		t.Fatalf("Failed to save HTTP client data: %v", err)
 	}
 
@@ -25,7 +25,6 @@ func TestHttpClientDataPersistence(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to load HTTP client data: %v", err)
 	}
-
 	if strings.TrimSpace(loaded) != testJSON {
 		t.Errorf("Loaded HTTP client data mismatch: got %s, want %s", loaded, testJSON)
 	}
@@ -33,11 +32,11 @@ func TestHttpClientDataPersistence(t *testing.T) {
 
 func TestEnvironmentsDataPersistence(t *testing.T) {
 	app := NewApp()
+	orig, _ := app.LoadEnvironmentsData()
+	t.Cleanup(func() { _ = app.SaveEnvironmentsData(orig) })
 
 	testJSON := `[{"id":"env1","name":"Localhost","variables":[{"id":"v1","key":"baseURL","value":"http://localhost:3000","enabled":true}]}]`
-
-	err := app.SaveEnvironmentsData(testJSON)
-	if err != nil {
+	if err := app.SaveEnvironmentsData(testJSON); err != nil {
 		t.Fatalf("Failed to save environments data: %v", err)
 	}
 
@@ -45,7 +44,6 @@ func TestEnvironmentsDataPersistence(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to load environments data: %v", err)
 	}
-
 	if strings.TrimSpace(loaded) != testJSON {
 		t.Errorf("Loaded environments mismatch: got %s, want %s", loaded, testJSON)
 	}

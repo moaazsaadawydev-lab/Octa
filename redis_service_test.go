@@ -9,6 +9,10 @@ import (
 
 func TestRedisConnectionsPersistence(t *testing.T) {
 	app := NewApp()
+	orig, _ := app.LoadRedisConnections()
+	t.Cleanup(func() {
+		_ = app.SaveRedisConnections(orig)
+	})
 
 	sampleConfigs := []RedisConnectionConfig{
 		{

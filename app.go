@@ -52,3 +52,22 @@ func (a *App) startup(ctx context.Context) {
 	a.settingsService.SetContext(ctx)
 	a.aiService.SetContext(ctx)
 }
+
+// shutdown is called when the app closes to cleanly release all system resources.
+func (a *App) shutdown(ctx context.Context) {
+	if a.terminalService != nil {
+		a.terminalService.CloseAllTerminalSessions()
+	}
+	if a.dbService != nil {
+		a.dbService.ClosePools()
+	}
+	if a.redisService != nil {
+		a.redisService.CloseClients()
+	}
+	if a.dockerService != nil {
+		a.dockerService.StopAllLogStreams()
+	}
+	if a.gitService != nil {
+		a.gitService.StopAutoWatch()
+	}
+}

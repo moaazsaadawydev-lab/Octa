@@ -9,9 +9,10 @@ import * as runtime from '../../../wailsjs/runtime/runtime';
 interface UseDockerLogStreamOptions {
   containerId: string | undefined;
   activeTab: 'logs' | 'terminal';
+  isVisible?: boolean;
 }
 
-export function useDockerLogStream({ containerId, activeTab }: UseDockerLogStreamOptions) {
+export function useDockerLogStream({ containerId, activeTab, isVisible = true }: UseDockerLogStreamOptions) {
   const [autoScroll, setAutoScroll] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -57,7 +58,7 @@ export function useDockerLogStream({ containerId, activeTab }: UseDockerLogStrea
   };
 
   useEffect(() => {
-    if (activeTab !== 'logs' || !containerId || !containerRef.current) {
+    if (activeTab !== 'logs' || !containerId || !containerRef.current || !isVisible) {
       return;
     }
 
@@ -172,7 +173,7 @@ export function useDockerLogStream({ containerId, activeTab }: UseDockerLogStrea
       fitAddonRef.current = null;
       searchAddonRef.current = null;
     };
-  }, [containerId, activeTab]);
+  }, [containerId, activeTab, isVisible]);
 
   return {
     containerRef,

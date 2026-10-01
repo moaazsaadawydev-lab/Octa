@@ -235,11 +235,13 @@ func TestExplainQueryValidation(t *testing.T) {
 
 func TestSqlQueriesDataPersistence(t *testing.T) {
 	app := NewApp()
+	orig, _ := app.LoadSqlQueriesData()
+	t.Cleanup(func() {
+		_ = app.SaveSqlQueriesData(orig)
+	})
 
 	testJSON := `[{"id":"q1","name":"All Users","query":"SELECT * FROM users","type":"query"}]`
-
-	err := app.SaveSqlQueriesData(testJSON)
-	if err != nil {
+	if err := app.SaveSqlQueriesData(testJSON); err != nil {
 		t.Fatalf("Failed to save SQL queries data: %v", err)
 	}
 
@@ -247,7 +249,6 @@ func TestSqlQueriesDataPersistence(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to load SQL queries data: %v", err)
 	}
-
 	if strings.TrimSpace(loaded) != testJSON {
 		t.Errorf("Loaded SQL queries mismatch: got %s, want %s", loaded, testJSON)
 	}

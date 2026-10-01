@@ -187,6 +187,7 @@ export const DockerWorkspace: React.FC<DockerWorkspaceProps> = ({
         container={selectedContainer}
         onRefreshList={() => fetchContainers(false)}
         showToast={showToast}
+        isVisible={isVisible}
       />
     </div>
   );

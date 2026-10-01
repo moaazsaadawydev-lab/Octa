@@ -163,12 +163,16 @@ export const XTermInstance: React.FC<XTermInstanceProps> = ({
       }
     });
 
+    let lastCols = -1;
+    let lastRows = -1;
     const resizeObserver = new ResizeObserver(() => {
       if (!fitAddonRef.current || !termRef.current) return;
       try {
         fitAddonRef.current.fit();
         const { cols, rows } = termRef.current;
-        if (cols > 0 && rows > 0) {
+        if (cols > 0 && rows > 0 && (cols !== lastCols || rows !== lastRows)) {
+          lastCols = cols;
+          lastRows = rows;
           resizeTerminalSession(sessionId, cols, rows);
         }
       } catch (e) {}

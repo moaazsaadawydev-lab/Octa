@@ -18,7 +18,7 @@ var assets embed.FS
 func main() {
 	// 1. Optimize WebView2 resource usage & memory footprint
 	existingArgs := os.Getenv("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS")
-	resourceFlags := "--disable-background-networking --disable-component-update --disable-features=Translate,InterestFeedContentSuggestions --enable-features=IntensiveWakeUpThrottling,ThrottleDisplayNoneAndVisibilityHiddenCrossOriginIframes"
+	resourceFlags := "--disable-background-networking --disable-component-update --disable-features=Translate,InterestFeedContentSuggestions,CalculateNativeWinOcclusion --enable-features=IntensiveWakeUpThrottling,ThrottleDisplayNoneAndVisibilityHiddenCrossOriginIframes --disable-speech-api --disable-domain-reliability --disable-sync --js-flags=\"--max-old-space-size=256\""
 	if existingArgs != "" {
 		_ = os.Setenv("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", existingArgs+" "+resourceFlags)
 	} else {
@@ -54,6 +54,7 @@ func main() {
 		},
 		BackgroundColour: &options.RGBA{R: 9, G: 10, B: 15, A: 1},
 		OnStartup:        app.startup,
+		OnShutdown:       app.shutdown,
 		Bind: []interface{}{
 			app,
 		},
