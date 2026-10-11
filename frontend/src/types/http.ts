@@ -20,7 +20,15 @@ export {
 // ============================================================================
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'OPTIONS' | 'HEAD';
-export type HttpBodyType = 'none' | 'json' | 'form-data' | 'x-www-form-urlencoded';
+export type HttpBodyType = 'none' | 'json' | 'form-data' | 'x-www-form-urlencoded' | 'binary';
+
+export interface BinaryFileMeta {
+  name: string;
+  size: number;
+  type: string;
+  filePath?: string;
+  base64?: string;
+}
 
 export interface HttpHeader {
   key: string;
@@ -77,6 +85,7 @@ export interface HttpRequestItem {
   bodyContent: string;
   bodyFormData?: FormDataField[];
   bodyUrlEncoded?: UrlEncodedField[];
+  bodyBinary?: BinaryFileMeta;
   disabledAutoHeaders?: string[];
   isDirty?: boolean;
 }
@@ -170,6 +179,7 @@ export const createDefaultRequest = (name: string = 'Untitled Request'): HttpReq
   bodyContent: DEFAULT_JSON_BODY,
   bodyFormData: [],
   bodyUrlEncoded: [],
+  bodyBinary: undefined,
   disabledAutoHeaders: [],
   isDirty: false,
 });

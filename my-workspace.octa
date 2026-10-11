@@ -1,0 +1,20 @@
+{
+  "createdAt": "2026-10-12T00:08:34+03:00",
+  "databases": [],
+  "git": {
+    "autoWatch": true,
+    "repoPath": "D:/Moaz/Programing/Projects 2/octa"
+  },
+  "httpClient": {
+    "activeEnvironmentId": "",
+    "collections": [],
+    "environments": [],
+    "globalVariables": []
+  },
+  "id": "octa-811e66d9-140b-46ee-bc31-7207e2905764",
+  "name": "my-workspace",
+  "redis": [],
+  "schemaVersion": 1,
+  "sqlQueries": [],
+  "updatedAt": "2026-10-11T21:33:26.185Z"
+}

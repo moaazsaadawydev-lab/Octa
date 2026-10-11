@@ -52,6 +52,32 @@ func (s *HTTPService) SelectFilesDialog() ([]SelectedFileMeta, error) {
 	return results, nil
 }
 
+// SelectFileDialog opens a native single-file picker for binary body payload.
+func (s *HTTPService) SelectFileDialog() (*SelectedFileMeta, error) {
+	path, err := runtime.OpenFileDialog(s.ctx, runtime.OpenDialogOptions{
+		Title: "Select Binary File Payload",
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to open file dialog: %w", err)
+	}
+	if path == "" {
+		return nil, nil
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to inspect file: %w", err)
+	}
+	name := filepath.Base(path)
+	mimeType := detectMimeType(name, nil)
+	return &SelectedFileMeta{
+		Name:        name,
+		Path:        path,
+		Size:        info.Size(),
+		ContentType: mimeType,
+	}, nil
+}
+
+
 // SaveHttpClientData persists legacy HTTP collections data.
 func (s *HTTPService) SaveHttpClientData(jsonData string) error {
 	configDir, err := os.UserConfigDir()

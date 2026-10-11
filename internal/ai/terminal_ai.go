@@ -199,6 +199,9 @@ func executeGeminiChatRequest(
 	defer resp.Body.Close()
 
 	respBytes, _ := io.ReadAll(io.LimitReader(resp.Body, 64*1024))
+	if resp.StatusCode >= 400 {
+		return "", FormatGeminiHTTPError(resp.StatusCode, respBytes, selectedModel, apiKey)
+	}
 
 	var genResp GeminiGenerateResponse
 	if err := json.Unmarshal(respBytes, &genResp); err != nil {
@@ -206,7 +209,7 @@ func executeGeminiChatRequest(
 	}
 
 	if genResp.Error != nil && genResp.Error.Message != "" {
-		return "", fmt.Errorf("Gemini error: %s", sanitizeMessage(genResp.Error.Message, apiKey))
+		return "", FormatGeminiHTTPError(genResp.Error.Code, respBytes, selectedModel, apiKey)
 	}
 
 	if len(genResp.Candidates) == 0 || len(genResp.Candidates[0].Content.Parts) == 0 {

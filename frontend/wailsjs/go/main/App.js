@@ -38,6 +38,10 @@ export function CloseProjectConnections() {
   return window['go']['main']['App']['CloseProjectConnections']();
 }
 
+export function CloseTabSession(arg1) {
+  return window['go']['main']['App']['CloseTabSession'](arg1);
+}
+
 export function CloseTerminalSession(arg1) {
   return window['go']['main']['App']['CloseTerminalSession'](arg1);
 }
@@ -82,12 +86,16 @@ export function DropColumn(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['DropColumn'](arg1, arg2, arg3, arg4);
 }
 
+export function DropTable(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['DropTable'](arg1, arg2, arg3, arg4);
+}
+
 export function ExecuteHttpRequest(arg1) {
   return window['go']['main']['App']['ExecuteHttpRequest'](arg1);
 }
 
-export function ExecuteRawQuery(arg1, arg2, arg3) {
-  return window['go']['main']['App']['ExecuteRawQuery'](arg1, arg2, arg3);
+export function ExecuteRawQuery(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['ExecuteRawQuery'](arg1, arg2, arg3, arg4);
 }
 
 export function ExecuteRedisCommand(arg1, arg2) {
@@ -292,6 +300,10 @@ export function SaveSqlQueriesData(arg1) {
 
 export function ScanRedisKeys(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['ScanRedisKeys'](arg1, arg2, arg3, arg4);
+}
+
+export function SelectFileDialog() {
+  return window['go']['main']['App']['SelectFileDialog']();
 }
 
 export function SelectFilesDialog() {

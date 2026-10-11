@@ -127,6 +127,43 @@ func buildRequestBody(payload HttpRequestPayload) (io.Reader, string, error) {
 		_ = w.Close()
 		return &b, w.FormDataContentType(), nil
 
+	case "binary":
+		if payload.BinaryFile != nil {
+			var reader io.Reader
+			contentType := payload.BinaryFile.ContentType
+
+			if payload.BinaryFile.Path != "" {
+				if f, err := os.Open(payload.BinaryFile.Path); err == nil {
+					reader = f
+					if contentType == "" {
+						contentType = detectMimeType(payload.BinaryFile.Name, nil)
+					}
+				}
+			}
+
+			if reader == nil && payload.BinaryFile.Base64Data != "" {
+				if decoded, err := decodeBase64Data(payload.BinaryFile.Base64Data); err == nil && len(decoded) > 0 {
+					reader = bytes.NewReader(decoded)
+					if contentType == "" {
+						contentType = detectMimeType(payload.BinaryFile.Name, decoded)
+					}
+				}
+			}
+
+			if contentType == "" {
+				contentType = "application/octet-stream"
+			}
+
+			if reader != nil {
+				return reader, contentType, nil
+			}
+		}
+
+		if payload.BodyContent != "" {
+			return strings.NewReader(payload.BodyContent), "application/octet-stream", nil
+		}
+		return nil, "application/octet-stream", nil
+
 	default:
 		if payload.BodyContent != "" {
 			return strings.NewReader(payload.BodyContent), "", nil

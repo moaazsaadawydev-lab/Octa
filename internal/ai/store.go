@@ -7,7 +7,7 @@ import (
 )
 
 // DefaultGeminiModel is the default selected model when none is configured.
-const DefaultGeminiModel = "gemini-2.5-flash"
+const DefaultGeminiModel = "gemini-3.5-flash"
 
 // AIConfig represents the persisted AI engine preferences.
 type AIConfig struct {

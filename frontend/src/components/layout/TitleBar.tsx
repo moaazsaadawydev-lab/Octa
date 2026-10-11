@@ -1,5 +1,4 @@
 import React, { useState, useRef, useEffect } from 'react';
-import appIcon from '../../assets/appicon.png';
 import {
   Database,
   Layers,
@@ -8,13 +7,10 @@ import {
   Folder,
   Save,
   FileCode,
-  X,
   ChevronDown,
   LogOut,
   FolderOpen,
-  CheckCircle2,
-  Loader2,
-  MoreHorizontal
+  Search,
 } from 'lucide-react';
 import { ActiveSession } from '../../types/connection';
 import { ActiveModule } from './ActivityBar';
@@ -31,6 +27,7 @@ interface TitleBarProps {
   onCloseProject?: () => void;
   onOpenProject?: () => void;
   onOpenSettings?: () => void;
+  onOpenCommandPalette?: () => void;
 }
 
 export const TitleBar: React.FC<TitleBarProps> = ({
@@ -38,12 +35,12 @@ export const TitleBar: React.FC<TitleBarProps> = ({
   activeSession,
   activeProject,
   projectFilePath,
-  isSavingProject = false,
   onSaveProject,
   onSaveProjectAs,
   onCloseProject,
   onOpenProject,
   onOpenSettings,
+  onOpenCommandPalette,
 }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -66,16 +63,8 @@ export const TitleBar: React.FC<TitleBarProps> = ({
       className="title-bar-root h-8 bg-slate-100 dark:bg-[#0c0c0c] border-b border-slate-200 dark:border-[#222222] text-slate-800 dark:text-zinc-200 flex items-center justify-between px-3 select-none flex-shrink-0 z-50 text-xs font-sans transition-all"
     >
       {/* Left: Brand Identity & Active Project */}
-      <div className="flex items-center gap-2">
-        {/* <div className="flex items-center gap-1.5">
-          <img src={appIcon} alt="Octa" className="w-3.5 h-3.5 object-contain drop-shadow-[0_0_6px_rgba(56,189,248,0.4)]" />
-          <span className="font-semibold text-slate-800 dark:text-zinc-200 text-xs tracking-tight">Octa</span>
-        </div> */}
-
-        {/* <span className="text-slate-400 dark:text-zinc-600">/</span> */}
-
+      <div className="flex items-center gap-2 flex-shrink-0">
         {activeProject ? (
-          /* Active Project Indicator & Menu Trigger */
           <div className="relative" ref={menuRef} style={{ '--wails-draggable': 'no-drag' } as any}>
             <button
               type="button"
@@ -84,24 +73,19 @@ export const TitleBar: React.FC<TitleBarProps> = ({
               className="flex items-center gap-1 px-1.5 py-0.5 rounded-md hover:bg-slate-200/80 dark:hover:bg-zinc-800/80 text-slate-700 dark:text-zinc-200 hover:text-slate-900 dark:hover:text-white transition-all cursor-pointer font-medium text-xs group"
             >
               <Folder className="w-3.5 h-3.5 text-brand-500 dark:text-brand-400" />
-              <span className="truncate max-w-[180px]">{activeProject.name}</span>
-              <ChevronDown className="w-3 h-3 text-slate-400 dark:text-zinc-500 group-hover:text-slate-700 dark:group-hover:text-zinc-300" />
+              <span className="truncate max-w-[150px]">{activeProject.name}</span>
+              <ChevronDown className="w-3 h-3 text-slate-400 dark:text-zinc-500" />
             </button>
 
-            {/* Project Dropdown Menu */}
             {isMenuOpen && (
               <div className="absolute left-0 top-full mt-1 w-52 bg-white dark:bg-[#18181b] border border-slate-200 dark:border-zinc-700/80 rounded-xl shadow-2xl py-1 z-50 text-xs text-slate-800 dark:text-zinc-200 animate-in fade-in zoom-in-95 duration-100">
                 <div className="px-3 py-1.5 border-b border-slate-200 dark:border-zinc-800 text-[11px] text-slate-400 dark:text-zinc-500 font-mono truncate">
                   {projectFilePath || 'In-Memory Project'}
                 </div>
-
                 {onSaveProject && (
                   <button
                     type="button"
-                    onClick={() => {
-                      setIsMenuOpen(false);
-                      onSaveProject();
-                    }}
+                    onClick={() => { setIsMenuOpen(false); onSaveProject(); }}
                     className="w-full px-3 py-1.5 flex items-center justify-between hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
                   >
                     <div className="flex items-center gap-2">
@@ -111,42 +95,30 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                     <span className="text-[10px] text-slate-400 dark:text-zinc-500 font-mono">Ctrl+S</span>
                   </button>
                 )}
-
                 {onSaveProjectAs && (
                   <button
                     type="button"
-                    onClick={() => {
-                      setIsMenuOpen(false);
-                      onSaveProjectAs();
-                    }}
+                    onClick={() => { setIsMenuOpen(false); onSaveProjectAs(); }}
                     className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
                   >
                     <FileCode className="w-3.5 h-3.5 text-slate-500 dark:text-zinc-400" />
                     <span>Save Project As...</span>
                   </button>
                 )}
-
                 {onOpenProject && (
                   <button
                     type="button"
-                    onClick={() => {
-                      setIsMenuOpen(false);
-                      onOpenProject();
-                    }}
+                    onClick={() => { setIsMenuOpen(false); onOpenProject(); }}
                     className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
                   >
                     <FolderOpen className="w-3.5 h-3.5 text-slate-500 dark:text-zinc-400" />
                     <span>Open Another Project...</span>
                   </button>
                 )}
-
                 {onOpenSettings && (
                   <button
                     type="button"
-                    onClick={() => {
-                      setIsMenuOpen(false);
-                      onOpenSettings();
-                    }}
+                    onClick={() => { setIsMenuOpen(false); onOpenSettings(); }}
                     className="w-full px-3 py-1.5 flex items-center justify-between hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
                   >
                     <div className="flex items-center gap-2">
@@ -156,16 +128,11 @@ export const TitleBar: React.FC<TitleBarProps> = ({
                     <span className="text-[10px] text-slate-400 dark:text-zinc-500 font-mono">Ctrl+,</span>
                   </button>
                 )}
-
                 <div className="h-px bg-slate-200 dark:bg-zinc-800 my-1" />
-
                 {onCloseProject && (
                   <button
                     type="button"
-                    onClick={() => {
-                      setIsMenuOpen(false);
-                      onCloseProject();
-                    }}
+                    onClick={() => { setIsMenuOpen(false); onCloseProject(); }}
                     className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 transition-colors cursor-pointer"
                   >
                     <LogOut className="w-3.5 h-3.5 text-rose-500 dark:text-rose-400" />
@@ -179,50 +146,52 @@ export const TitleBar: React.FC<TitleBarProps> = ({
           <span className="text-[11px] text-zinc-400 font-medium">Welcome</span>
         )}
 
-        {/* Active Module Name */}
         {activeProject && (
           <>
             <span className="text-zinc-600">/</span>
             <span className="text-[11px] text-zinc-400 flex items-center gap-1">
-              {activeModule === 'databases' && (
-                <>
-                  <Database className="w-3 h-3 text-zinc-500" />
-                  <span>Databases</span>
-                </>
-              )}
-              {activeModule === 'redis' && (
-                <>
-                  <Layers className="w-3 h-3 text-zinc-500" />
-                  <span>Redis Cache Explorer</span>
-                </>
-              )}
-              {activeModule === 'http' && (
-                <>
-                  <Globe className="w-3 h-3 text-zinc-500" />
-                  <span>HTTP / API Client</span>
-                </>
-              )}
-              {activeModule === 'settings' && (
-                <>
-                  <Settings className="w-3 h-3 text-zinc-500" />
-                  <span>Settings</span>
-                </>
-              )}
+              {activeModule === 'databases' && <><Database className="w-3 h-3 text-zinc-500" /><span>Databases</span></>}
+              {activeModule === 'redis' && <><Layers className="w-3 h-3 text-zinc-500" /><span>Redis</span></>}
+              {activeModule === 'http' && <><Globe className="w-3 h-3 text-zinc-500" /><span>HTTP Client</span></>}
+              {activeModule === 'settings' && <><Settings className="w-3 h-3 text-zinc-500" /><span>Settings</span></>}
             </span>
           </>
         )}
       </div>
 
-      {/* Center Context / Active Database Breadcrumb */}
-      {activeSession && (
-        <div className="flex items-center gap-1.5 text-[11px] text-zinc-400">
-          <span className="text-zinc-500 font-mono text-[10px]">
-            {activeSession.connection.host}:{activeSession.connection.port}
-          </span>
-          <span className="text-zinc-600">/</span>
-          <span className="text-emerald-400 font-medium">{activeSession.activeDatabase}</span>
-        </div>
-      )}
+      {/* Center: Top Command Palette Search Bar Trigger */}
+      <div
+        className="flex-1 max-w-sm mx-4 flex items-center justify-center"
+        style={{ '--wails-draggable': 'no-drag' } as any}
+      >
+        <button
+          type="button"
+          onClick={onOpenCommandPalette}
+          className="w-full h-6 px-2.5 rounded-md bg-slate-200/50 dark:bg-zinc-800/60 hover:bg-slate-200 dark:hover:bg-zinc-800 border border-slate-300/40 dark:border-zinc-700/50 hover:border-slate-400 dark:hover:border-zinc-600 flex items-center justify-between text-[11px] text-slate-500 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-zinc-200 transition-all cursor-pointer group shadow-2xs"
+          title="Open Command Palette (Ctrl+K)"
+        >
+          <div className="flex items-center gap-1.5 truncate">
+            <Search className="w-3 h-3 text-slate-400 dark:text-zinc-500 group-hover:text-brand-500" />
+            <span className="truncate">Search commands, workspaces...</span>
+          </div>
+          <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-mono bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-400 dark:text-zinc-500">
+            Ctrl K
+          </kbd>
+        </button>
+      </div>
+
+      {/* Right: Active Session Context Breadcrumb */}
+      <div className="flex items-center gap-1.5 text-[11px] text-zinc-400 flex-shrink-0">
+        {activeSession && (
+          <>
+            <span className="text-zinc-500 font-mono text-[10px]">
+              {activeSession.connection.host}:{activeSession.connection.port}
+            </span>
+            <span className="text-zinc-600">/</span>
+            <span className="text-emerald-400 font-medium">{activeSession.activeDatabase}</span>
+          </>
+        )}
+      </div>
     </div>
   );
 };

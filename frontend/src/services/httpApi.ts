@@ -19,6 +19,14 @@ export interface FormFieldPayload {
   fileBase64?: string[];
 }
 
+export interface BinaryFilePayload {
+  name: string;
+  path: string;
+  size: number;
+  contentType: string;
+  base64Data?: string;
+}
+
 export interface HttpRequestPayload {
   method: string;
   url: string;
@@ -28,6 +36,7 @@ export interface HttpRequestPayload {
   bodyContent?: string;
   formData?: FormFieldPayload[];
   urlEncoded?: Record<string, string>;
+  binaryFile?: BinaryFilePayload;
   timeoutSec?: number;
 }
 
@@ -130,6 +139,38 @@ export async function selectFilesDialog(): Promise<
   }
   return [];
 }
+
+export async function selectSingleFileDialog(): Promise<{
+  name: string;
+  filePath: string;
+  size: number;
+  contentType: string;
+} | null> {
+  try {
+    const w = window as any;
+    if (
+      w &&
+      w.go &&
+      w.go.main &&
+      w.go.main.App &&
+      typeof w.go.main.App.SelectFileDialog === 'function'
+    ) {
+      const res = await w.go.main.App.SelectFileDialog();
+      if (res && res.path) {
+        return {
+          name: res.name || '',
+          filePath: res.path || '',
+          size: res.size || 0,
+          contentType: res.contentType || 'application/octet-stream',
+        };
+      }
+    }
+  } catch (e) {
+    console.warn('SelectFileDialog binding not available, using fallback', e);
+  }
+  return null;
+}
+
 
 export async function saveEnvironmentsData(jsonData: string): Promise<void> {
   try {

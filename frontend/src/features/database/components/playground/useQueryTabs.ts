@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 import { QueryTab, QueryResult, ExplainPlanResult } from '../../types';
+import { closeTabSession } from '../../../../services/api';
 
 export const DEFAULT_QUERY = `-- Octa SQL Playground\n-- Press Ctrl + Enter to run selected text or full query\n\nSELECT \n  'Octa' AS application,\n  'Database Management & SQL Workspace' AS milestone,\n  NOW() AS executed_at;\n`;
 
@@ -89,6 +90,7 @@ export function useQueryTabs({
 
   const handleCloseTab = useCallback(
     (id: string) => {
+      closeTabSession(id);
       const filtered = tabs.filter((t) => t.id !== id);
       if (filtered.length === 0) {
         const freshId = 'tab-' + Date.now();

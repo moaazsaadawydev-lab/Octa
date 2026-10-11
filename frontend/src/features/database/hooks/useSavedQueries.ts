@@ -10,9 +10,16 @@ import {
 export interface UseSavedQueriesOptions {
   propQueriesTree?: (SqlQueryFolder | SqlQueryItem)[];
   onSaveQueriesTree?: (tree: (SqlQueryFolder | SqlQueryItem)[]) => void;
+  activeDatabase?: string;
+  activeConnectionId?: string;
 }
 
-export function useSavedQueries({ propQueriesTree, onSaveQueriesTree }: UseSavedQueriesOptions = {}) {
+export function useSavedQueries({
+  propQueriesTree,
+  onSaveQueriesTree,
+  activeDatabase,
+  activeConnectionId,
+}: UseSavedQueriesOptions = {}) {
   const [internalQueriesTree, setInternalQueriesTree] = useState<(SqlQueryFolder | SqlQueryItem)[]>(() => {
     try {
       const saved = localStorage.getItem('octa_sql_queries_tree');
@@ -159,7 +166,12 @@ export function useSavedQueries({ propQueriesTree, onSaveQueriesTree }: UseSaved
   }, [queriesTree, saveQueries]);
 
   const handleCreateQuery = useCallback((parentId: string | null = null) => {
-    const newQuery = createDefaultQuery('Untitled.sql');
+    const baseQuery = createDefaultQuery('Untitled.sql');
+    const newQuery: SqlQueryItem = {
+      ...baseQuery,
+      database: activeDatabase,
+      connectionId: activeConnectionId,
+    };
     if (!parentId) {
       saveQueries([...queriesTree, newQuery]);
     } else {
@@ -178,7 +190,7 @@ export function useSavedQueries({ propQueriesTree, onSaveQueriesTree }: UseSaved
     }
     setEditingId(newQuery.id);
     setEditingName(newQuery.name);
-  }, [queriesTree, saveQueries]);
+  }, [queriesTree, saveQueries, activeDatabase, activeConnectionId]);
 
   return {
     queriesTree,

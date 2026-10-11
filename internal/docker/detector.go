@@ -3,9 +3,11 @@ package docker
 import (
 	"bytes"
 	"fmt"
+	"net"
 	"os"
 	"runtime"
 	"strings"
+	"time"
 
 	"octa/internal/executil"
 )
@@ -73,33 +75,36 @@ func isWindowsDockerInstalled() bool {
 	return false
 }
 
+// isWSLDockerRunning quickly checks if the WSL Docker daemon is responsive on localhost port 2375.
+func isWSLDockerRunning() bool {
+	conn, err := net.DialTimeout("tcp", "127.0.0.1:2375", 500*time.Millisecond)
+	if err == nil {
+		_ = conn.Close()
+		return true
+	}
+	return false
+}
+
 // DetectEngines discovers available Docker engines on the local host.
 func DetectEngines() []EngineProvider {
 	var providers []EngineProvider
 
 	if runtime.GOOS == "windows" {
-		// 1. Detect Windows Docker Desktop
-		if isWindowsDockerInstalled() {
-			providers = append(providers, EngineProvider{
-				ID:    "windows",
-				Label: "Docker Desktop (Windows)",
-			})
-		}
+		var wslProviders []EngineProvider
+		var winProviders []EngineProvider
 
-		// 2. Detect WSL2 Distributions with Docker installed
+		// 1. Detect WSL2 Distributions with Docker installed
 		cmd := executil.Command("wsl.exe", "-l", "-q")
 		out, err := cmd.Output()
 		if err == nil && len(out) > 0 {
 			distros := CleanWSLOutput(out)
 			for _, distro := range distros {
-				// Ignore internal Docker Desktop helper distributions
 				lower := strings.ToLower(distro)
 				if strings.Contains(lower, "docker-desktop") {
 					continue
 				}
-
 				if isWSLDistroHasDocker(distro) {
-					providers = append(providers, EngineProvider{
+					wslProviders = append(wslProviders, EngineProvider{
 						ID:     "wsl",
 						Label:  fmt.Sprintf("WSL2 (%s)", distro),
 						Distro: distro,
@@ -108,13 +113,26 @@ func DetectEngines() []EngineProvider {
 			}
 		}
 
-		// Fallback: If nothing was detected, provide default Windows Desktop entry
-		if len(providers) == 0 {
-			providers = append(providers, EngineProvider{
-				ID:    "windows",
-				Label: "Docker Desktop (Windows)",
-			})
+		// 2. Windows Docker Desktop entry
+		winProviders = append(winProviders, EngineProvider{
+			ID:    "windows",
+			Label: "Docker Desktop (Windows)",
+		})
+
+		// Prioritization:
+		// If WSL Docker is actively running or Windows Docker Desktop is not installed,
+		// list WSL distros first. Otherwise list Windows Desktop first.
+		wslActive := isWSLDockerRunning()
+		winInstalled := isWindowsDockerInstalled()
+
+		if (wslActive || !winInstalled) && len(wslProviders) > 0 {
+			providers = append(providers, wslProviders...)
+			providers = append(providers, winProviders...)
+		} else {
+			providers = append(providers, winProviders...)
+			providers = append(providers, wslProviders...)
 		}
+
 		return providers
 	}
 

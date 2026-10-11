@@ -99,6 +99,9 @@ func (s *HTTPService) ExecuteHttpRequest(payload HttpRequestPayload) (HttpRespon
 		result.StatusText = "Request Creation Error"
 		return result, nil
 	}
+	if closer, ok := reqBody.(io.Closer); ok {
+		defer closer.Close()
+	}
 
 	for k, v := range payload.Headers {
 		if strings.TrimSpace(k) != "" {
@@ -115,6 +118,11 @@ func (s *HTTPService) ExecuteHttpRequest(payload HttpRequestPayload) (HttpRespon
 		httpReq.Header.Set("Content-Type", contentType)
 	} else if contentType != "" && httpReq.Header.Get("Content-Type") == "" {
 		httpReq.Header.Set("Content-Type", contentType)
+	}
+
+	// Explicit Content-Length for binary uploads (critical for MinIO/S3 PUT uploads)
+	if payload.BodyType == "binary" && payload.BinaryFile != nil && payload.BinaryFile.Size > 0 {
+		httpReq.ContentLength = payload.BinaryFile.Size
 	}
 
 	if httpReq.Header.Get("User-Agent") == "" {

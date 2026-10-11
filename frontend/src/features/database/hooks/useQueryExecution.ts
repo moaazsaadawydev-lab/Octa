@@ -24,7 +24,7 @@ export function useQueryExecution({ activeSession, showToast = () => {}, onSucce
     return [];
   });
 
-  const runQuery = useCallback(async (sql: string): Promise<QueryResult[] | null> => {
+  const runQuery = useCallback(async (sql: string, tabId: string = ''): Promise<QueryResult[] | null> => {
     if (!activeSession) {
       showToast('Please connect to a database first', 'error');
       return null;
@@ -41,14 +41,18 @@ export function useQueryExecution({ activeSession, showToast = () => {}, onSucce
       const queryResults = await executeRawQuery(
         activeSession.connection,
         activeSession.activeDatabase,
-        trimmed
+        trimmed,
+        tabId
       );
-      const totalDuration = Date.now() - startTs;
+      const totalDuration = queryResults.reduce((sum, r) => sum + (r.durationMs || 0), 0) || (Date.now() - startTs);
       const totalRows = queryResults.reduce(
         (sum, r) => sum + (r.isSelect ? (r.rows?.length || 0) : (r.rowsAffected || 0)),
         0
       );
       const hasError = queryResults.some((r) => r.error);
+      const firstErr = queryResults.find((r) => r.error);
+      const errIdx = queryResults.findIndex((r) => r.error);
+      const targetIndex = errIdx >= 0 ? errIdx : (queryResults.length > 1 ? -1 : 0);
 
       const newEntry: QueryHistoryEntry = {
         id: 'hist-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7),
@@ -57,7 +61,7 @@ export function useQueryExecution({ activeSession, showToast = () => {}, onSucce
         executionTime: totalDuration,
         status: hasError ? 'error' : 'success',
         rowCount: totalRows,
-        errorMessage: queryResults.find((r) => r.error)?.error,
+        errorMessage: firstErr?.error,
         database: activeSession.activeDatabase,
       };
 
@@ -70,13 +74,24 @@ export function useQueryExecution({ activeSession, showToast = () => {}, onSucce
       });
 
       setResults(queryResults);
-      setActiveResultIndex(0);
+      setActiveResultIndex(targetIndex);
       onSuccess?.(queryResults);
 
       if (hasError) {
-        showToast(queryResults.find((r) => r.error)?.error || 'Query failed', 'error');
-      } else {
-        showToast(`Query completed in ${totalDuration}ms (${totalRows} rows affected/returned)`, 'success');
+        showToast(firstErr?.error || 'Query failed', 'error');
+      } else if (queryResults.length > 1) {
+        showToast(
+          `${queryResults.length} statements completed in ${totalDuration.toFixed(1)}ms (${totalRows} total rows)`,
+          'success'
+        );
+      } else if (queryResults.length === 1) {
+        const single = queryResults[0];
+        const rowLabel = single.isSelect ? 'rows returned' : 'rows affected';
+        const rowCount = single.isSelect ? (single.rows?.length || 0) : (single.rowsAffected || 0);
+        showToast(
+          `Query completed in ${(single.durationMs ?? totalDuration).toFixed(1)}ms (${rowCount} ${rowLabel})`,
+          'success'
+        );
       }
       return queryResults;
     } catch (err: any) {

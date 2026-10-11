@@ -122,7 +122,17 @@ export const DockerWorkspace: React.FC<DockerWorkspaceProps> = ({
     if (isVisible) {
       fetchContainers(true);
     }
-  }, [isVisible, fetchContainers]);
+  }, [isVisible, activeEngine, fetchContainers]);
+
+  useEffect(() => {
+    const handleEngineChanged = () => {
+      fetchContainers(false);
+    };
+    window.addEventListener('octa:docker:engine:changed', handleEngineChanged);
+    return () => {
+      window.removeEventListener('octa:docker:engine:changed', handleEngineChanged);
+    };
+  }, [fetchContainers]);
 
   // If initial connection check is in progress, show subtle spinner instead of error flash
   if (isDockerAvailable === null) {

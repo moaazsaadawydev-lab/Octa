@@ -12,6 +12,8 @@ interface RedisKeyViewerProps {
   activeTab: RedisTab | null;
   monacoTheme: string;
   isSaving: boolean;
+  isRefreshing?: boolean;
+  onRefresh?: () => void;
   onSave: () => void;
   onDelete: (key: string) => void;
   onUpdateTTL: (ttl: number) => void;
@@ -29,6 +31,8 @@ export const RedisKeyViewer: React.FC<RedisKeyViewerProps> = ({
   activeTab,
   monacoTheme,
   isSaving,
+  isRefreshing = false,
+  onRefresh,
   onSave,
   onDelete,
   onUpdateTTL,
@@ -80,6 +84,8 @@ export const RedisKeyViewer: React.FC<RedisKeyViewerProps> = ({
       <KeyDetailHeader
         activeTab={activeTab}
         isSaving={isSaving}
+        isRefreshing={isRefreshing}
+        onRefresh={onRefresh}
         onSave={onSave}
         onDelete={onDelete}
         onUpdateTTL={onUpdateTTL}

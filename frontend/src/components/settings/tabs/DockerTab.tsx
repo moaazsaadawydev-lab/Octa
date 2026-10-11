@@ -53,21 +53,20 @@ export const DockerTab: React.FC<DockerTabProps> = ({
         title="Docker Engine Provider"
         description="Select which local Docker runtime Octa connects to (Windows Docker Desktop or WSL2 Linux)"
       >
-        {availableEngines.length <= 1 ? (
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-[#0a0d13] border border-slate-200 dark:border-zinc-800/80 text-xs text-slate-700 dark:text-zinc-300 font-medium">
-            <span>{availableEngines[0]?.label || 'Docker Desktop (Windows)'}</span>
-            <span className="text-[10px] text-slate-400 dark:text-zinc-500">(Auto-locked)</span>
-          </div>
-        ) : (
-          <SelectDropdown
-            value={activeEngine}
-            onChange={(val) => switchEngine(val as 'windows' | 'wsl')}
-            options={availableEngines.map((e) => ({
-              value: e.id,
-              label: e.label,
-            }))}
-          />
-        )}
+        <SelectDropdown
+          value={activeEngine}
+          onChange={(val) => switchEngine(val as 'windows' | 'wsl')}
+          options={(availableEngines.length > 0
+            ? availableEngines
+            : [
+                { id: 'wsl', label: 'WSL2 (Ubuntu)' },
+                { id: 'windows', label: 'Docker Desktop (Windows)' },
+              ]
+          ).map((e) => ({
+            value: e.id,
+            label: e.label,
+          }))}
+        />
       </SettingsRowCard>
 
       {/* 2. Connection Target Info & Health Check */}

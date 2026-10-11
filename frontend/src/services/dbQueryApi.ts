@@ -6,6 +6,7 @@ import {
   DeleteTableRows,
   TruncateTable,
   ExecuteRawQuery,
+  CloseTabSession,
   ExportTableSQL,
   ExportDatabaseSQL,
   ImportSQLScript,
@@ -31,28 +32,23 @@ export async function getTableData(
   tableName: string,
   options: DataQueryOptions
 ): Promise<TableDataResult> {
-  try {
-    const model = toModelConfig(config);
-    const queryOpts = main.DataQueryOptions.createFrom({
-      page: options.page || 1,
-      pageSize: options.pageSize || 50,
-      sortColumn: options.sortColumn || '',
-      sortOrder: options.sortOrder || '',
-      filterColumn: options.filterColumn || '',
-      filterOp: options.filterOp || '',
-      filterValue: options.filterValue || '',
-    });
-    const res = await GetTableData(model, dbName, tableName, queryOpts);
-    return {
-      columns: res.columns || [],
-      rows: res.rows || [],
-      totalRows: res.totalRows || 0,
-      durationMs: res.durationMs || 0,
-    };
-  } catch (err: any) {
-    console.error('Failed to get table data:', err);
-    throw err;
-  }
+  const model = toModelConfig(config);
+  const queryOpts = main.DataQueryOptions.createFrom({
+    page: options.page || 1,
+    pageSize: options.pageSize || 50,
+    sortColumn: options.sortColumn || '',
+    sortOrder: options.sortOrder || '',
+    filterColumn: options.filterColumn || '',
+    filterOp: options.filterOp || '',
+    filterValue: options.filterValue || '',
+  });
+  const res = await GetTableData(model, dbName, tableName, queryOpts);
+  return {
+    columns: res.columns || [],
+    rows: res.rows || [],
+    totalRows: res.totalRows || 0,
+    durationMs: res.durationMs || 0,
+  };
 }
 
 export async function getQueryLogs(): Promise<QueryLog[]> {
@@ -89,20 +85,16 @@ export async function updateTableRows(
   primaryKeyCol: string,
   updates: RowUpdate[]
 ): Promise<boolean> {
-  try {
-    const model = toModelConfig(config);
-    const rowUpdates = updates.map((u) =>
-      main.RowUpdate.createFrom({
-        rowId: u.rowId,
-        column: u.column,
-        newValue: u.newValue,
-      })
-    );
-    return await UpdateTableRows(model, dbName, tableName, primaryKeyCol, rowUpdates);
-  } catch (err: any) {
-    console.error('Failed to update table rows:', err);
-    throw err;
-  }
+  const model = toModelConfig(config);
+  const rowUpdates = updates.map((u) =>
+    main.RowUpdate.createFrom({
+      primaryKeyColumn: primaryKeyCol,
+      primaryKeyValue: (u as any).primaryKeyValue ?? u.rowId,
+      column: u.column,
+      newValue: u.newValue,
+    })
+  );
+  return await UpdateTableRows(model, dbName, tableName, primaryKeyCol, rowUpdates);
 }
 
 export async function deleteTableRows(
@@ -112,13 +104,8 @@ export async function deleteTableRows(
   primaryKeyCol: string,
   rowIds: string[]
 ): Promise<boolean> {
-  try {
-    const model = toModelConfig(config);
-    return await DeleteTableRows(model, dbName, tableName, primaryKeyCol, rowIds);
-  } catch (err: any) {
-    console.error('Failed to delete table rows:', err);
-    throw err;
-  }
+  const model = toModelConfig(config);
+  return await DeleteTableRows(model, dbName, tableName, primaryKeyCol, rowIds);
 }
 
 export async function truncateTable(
@@ -126,40 +113,42 @@ export async function truncateTable(
   dbName: string,
   tableName: string
 ): Promise<boolean> {
-  try {
-    const model = toModelConfig(config);
-    return await TruncateTable(model, dbName, tableName);
-  } catch (err: any) {
-    console.error('Failed to truncate table:', err);
-    throw err;
-  }
+  const model = toModelConfig(config);
+  return await TruncateTable(model, dbName, tableName);
 }
 
 export async function executeRawQuery(
   config: ConnectionConfig,
   dbName: string,
-  rawSql: string
+  rawSql: string,
+  tabId: string = ''
 ): Promise<QueryResult[]> {
+  const model = toModelConfig(config);
+  const results = await ExecuteRawQuery(model, dbName, rawSql, tabId);
+  if (!results || !Array.isArray(results)) return [];
+  return results.map((r, idx) => ({
+    queryIndex: (r as any).queryIndex ?? idx,
+    statement: r.statement,
+    columns: r.columns || [],
+    rows: r.rows || [],
+    rowCount: (r as any).rowCount ?? (r as any).rowsAffected ?? (r.rows ? r.rows.length : 0),
+    rowsAffected: (r as any).rowsAffected ?? (r as any).rowCount ?? 0,
+    durationMs: r.durationMs || 0,
+    success: (r as any).success ?? !(r as any).error,
+    errorMessage: (r as any).errorMessage || (r as any).error,
+    error: (r as any).error || (r as any).errorMessage,
+    isSelect: (r as any).isSelect !== undefined ? Boolean((r as any).isSelect) : (r.columns && r.columns.length > 0),
+    txStatus: (r as any).txStatus || 'idle',
+    notices: (r as any).notices || [],
+  }));
+}
+
+export async function closeTabSession(tabId: string): Promise<boolean> {
   try {
-    const model = toModelConfig(config);
-    const results = await ExecuteRawQuery(model, dbName, rawSql);
-    if (!results || !Array.isArray(results)) return [];
-    return results.map((r, idx) => ({
-      queryIndex: (r as any).queryIndex ?? idx,
-      statement: r.statement,
-      columns: r.columns || [],
-      rows: r.rows || [],
-      rowCount: (r as any).rowCount ?? (r as any).rowsAffected ?? (r.rows ? r.rows.length : 0),
-      rowsAffected: (r as any).rowsAffected ?? (r as any).rowCount ?? 0,
-      durationMs: r.durationMs || 0,
-      success: (r as any).success ?? !(r as any).error,
-      errorMessage: (r as any).errorMessage || (r as any).error,
-      error: (r as any).error || (r as any).errorMessage,
-      isSelect: (r as any).isSelect !== undefined ? Boolean((r as any).isSelect) : (r.columns && r.columns.length > 0),
-    }));
-  } catch (err: any) {
-    console.error('Failed to execute raw query:', err);
-    throw err;
+    return await CloseTabSession(tabId);
+  } catch (err) {
+    console.error('Failed to close tab session:', err);
+    return false;
   }
 }
 
@@ -169,13 +158,8 @@ export async function exportTableSQL(
   tableName: string,
   exportData: boolean
 ): Promise<string> {
-  try {
-    const model = toModelConfig(config);
-    return await ExportTableSQL(model, dbName, tableName, exportData);
-  } catch (err: any) {
-    console.error('Failed to export table SQL:', err);
-    throw err;
-  }
+  const model = toModelConfig(config);
+  return await ExportTableSQL(model, dbName, tableName, exportData);
 }
 
 export async function exportDatabaseSQL(
@@ -183,13 +167,8 @@ export async function exportDatabaseSQL(
   dbName: string,
   exportData: boolean
 ): Promise<string> {
-  try {
-    const model = toModelConfig(config);
-    return await ExportDatabaseSQL(model, dbName, exportData);
-  } catch (err: any) {
-    console.error('Failed to export database SQL:', err);
-    throw err;
-  }
+  const model = toModelConfig(config);
+  return await ExportDatabaseSQL(model, dbName, exportData);
 }
 
 export async function importSQLScript(
@@ -197,31 +176,21 @@ export async function importSQLScript(
   dbName: string,
   sqlContent: string
 ): Promise<ImportResult> {
-  try {
-    const model = toModelConfig(config);
-    const res = await ImportSQLScript(model, dbName, sqlContent);
-    return {
-      statementsExecuted: res.statementsExecuted || 0,
-      durationMs: res.durationMs || 0,
-      success: Boolean(res.success),
-      errorMessage: res.errorMessage || '',
-    };
-  } catch (err: any) {
-    console.error('Failed to import SQL script:', err);
-    throw err;
-  }
+  const model = toModelConfig(config);
+  const res = await ImportSQLScript(model, dbName, sqlContent);
+  return {
+    statementsExecuted: res.statementsExecuted || 0,
+    durationMs: res.durationMs || 0,
+    success: Boolean(res.success),
+    errorMessage: res.errorMessage || '',
+  };
 }
 
 export async function saveSQLDumpDialog(
   defaultFilename: string,
   content: string
 ): Promise<string> {
-  try {
-    return await SaveSQLDumpDialog(defaultFilename, content);
-  } catch (err: any) {
-    console.error('Failed to save SQL dump dialog:', err);
-    throw err;
-  }
+  return await SaveSQLDumpDialog(defaultFilename, content);
 }
 
 export function downloadSQLFile(filename: string, content: string): void {
@@ -242,18 +211,13 @@ export async function explainQuery(
   query: string,
   analyze: boolean = false
 ): Promise<ExplainPlanResult> {
-  try {
-    const model = toModelConfig(config);
-    const res = await ExplainQuery(model, dbName, query, analyze);
-    return {
-      planJson: res.planJson || '[]',
-      totalCost: res.totalCost || 0,
-      planningTime: res.planningTime || 0,
-      executionTime: res.executionTime || 0,
-      rawOutput: res.rawOutput || '',
-    };
-  } catch (err: any) {
-    console.error('Failed to explain query:', err);
-    throw err;
-  }
+  const model = toModelConfig(config);
+  const res = await ExplainQuery(model, dbName, query, analyze);
+  return {
+    planJson: res.planJson || '[]',
+    totalCost: res.totalCost || 0,
+    planningTime: res.planningTime || 0,
+    executionTime: res.executionTime || 0,
+    rawOutput: res.rawOutput || '',
+  };
 }

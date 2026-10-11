@@ -5,6 +5,8 @@ import { TableSchema } from '../../../types/connection';
 
 export interface TableNodeData {
   table: TableSchema;
+  connectedSourceCols?: string[];
+  connectedTargetCols?: string[];
   isHighlighted?: boolean;
   activeColumnHighlight?: string;
   [key: string]: unknown;
@@ -55,37 +57,47 @@ export const TableNode: React.FC<NodeProps> = memo(({ data, selected }) => {
         </span>
       </div>
 
-      {/* Target Handle on Left for Incoming Foreign Keys */}
+      {/* Fallback Target Handle on Left */}
       <Handle
         type="target"
         position={Position.Left}
         id={`${table.name}-target`}
-        className="!w-2.5 !h-2.5 !bg-brand-500 dark:!bg-brand-400 !border-2 !border-white dark:!border-[#181818] hover:!scale-125 transition-transform"
+        className="!w-0 !h-0 !opacity-0 !pointer-events-none !border-none"
       />
 
       {/* Columns List */}
-      <div className="divide-y divide-slate-100 dark:divide-[#242424] max-h-72 overflow-y-auto no-scrollbar py-0.5">
+      <div className="divide-y divide-slate-100 dark:divide-[#242424] max-h-[500px] overflow-y-auto no-scrollbar py-0.5">
         {table.columns && table.columns.length > 0 ? (
           table.columns.map((col) => {
             const isPk = col.isPrimaryKey;
             const isFk = col.isForeignKey;
             const isColHighlighted = nodeData.activeColumnHighlight === col.name;
+            const isSourceConnected = Boolean(
+              nodeData.connectedSourceCols?.includes(col.name) || isFk
+            );
+            const isTargetConnected = Boolean(
+              nodeData.connectedTargetCols?.includes(col.name)
+            );
 
             return (
               <div
                 key={col.name}
-                className={`relative px-3 py-1.5 flex items-center justify-between text-xs transition-colors ${
+                className={`group/col relative px-3 py-1.5 flex items-center justify-between text-xs transition-colors ${
                   isColHighlighted
                     ? 'bg-brand-50 dark:bg-brand-500/15 text-brand-900 dark:text-brand-200'
                     : 'hover:bg-slate-50 dark:hover:bg-[#202020]'
                 }`}
               >
-                {/* Column Target Handle for specific FK matching */}
+                {/* Column Target Handle for incoming relations */}
                 <Handle
                   type="target"
                   position={Position.Left}
                   id={`${table.name}-${col.name}-target`}
-                  className="!w-1.5 !h-1.5 !bg-cyan-500 dark:!bg-cyan-400 !border-none !left-0 opacity-0 group-hover:opacity-100"
+                  className={`!w-2 !h-2 !bg-cyan-500 dark:!bg-cyan-400 !border-2 !border-white dark:!border-[#181818] hover:!scale-125 transition-all ${
+                    isTargetConnected
+                      ? '!opacity-100'
+                      : '!opacity-0 group-hover/col:!opacity-100'
+                  }`}
                 />
 
                 <div className="flex items-center gap-1.5 truncate mr-2">
@@ -143,12 +155,16 @@ export const TableNode: React.FC<NodeProps> = memo(({ data, selected }) => {
                   )}
                 </div>
 
-                {/* Column Source Handle for specific FK matching */}
+                {/* Column Source Handle for outgoing relations */}
                 <Handle
                   type="source"
                   position={Position.Right}
                   id={`${table.name}-${col.name}-source`}
-                  className="!w-1.5 !h-1.5 !bg-brand-500 dark:!bg-brand-400 !border-none !right-0 opacity-0 group-hover:opacity-100"
+                  className={`!w-2 !h-2 !bg-cyan-500 dark:!bg-cyan-400 !border-2 !border-white dark:!border-[#181818] hover:!scale-125 transition-all ${
+                    isSourceConnected
+                      ? '!opacity-100'
+                      : '!opacity-0 group-hover/col:!opacity-100'
+                  }`}
                 />
               </div>
             );
@@ -160,12 +176,12 @@ export const TableNode: React.FC<NodeProps> = memo(({ data, selected }) => {
         )}
       </div>
 
-      {/* Source Handle on Right for Outgoing Foreign Keys */}
+      {/* Fallback Source Handle on Right */}
       <Handle
         type="source"
         position={Position.Right}
         id={`${table.name}-source`}
-        className="!w-2.5 !h-2.5 !bg-cyan-500 dark:!bg-cyan-400 !border-2 !border-white dark:!border-[#181818] hover:!scale-125 transition-transform"
+        className="!w-0 !h-0 !opacity-0 !pointer-events-none !border-none"
       />
     </div>
   );

@@ -8,6 +8,7 @@ import {
   Key,
   Layers,
   Loader2,
+  Trash2,
 } from 'lucide-react';
 import { TableColumn } from '../types';
 
@@ -24,6 +25,7 @@ export interface SchemaTreeViewProps {
   onRefreshTables: () => void;
   onSelectTable: (tableName: string) => void;
   onToggleExpandTable: (tableName: string) => void;
+  onOpenDropModal?: (tableName: string) => void;
   width: number;
   onResizeStart: (e: React.MouseEvent) => void;
 }
@@ -41,6 +43,7 @@ export const SchemaTreeView: React.FC<SchemaTreeViewProps> = ({
   onRefreshTables,
   onSelectTable,
   onToggleExpandTable,
+  onOpenDropModal,
   width,
   onResizeStart,
 }) => {
@@ -103,7 +106,7 @@ export const SchemaTreeView: React.FC<SchemaTreeViewProps> = ({
             const columns = schemas[tbl] || [];
 
             return (
-              <div key={tbl} className="rounded-md overflow-hidden">
+              <div key={tbl} className="rounded-md overflow-hidden group/tblitem">
                 <div
                   className={
                     'w-full flex items-center justify-between px-2 py-1.5 rounded-md text-xs transition-colors cursor-pointer ' +
@@ -115,7 +118,7 @@ export const SchemaTreeView: React.FC<SchemaTreeViewProps> = ({
                   }
                   onClick={() => onSelectTable(tbl)}
                 >
-                  <div className="flex items-center gap-1.5 truncate flex-1">
+                  <div className="flex items-center gap-1.5 truncate flex-1 min-w-0">
                     <button
                       type="button"
                       onClick={(e) => {
@@ -133,6 +136,25 @@ export const SchemaTreeView: React.FC<SchemaTreeViewProps> = ({
                     <TableIcon className="w-3.5 h-3.5 flex-shrink-0" />
                     <span className="truncate font-mono text-[11px]">{tbl}</span>
                   </div>
+
+                  {onOpenDropModal && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onOpenDropModal(tbl);
+                      }}
+                      title={`Drop table "${tbl}"`}
+                      className={
+                        'p-1 rounded opacity-0 group-hover/tblitem:opacity-100 transition-opacity flex-shrink-0 ' +
+                        (isSelected
+                          ? 'text-white/80 hover:text-white hover:bg-white/20'
+                          : 'text-slate-400 dark:text-zinc-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40')
+                      }
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  )}
                 </div>
 
                 {isExpanded && (

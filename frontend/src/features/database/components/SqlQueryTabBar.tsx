@@ -96,8 +96,37 @@ export const SqlQueryTabBar: React.FC<SqlQueryTabBarProps> = ({
                 </span>
               )}
 
+              {tab.activeDatabaseName && (
+                <span
+                  className="text-[9px] px-1 py-0.2 rounded bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 font-mono border border-slate-200 dark:border-zinc-700/60 max-w-[65px] truncate flex-shrink-0"
+                  title={`Database: ${tab.activeDatabaseName}`}
+                >
+                  {tab.activeDatabaseName}
+                </span>
+              )}
+
               {tab.isDirty && (
                 <span className="w-1.5 h-1.5 rounded-full bg-sky-400 flex-shrink-0 animate-pulse" title="Unsaved changes" />
+              )}
+
+              {tab.txStatus === 'in_tx' && (
+                <span
+                  className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-500/20 text-amber-500 dark:text-amber-400 border border-amber-500/40 flex items-center gap-1 flex-shrink-0"
+                  title="Transaction Open (BEGIN in progress)"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 dark:bg-amber-400 animate-pulse" />
+                  TX
+                </span>
+              )}
+
+              {tab.txStatus === 'in_tx_error' && (
+                <span
+                  className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-rose-500/20 text-rose-500 dark:text-rose-400 border border-rose-500/40 flex items-center gap-1 flex-shrink-0"
+                  title="Transaction Aborted (Error occurred, ROLLBACK needed)"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500 dark:bg-rose-400 animate-pulse" />
+                  TX ERR
+                </span>
               )}
 
               <button

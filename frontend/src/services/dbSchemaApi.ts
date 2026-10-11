@@ -145,3 +145,24 @@ export async function getDatabaseSchemaDetails(
     throw err;
   }
 }
+
+export async function dropTable(
+  config: ConnectionConfig,
+  dbName: string,
+  tableName: string,
+  cascade: boolean = false
+): Promise<boolean> {
+  const model = toModelConfig(config);
+  try {
+    const appAny = await import('../../wailsjs/go/main/App');
+    if (typeof (appAny as any).DropTable === 'function') {
+      return await (appAny as any).DropTable(model, dbName, tableName, cascade);
+    }
+  } catch {}
+
+  const safeTable = `"${tableName.replace(/"/g, '""')}"`;
+  const sql = `DROP TABLE ${safeTable}${cascade ? ' CASCADE' : ''};`;
+  const { ExecuteRawQuery } = await import('../../wailsjs/go/main/App');
+  await ExecuteRawQuery(model, dbName, sql, 'drop-table-' + Date.now());
+  return true;
+}

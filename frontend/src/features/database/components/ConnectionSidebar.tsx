@@ -52,6 +52,8 @@ export const ConnectionSidebar: React.FC<ConnectionSidebarProps> = (props) => {
   const queryTreeState = useSavedQueries({
     propQueriesTree,
     onSaveQueriesTree,
+    activeDatabase: activeSession?.activeDatabase,
+    activeConnectionId: activeSession?.connection?.id,
   });
 
   const handleResizeStart = (e: React.MouseEvent) => {

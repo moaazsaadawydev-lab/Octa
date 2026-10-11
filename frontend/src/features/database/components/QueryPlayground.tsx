@@ -1,11 +1,6 @@
 import React, { useState, useRef } from 'react';
-import {
-  ActiveSession,
-  QueryTab,
-  SqlQueryItem,
-  SqlQueryFolder,
-  QueryResult,
-} from '../types';
+import { ActiveSession, QueryTab, SqlQueryItem, SqlQueryFolder, QueryResult } from '../types';
+import { useTheme } from '../../../context/ThemeContext';
 import { SqlQueryTabBar } from './SqlQueryTabBar';
 import { SqlEditorHeader } from './SqlEditorHeader';
 import { SqlCodeEditor } from './SqlCodeEditor';
@@ -30,6 +25,7 @@ export interface QueryPlaygroundProps {
   onActiveTabChange?: (tabId: string | null) => void;
   queriesTree?: (SqlQueryFolder | SqlQueryItem)[];
   onSaveQueriesTree?: (tree: (SqlQueryFolder | SqlQueryItem)[]) => void;
+  databases?: string[];
 }
 
 export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
@@ -42,11 +38,21 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
   onActiveTabChange,
   queriesTree = [],
   onSaveQueriesTree,
+  databases,
 }) => {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [resultPage, setResultPage] = useState(1);
   const [resultLimit] = useState(50);
   const editorInstanceRef = useRef<any>(null);
+  const { monacoTheme } = useTheme();
+  const [editorTheme, setEditorTheme] = useState<string>(() => {
+    return localStorage.getItem('octa_sql_theme') || monacoTheme;
+  });
+
+  const handleThemeChange = (newTheme: string) => {
+    setEditorTheme(newTheme);
+    localStorage.setItem('octa_sql_theme', newTheme);
+  };
 
   const {
     tabs,
@@ -72,12 +78,11 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
     activeSession,
     showToast,
     onSuccess: (results) => {
+      const errIdx = results.findIndex((r) => r.error);
+      const targetIdx = errIdx >= 0 ? errIdx : (results.length > 1 ? -1 : 0);
+      const txStatus = results[results.length - 1]?.txStatus;
       setTabs((prev) =>
-        prev.map((t) =>
-          t.id === activeTabId
-            ? { ...t, results, activeResultIndex: 0, activeViewMode: 'results', isExecuting: false }
-            : t
-        )
+        prev.map((t) => t.id === activeTabId ? { ...t, results, activeResultIndex: targetIdx, activeViewMode: 'results', isExecuting: false, txStatus } : t)
       );
       setResultPage(1);
     },
@@ -109,34 +114,20 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
 
   const handleExecute = async (queryOverride?: string) => {
     if (!activeTab) return;
-    const sql =
-      typeof queryOverride === 'string' && queryOverride.trim()
-        ? queryOverride
-        : getQueryToExecute();
-    await queryExec.runQuery(sql);
+    const sql = typeof queryOverride === 'string' && queryOverride.trim() ? queryOverride : getQueryToExecute();
+    await queryExec.runQuery(sql, activeTab.id);
   };
 
   const handleExplain = async (analyze: boolean) => {
     if (!activeTab) return;
-    const sql = getQueryToExecute();
-    const plan = await queryExec.runExplain(sql, analyze);
-    if (plan) {
-      setTabs((prev) =>
-        prev.map((t) =>
-          t.id === activeTabId
-            ? { ...t, explainPlan: plan, activeViewMode: 'explain', isExecuting: false }
-            : t
-        )
-      );
-    }
+    const plan = await queryExec.runExplain(getQueryToExecute(), analyze);
+    if (plan) setTabs((prev) => prev.map((t) => t.id === activeTabId ? { ...t, explainPlan: plan, activeViewMode: 'explain', isExecuting: false } : t));
   };
 
   const handleFormat = () => {
     if (!activeTab) return;
     const formatted = queryExec.formatSql(activeTab.query);
-    setTabs((prev) =>
-      prev.map((t) => (t.id === activeTabId ? { ...t, query: formatted, isDirty: true } : t))
-    );
+    setTabs((prev) => prev.map((t) => (t.id === activeTabId ? { ...t, query: formatted, isDirty: true } : t)));
   };
 
   if (!activeSession) return <HomeLanding onOpenNewModal={onOpenNewModal} />;
@@ -161,8 +152,11 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
         onExplain={handleExplain}
         onSave={saveOps.handleTriggerSave}
         onToggleHistory={() => setIsHistoryOpen(!isHistoryOpen)}
+        currentTheme={editorTheme}
+        onThemeChange={handleThemeChange}
         isExecuting={queryExec.isExecuting}
         hasResults={Boolean(currentResult)}
+        activeDatabase={activeSession?.activeDatabase}
       />
 
       <div ref={containerRef} className="flex-1 flex min-h-0 relative overflow-hidden">
@@ -178,6 +172,8 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
                 onSave={saveOps.handleTriggerSave}
                 externalEditorRef={editorInstanceRef}
                 activeSession={activeSession}
+                databases={databases}
+                theme={editorTheme}
               />
             )}
           </div>
@@ -200,25 +196,25 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
           >
             <QueryResultPanel
               explainPlan={activeTab?.explainPlan}
+              results={activeTab?.results}
+              activeResultIndex={activeTab?.activeResultIndex ?? 0}
+              onSelectResultIndex={(idx) => {
+                setTabs((prev) => prev.map((t) => (t.id === activeTabId ? { ...t, activeResultIndex: idx } : t)));
+                setResultPage(1);
+              }}
               currentResult={currentResult}
               isExecuting={queryExec.isExecuting}
-              page={resultPage}
-              limit={resultLimit}
-              onPageChange={setResultPage}
-              showToast={showToast}
+              page={resultPage} limit={resultLimit} onPageChange={setResultPage} showToast={showToast}
             />
           </div>
         </div>
 
         {isHistoryOpen && (
           <QueryHistoryDrawer
-            isOpen={isHistoryOpen}
-            onClose={() => setIsHistoryOpen(false)}
-            history={queryExec.history}
-            onInsertQuery={handleUpdateTabQuery}
+            isOpen={isHistoryOpen} onClose={() => setIsHistoryOpen(false)}
+            history={queryExec.history} onInsertQuery={handleUpdateTabQuery}
             onRunQuery={(sql) => { handleUpdateTabQuery(sql); handleExecute(sql); }}
-            onClearHistory={queryExec.clearHistory}
-            showToast={showToast}
+            onClearHistory={queryExec.clearHistory} showToast={showToast}
           />
         )}
       </div>
@@ -227,14 +223,14 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({
         activeSession={activeSession}
         isExecuting={queryExec.isExecuting}
         currentResult={currentResult}
+        activeResultIndex={activeTab?.activeResultIndex ?? 0}
+        totalResultsCount={activeTab?.results?.length ?? 0}
       />
       <SaveQueryModal
         isOpen={saveOps.isSaveModalOpen}
         onClose={() => saveOps.setIsSaveModalOpen(false)}
-        queryName={saveOps.saveModalName}
-        setQueryName={saveOps.setSaveModalName}
-        folderId={saveOps.saveModalFolderId}
-        setFolderId={saveOps.setSaveModalFolderId}
+        queryName={saveOps.saveModalName} setQueryName={saveOps.setSaveModalName}
+        folderId={saveOps.saveModalFolderId} setFolderId={saveOps.setSaveModalFolderId}
         folders={extractFolders(queriesTree)}
         onConfirm={saveOps.handleConfirmSave}
       />

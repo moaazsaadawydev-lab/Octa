@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"os"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -60,26 +59,34 @@ type execSession struct {
 
 // dockerCommand creates an exec.Cmd with suppressed console window on Windows
 func (s *DockerService) dockerCommand(args ...string) *exec.Cmd {
-	cmd := executil.Command("docker", args...)
 	s.mu.Lock()
 	engine := s.activeEngine
+	distro := s.activeDistro
 	s.mu.Unlock()
 	if engine == "wsl" {
-		cmd.Env = append(os.Environ(), "DOCKER_HOST=tcp://127.0.0.1:2375")
+		if distro == "" {
+			distro = "Ubuntu"
+		}
+		wslArgs := append([]string{"-d", distro, "docker"}, args...)
+		return executil.Command("wsl.exe", wslArgs...)
 	}
-	return cmd
+	return executil.Command("docker", args...)
 }
 
 // dockerCommandContext creates a context-bound exec.Cmd with suppressed console window on Windows
 func (s *DockerService) dockerCommandContext(ctx context.Context, args ...string) *exec.Cmd {
-	cmd := executil.CommandContext(ctx, "docker", args...)
 	s.mu.Lock()
 	engine := s.activeEngine
+	distro := s.activeDistro
 	s.mu.Unlock()
 	if engine == "wsl" {
-		cmd.Env = append(os.Environ(), "DOCKER_HOST=tcp://127.0.0.1:2375")
+		if distro == "" {
+			distro = "Ubuntu"
+		}
+		wslArgs := append([]string{"-d", distro, "docker"}, args...)
+		return executil.CommandContext(ctx, "wsl.exe", wslArgs...)
 	}
-	return cmd
+	return executil.CommandContext(ctx, "docker", args...)
 }
 
 // DockerService manages Docker engine interactions via Hybrid SDK + CLI Fallback
@@ -97,7 +104,16 @@ type DockerService struct {
 func NewDockerService() *DockerService {
 	storedEngine, storedDistro := docker.LoadStoredEngine()
 	if storedEngine == "" {
-		storedEngine = "windows"
+		detected := docker.DetectEngines()
+		if len(detected) > 0 {
+			storedEngine = detected[0].ID
+			storedDistro = detected[0].Distro
+		} else {
+			storedEngine = "windows"
+		}
+	}
+	if storedEngine == "wsl" && storedDistro == "" {
+		storedDistro = "Ubuntu"
 	}
 	return &DockerService{
 		logStreams:   make(map[string]context.CancelFunc),

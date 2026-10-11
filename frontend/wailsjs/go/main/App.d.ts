@@ -23,6 +23,8 @@ export function CloseContainerExec(arg1:string):Promise<void>;
 
 export function CloseProjectConnections():Promise<boolean>;
 
+export function CloseTabSession(arg1:string):Promise<boolean>;
+
 export function CloseTerminalSession(arg1:string):Promise<void>;
 
 export function CommitChanges(arg1:string,arg2:string):Promise<void>;
@@ -45,9 +47,11 @@ export function DeleteTableRows(arg1:main.ConnectionConfig,arg2:string,arg3:stri
 
 export function DropColumn(arg1:main.ConnectionConfig,arg2:string,arg3:string,arg4:string):Promise<boolean>;
 
+export function DropTable(arg1:main.ConnectionConfig,arg2:string,arg3:string,arg4:boolean):Promise<boolean>;
+
 export function ExecuteHttpRequest(arg1:main.HttpRequestPayload):Promise<main.HttpResponsePayload>;
 
-export function ExecuteRawQuery(arg1:main.ConnectionConfig,arg2:string,arg3:string):Promise<Array<main.QueryResult>>;
+export function ExecuteRawQuery(arg1:main.ConnectionConfig,arg2:string,arg3:string,arg4:string):Promise<Array<main.QueryResult>>;
 
 export function ExecuteRedisCommand(arg1:main.RedisConnectionConfig,arg2:string):Promise<main.RedisCommandResult>;
 
@@ -150,6 +154,8 @@ export function SaveSQLDumpDialog(arg1:string,arg2:string):Promise<string>;
 export function SaveSqlQueriesData(arg1:string):Promise<void>;
 
 export function ScanRedisKeys(arg1:main.RedisConnectionConfig,arg2:string,arg3:number,arg4:number):Promise<main.RedisScanResult>;
+
+export function SelectFileDialog():Promise<main.SelectedFileMeta>;
 
 export function SelectFilesDialog():Promise<Array<main.SelectedFileMeta>>;
 

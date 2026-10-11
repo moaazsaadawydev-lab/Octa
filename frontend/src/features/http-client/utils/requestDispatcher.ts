@@ -90,6 +90,16 @@ export async function dispatchHttpRequest({
         acc[resolveTemplate(k, activeEnvironment, globalVariables)] = resolveTemplate(v, activeEnvironment, globalVariables);
         return acc;
       }, {} as Record<string, string>),
+      binaryFile:
+        activeRequest.bodyType === 'binary' && activeRequest.bodyBinary
+          ? {
+              name: activeRequest.bodyBinary.name,
+              path: activeRequest.bodyBinary.filePath || '',
+              size: activeRequest.bodyBinary.size || 0,
+              contentType: activeRequest.bodyBinary.type || 'application/octet-stream',
+              base64Data: activeRequest.bodyBinary.base64,
+            }
+          : undefined,
     });
   } catch {
     const options: RequestInit = { method: activeRequest.method, headers: reqHeaders };
@@ -101,6 +111,12 @@ export async function dispatchHttpRequest({
     if (activeRequest.method !== 'GET' && activeRequest.method !== 'HEAD') {
       if (activeRequest.bodyType === 'json') options.body = activeRequest.bodyContent;
       else if (activeRequest.bodyType === 'x-www-form-urlencoded') options.body = new URLSearchParams(urlEncodedPayload).toString();
+      else if (activeRequest.bodyType === 'binary' && activeRequest.bodyBinary?.base64) {
+        const binStr = atob(activeRequest.bodyBinary.base64);
+        const bytes = new Uint8Array(binStr.length);
+        for (let i = 0; i < binStr.length; i++) bytes[i] = binStr.charCodeAt(i);
+        options.body = bytes;
+      }
     }
     const fetchRes = await fetch(finalUrl, options);
     const text = await fetchRes.text();

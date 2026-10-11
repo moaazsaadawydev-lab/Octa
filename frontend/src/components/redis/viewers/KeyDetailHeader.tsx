@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
-import { Clock, Trash2, Save, Loader2, Copy, Check } from 'lucide-react';
+import { Clock, Trash2, Save, Loader2, Copy, Check, RotateCw } from 'lucide-react';
 import { RedisTab, formatBytes } from '../types';
 import { KeyTypeBadge } from './KeyTypeBadge';
 
 interface KeyDetailHeaderProps {
   activeTab: RedisTab;
   isSaving: boolean;
+  isRefreshing?: boolean;
+  onRefresh?: () => void;
   onSave: () => void;
   onDelete: (key: string) => void;
   onUpdateTTL: (ttl: number) => void;
@@ -15,6 +17,8 @@ interface KeyDetailHeaderProps {
 export const KeyDetailHeader: React.FC<KeyDetailHeaderProps> = ({
   activeTab,
   isSaving,
+  isRefreshing = false,
+  onRefresh,
   onSave,
   onDelete,
   onUpdateTTL,
@@ -72,7 +76,7 @@ export const KeyDetailHeader: React.FC<KeyDetailHeaderProps> = ({
         </div>
       </div>
 
-      {/* Right: TTL Editor & Actions */}
+      {/* Right: TTL Editor, Refresh & Actions */}
       <div className="flex items-center gap-2">
         <div className="relative">
           <button
@@ -155,6 +159,22 @@ export const KeyDetailHeader: React.FC<KeyDetailHeaderProps> = ({
             </div>
           )}
         </div>
+
+        {/* Refresh Button */}
+        <button
+          type="button"
+          onClick={onRefresh}
+          disabled={isRefreshing}
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-[#1a1a1f] border border-slate-200 dark:border-zinc-700/80 hover:border-slate-400 dark:hover:border-zinc-500 hover:text-blue-600 dark:hover:text-blue-400 text-xs font-mono text-slate-700 dark:text-zinc-200 transition-colors cursor-pointer disabled:opacity-50"
+          title="Reload Key Data & TTL"
+        >
+          <RotateCw
+            className={`w-3.5 h-3.5 ${
+              isRefreshing ? 'animate-spin text-blue-500' : 'text-slate-500 dark:text-zinc-400'
+            }`}
+          />
+          <span>Refresh</span>
+        </button>
 
         <button
           type="button"

@@ -4,6 +4,7 @@ import { ActiveSession } from '../types';
 import { SchemaTreeView } from './SchemaTreeView';
 import { TableTabsHeader } from './TableTabsHeader';
 import { DataGrid } from './datagrid/DataGrid';
+import { DropTableModal } from './DropTableModal';
 import { QueryConsole } from '../../../components/database/QueryConsole';
 import { HomeLanding } from '../../../components/layout/HomeLanding';
 import { useSchemaExplorer } from '../hooks/useSchemaExplorer';
@@ -24,6 +25,7 @@ export const TablesWorkspace: React.FC<TablesWorkspaceProps> = ({
   const tableData = useTableData({ activeSession, showToast });
   const [isConsoleExpanded, setIsConsoleExpanded] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(240);
+  const [tableToDrop, setTableToDrop] = useState<string | null>(null);
 
   useEffect(() => {
     if (schema.activeTableTab && !tableData.tableStates[schema.activeTableTab]?.tableData) {
@@ -55,6 +57,7 @@ export const TablesWorkspace: React.FC<TablesWorkspaceProps> = ({
           onRefreshTables={schema.fetchTablesList}
           onSelectTable={schema.handleOpenTableTab}
           onToggleExpandTable={schema.toggleExpandTable}
+          onOpenDropModal={(tbl) => setTableToDrop(tbl)}
           width={sidebarWidth}
           onResizeStart={(e) => {
             const startX = e.clientX;
@@ -116,6 +119,7 @@ export const TablesWorkspace: React.FC<TablesWorkspaceProps> = ({
                 onDeleteRows={(pk, ids, all) =>
                   tableData.handleDeleteRows(schema.activeTableTab!, pk, ids, all)
                 }
+                onDropTable={() => setTableToDrop(schema.activeTableTab)}
               />
             ) : (
               <div className="flex-1 flex flex-col items-center justify-center h-full text-slate-400 dark:text-zinc-500">
@@ -131,6 +135,17 @@ export const TablesWorkspace: React.FC<TablesWorkspaceProps> = ({
           />
         </div>
       </div>
+
+      <DropTableModal
+        isOpen={Boolean(tableToDrop)}
+        tableName={tableToDrop}
+        databaseName={activeSession.activeDatabase}
+        onClose={() => setTableToDrop(null)}
+        onConfirmDrop={async (tableName, cascade) => {
+          await schema.handleDropTable(tableName, cascade);
+          setTableToDrop(null);
+        }}
+      />
     </div>
   );
 };

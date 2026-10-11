@@ -8,6 +8,7 @@ export interface GlobalShortcutsOptions {
   onOpenSettings?: () => void;
   onCloseModals?: () => void;
   onSaveProject?: () => void;
+  onToggleCommandPalette?: () => void;
 }
 
 export function isTypingInInput(target: EventTarget | null): boolean {
@@ -28,7 +29,6 @@ export function isInsideMonaco(target: EventTarget | null): boolean {
 }
 
 function getDigitFromEvent(e: KeyboardEvent): number | null {
-  // 1. Direct hardware code inspection (layout-independent)
   switch (e.code) {
     case 'Digit1':
     case 'Numpad1':
@@ -50,21 +50,15 @@ function getDigitFromEvent(e: KeyboardEvent): number | null {
       return 6;
   }
 
-  // 2. Fallback to e.key for standard numbers
   const parsed = parseInt(e.key, 10);
   if (!isNaN(parsed) && parsed >= 1 && parsed <= 6) {
     return parsed;
   }
 
-  // 3. Arabic-Indic numeral symbols
   const arabicDigits: Record<string, number> = {
     '١': 1, '٢': 2, '٣': 3, '٤': 4, '٥': 5, '٦': 6,
   };
-  if (arabicDigits[e.key]) {
-    return arabicDigits[e.key];
-  }
-
-  return null;
+  return arabicDigits[e.key] || null;
 }
 
 export function useGlobalShortcuts({
@@ -74,6 +68,7 @@ export function useGlobalShortcuts({
   onOpenSettings,
   onCloseModals,
   onSaveProject,
+  onToggleCommandPalette,
 }: GlobalShortcutsOptions) {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -83,14 +78,24 @@ export function useGlobalShortcuts({
 
       // 1. ESCAPE: Close open modals / dialogs everywhere
       if (e.key === 'Escape') {
-        if (onCloseModals) {
-          onCloseModals();
-        }
+        if (onCloseModals) onCloseModals();
         return;
       }
 
-      // 2. Workspace Navigation: Ctrl + 1 through Ctrl + 6
-      // NOTE: Navigation shortcuts must ALWAYS trigger regardless of focused input/editor!
+      // 2. Command Palette: Ctrl + K / Cmd + K or Ctrl + P / Cmd + P
+      if (
+        isCtrlOrCmd &&
+        !isShift &&
+        !isAlt &&
+        (e.code === 'KeyK' || e.key === 'k' || e.key === 'K' || e.code === 'KeyP' || e.key === 'p' || e.key === 'P')
+      ) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (onToggleCommandPalette) onToggleCommandPalette();
+        return;
+      }
+
+      // 3. Workspace Navigation: Ctrl + 1 through Ctrl + 6
       if (isCtrlOrCmd && !isShift && !isAlt) {
         const digit = getDigitFromEvent(e);
         if (digit !== null) {
@@ -106,48 +111,36 @@ export function useGlobalShortcuts({
           };
           const targetTab = tabMap[digit];
           if (targetTab) {
-            // Dismiss any open modal so the requested workspace is immediately visible
-            if (onCloseModals) {
-              onCloseModals();
-            }
+            if (onCloseModals) onCloseModals();
             setActiveModule(targetTab);
           }
           return;
         }
       }
 
-      // 3. Global Save: Ctrl + S / Cmd + S
+      // 4. Global Save: Ctrl + S / Cmd + S
       if (isCtrlOrCmd && !isShift && !isAlt && (e.code === 'KeyS' || e.key === 's' || e.key === 'S')) {
-        // If user is inside Monaco editor, allow Monaco's internal save command to handle SQL query saving
-        if (isInsideMonaco(e.target)) {
-          return;
-        }
+        if (isInsideMonaco(e.target)) return;
         e.preventDefault();
         e.stopPropagation();
-        if (onSaveProject) {
-          onSaveProject();
-        }
+        if (onSaveProject) onSaveProject();
         return;
       }
 
-      // 4. Open / Toggle Preferences: Ctrl + , / Cmd + ,
+      // 5. Open / Toggle Preferences: Ctrl + , / Cmd + ,
       if (isCtrlOrCmd && !isShift && !isAlt && (e.code === 'Comma' || e.key === ',')) {
         e.preventDefault();
         e.stopPropagation();
-        if (onOpenSettings) {
-          onOpenSettings();
-        }
+        if (onOpenSettings) onOpenSettings();
         return;
       }
 
-      // 5. Toggle Sidebar: Ctrl + B / Cmd + B
+      // 6. Toggle Sidebar: Ctrl + B / Cmd + B
       if (isCtrlOrCmd && !isShift && !isAlt && (e.code === 'KeyB' || e.key === 'b' || e.key === 'B')) {
         if (!isTypingInInput(e.target)) {
           e.preventDefault();
           e.stopPropagation();
-          if (onToggleSidebar) {
-            onToggleSidebar();
-          }
+          if (onToggleSidebar) onToggleSidebar();
           return;
         }
       }
@@ -162,5 +155,6 @@ export function useGlobalShortcuts({
     onOpenSettings,
     onCloseModals,
     onSaveProject,
+    onToggleCommandPalette,
   ]);
 }

@@ -22,7 +22,7 @@ export const getLayoutedElements = (
   nodes.forEach((node) => {
     const table = (node.data as unknown as TableNodeData)?.table;
     const colCount = table?.columns?.length || 1;
-    const height = 48 + Math.min(colCount, 10) * 28 + 24;
+    const height = 48 + Math.min(colCount, 20) * 28 + 24;
     dagreGraph.setNode(node.id, { width: 288, height });
   });
 

@@ -14,18 +14,20 @@ import (
 
 // DBService encapsulates PostgreSQL and multi-database connectivity using connection pools.
 type DBService struct {
-	ctx       context.Context
-	mu        sync.RWMutex
-	queryLogs []QueryLog
-	poolsMu   sync.Mutex
-	pools     map[string]*pgxpool.Pool
+	ctx        context.Context
+	mu         sync.RWMutex
+	queryLogs  []QueryLog
+	poolsMu    sync.Mutex
+	pools      map[string]*pgxpool.Pool
+	sessionMgr *TabSessionManager
 }
 
 // NewDBService creates a new DBService.
 func NewDBService() *DBService {
 	return &DBService{
-		queryLogs: make([]QueryLog, 0),
-		pools:     make(map[string]*pgxpool.Pool),
+		queryLogs:  make([]QueryLog, 0),
+		pools:      make(map[string]*pgxpool.Pool),
+		sessionMgr: NewTabSessionManager(),
 	}
 }
 
@@ -71,7 +73,7 @@ func (s *DBService) getPool(config ConnectionConfig, dbName string) (*pgxpool.Po
 	return pool, nil
 }
 
-// ClosePools gracefully terminates all active connection pools.
+// ClosePools gracefully terminates all active connection pools and tab sessions.
 func (s *DBService) ClosePools() {
 	s.poolsMu.Lock()
 	defer s.poolsMu.Unlock()
@@ -82,6 +84,17 @@ func (s *DBService) ClosePools() {
 		}
 	}
 	s.pools = make(map[string]*pgxpool.Pool)
+	if s.sessionMgr != nil {
+		s.sessionMgr.CloseAll()
+	}
+}
+
+// CloseTabSession closes the dedicated connection and rolls back any transaction for a tab.
+func (s *DBService) CloseTabSession(tabID string) (bool, error) {
+	if s.sessionMgr == nil {
+		return true, nil
+	}
+	return s.sessionMgr.CloseSession(tabID)
 }
 
 // logQuery records an executed query in the internal query logs.

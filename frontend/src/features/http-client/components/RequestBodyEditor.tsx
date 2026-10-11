@@ -1,9 +1,10 @@
 import React from 'react';
-import { Code2, Layers, Globe } from 'lucide-react';
+import { Code2, Layers, Globe, FileUp } from 'lucide-react';
 import { HttpRequestItem, HttpBodyType } from '../types';
 import { JsonBodyEditor } from './body/JsonBodyEditor';
 import { FormDataBodyEditor } from './body/FormDataBodyEditor';
 import { UrlEncodedBodyEditor } from './body/UrlEncodedBodyEditor';
+import { BinaryBodyEditor } from './body/BinaryBodyEditor';
 
 export interface RequestBodyEditorProps {
   activeRequest: HttpRequestItem;
@@ -79,6 +80,18 @@ export const RequestBodyEditor: React.FC<RequestBodyEditorProps> = ({
           <Globe className="w-3.5 h-3.5" />
           <span>x-www-form-urlencoded</span>
         </button>
+        <button
+          type="button"
+          onClick={() => onSwitchBodyType('binary')}
+          className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-xs transition-all cursor-pointer font-medium ${
+            activeRequest.bodyType === 'binary'
+              ? 'bg-emerald-600 text-white shadow-sm'
+              : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-200/60 dark:hover:bg-zinc-800/40'
+          }`}
+        >
+          <FileUp className="w-3.5 h-3.5" />
+          <span>binary</span>
+        </button>
       </div>
 
       {/* None View */}
@@ -86,7 +99,7 @@ export const RequestBodyEditor: React.FC<RequestBodyEditorProps> = ({
         <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-zinc-500 select-none">
           <span className="text-xs">This request does not include a body payload.</span>
           <span className="text-[11px] text-zinc-600 mt-1">
-            Select <strong className="text-zinc-400">json</strong>, <strong className="text-zinc-400">form-data</strong>, or <strong className="text-zinc-400">x-www-form-urlencoded</strong> above to configure payload data.
+            Select <strong className="text-zinc-400">json</strong>, <strong className="text-zinc-400">form-data</strong>, <strong className="text-zinc-400">x-www-form-urlencoded</strong>, or <strong className="text-zinc-400">binary</strong> above to configure payload data.
           </span>
         </div>
       )}
@@ -118,6 +131,15 @@ export const RequestBodyEditor: React.FC<RequestBodyEditorProps> = ({
         <UrlEncodedBodyEditor
           fields={activeRequest.bodyUrlEncoded || []}
           onChange={(fields) => updateActiveRequest({ ...activeRequest, bodyUrlEncoded: fields })}
+        />
+      )}
+
+      {/* Raw Binary View */}
+      {activeRequest.bodyType === 'binary' && (
+        <BinaryBodyEditor
+          binaryFile={activeRequest.bodyBinary}
+          onChange={(meta) => updateActiveRequest({ ...activeRequest, bodyBinary: meta, bodyType: 'binary' })}
+          showToast={showToast}
         />
       )}
     </div>

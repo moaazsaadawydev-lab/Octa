@@ -11,7 +11,10 @@ import {
   FileSpreadsheet,
   FileJson,
   FileCode,
+  Palette,
+  Database,
 } from 'lucide-react';
+import { AVAILABLE_SQL_THEMES } from '../../../utils/monacoThemes';
 
 export interface SqlEditorHeaderProps {
   onExecute: () => void;
@@ -22,8 +25,11 @@ export interface SqlEditorHeaderProps {
   onExportCsv?: () => void;
   onExportJson?: () => void;
   onExportSql?: () => void;
+  currentTheme?: string;
+  onThemeChange?: (themeId: string) => void;
   isExecuting: boolean;
   hasResults: boolean;
+  activeDatabase?: string;
 }
 
 export const SqlEditorHeader: React.FC<SqlEditorHeaderProps> = ({
@@ -35,11 +41,15 @@ export const SqlEditorHeader: React.FC<SqlEditorHeaderProps> = ({
   onExportCsv,
   onExportJson,
   onExportSql,
+  currentTheme,
+  onThemeChange,
   isExecuting,
   hasResults,
+  activeDatabase,
 }) => {
   const [showExplainMenu, setShowExplainMenu] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
+  const [showThemeMenu, setShowThemeMenu] = useState(false);
 
   return (
     <div className="px-3 py-1.5 bg-slate-50 dark:bg-[#121318] border-b border-slate-200 dark:border-zinc-800 flex items-center justify-between gap-2 flex-shrink-0 select-none">
@@ -86,10 +96,7 @@ export const SqlEditorHeader: React.FC<SqlEditorHeaderProps> = ({
             <div className="absolute left-0 top-full mt-1 w-44 bg-white dark:bg-[#18181b] border border-slate-200 dark:border-zinc-700 rounded-lg shadow-xl py-1 z-50 text-xs text-slate-700 dark:text-zinc-200">
               <button
                 type="button"
-                onClick={() => {
-                  setShowExplainMenu(false);
-                  onExplain(false);
-                }}
+                onClick={() => { setShowExplainMenu(false); onExplain(false); }}
                 className="w-full px-3 py-1.5 text-left hover:bg-slate-100 dark:hover:bg-zinc-800 flex items-center justify-between"
               >
                 <span>Explain Plan</span>
@@ -97,10 +104,7 @@ export const SqlEditorHeader: React.FC<SqlEditorHeaderProps> = ({
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  setShowExplainMenu(false);
-                  onExplain(true);
-                }}
+                onClick={() => { setShowExplainMenu(false); onExplain(true); }}
                 className="w-full px-3 py-1.5 text-left hover:bg-slate-100 dark:hover:bg-zinc-800 flex items-center justify-between"
               >
                 <span>Explain & Analyze</span>
@@ -119,6 +123,16 @@ export const SqlEditorHeader: React.FC<SqlEditorHeaderProps> = ({
           <Save className="w-3.5 h-3.5 text-blue-500" />
           <span className="hidden sm:inline">Save</span>
         </button>
+
+        {activeDatabase && (
+          <div
+            className="flex items-center gap-1 px-2 py-1 bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/30 rounded-lg text-emerald-700 dark:text-emerald-300 text-[11px] font-mono select-none"
+            title={`Active Database: ${activeDatabase}`}
+          >
+            <Database className="w-3 h-3 text-emerald-500" />
+            <span className="font-semibold truncate max-w-[130px]">{activeDatabase}</span>
+          </div>
+        )}
       </div>
 
       <div className="flex items-center gap-1">
@@ -180,6 +194,39 @@ export const SqlEditorHeader: React.FC<SqlEditorHeaderProps> = ({
             )}
           </div>
         )}
+
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setShowThemeMenu(!showThemeMenu)}
+            title="Editor Theme"
+            className="flex items-center gap-1 px-2.5 py-1.5 bg-slate-200/80 dark:bg-zinc-800 hover:bg-slate-300 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 rounded-lg text-xs font-medium transition-colors cursor-pointer"
+          >
+            <Palette className="w-3.5 h-3.5 text-pink-500" />
+            <span className="hidden sm:inline">Theme</span>
+            <ChevronDown className="w-3 h-3 text-slate-400" />
+          </button>
+          {showThemeMenu && (
+            <div className="absolute right-0 top-full mt-1 w-44 bg-white dark:bg-[#18181b] border border-slate-200 dark:border-zinc-700 rounded-lg shadow-xl py-1 z-50 text-xs text-slate-700 dark:text-zinc-200">
+              {AVAILABLE_SQL_THEMES.map((th) => (
+                <button
+                  key={th.id}
+                  type="button"
+                  onClick={() => {
+                    setShowThemeMenu(false);
+                    onThemeChange?.(th.id);
+                  }}
+                  className={`w-full px-3 py-1.5 text-left hover:bg-slate-100 dark:hover:bg-zinc-800 flex items-center justify-between cursor-pointer ${
+                    currentTheme === th.id ? 'text-brand-500 font-semibold' : ''
+                  }`}
+                >
+                  <span>{th.name}</span>
+                  {currentTheme === th.id && <span className="text-[10px]">✓</span>}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
 
         <button
           type="button"

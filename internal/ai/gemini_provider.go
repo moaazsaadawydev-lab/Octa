@@ -134,39 +134,62 @@ func TestGeminiConnection(apiKey string, model string) (*ConnectionResult, error
 		}, nil
 	}
 
-	// Categorize HTTP errors
-	var errResp GeminiErrorResponse
-	_ = json.Unmarshal(respBody, &errResp)
-	errMsg := strings.TrimSpace(errResp.Error.Message)
-
-	var friendlyMsg string
-	switch resp.StatusCode {
-	case http.StatusBadRequest:
-		if strings.Contains(strings.ToLower(errMsg), "api key") {
-			friendlyMsg = "Invalid API Key: Please verify your Gemini credentials."
-		} else {
-			friendlyMsg = fmt.Sprintf("Bad Request (400): %s", sanitizeMessage(errMsg, key))
-		}
-	case http.StatusUnauthorized, http.StatusForbidden:
-		friendlyMsg = "Authentication failed: Invalid or unauthorized API Key."
-	case http.StatusNotFound:
-		friendlyMsg = fmt.Sprintf("Model not found: '%s' is not available for this API key.", selectedModel)
-	case http.StatusTooManyRequests:
-		friendlyMsg = "Quota exceeded: Rate limit or billing quota reached on this API key."
-	case http.StatusInternalServerError, http.StatusServiceUnavailable:
-		friendlyMsg = fmt.Sprintf("Gemini service temporarily unavailable (HTTP %d).", resp.StatusCode)
-	default:
-		if errMsg != "" {
-			friendlyMsg = fmt.Sprintf("Connection failed (HTTP %d): %s", resp.StatusCode, sanitizeMessage(errMsg, key))
-		} else {
-			friendlyMsg = fmt.Sprintf("Connection failed with HTTP status %d.", resp.StatusCode)
-		}
-	}
-
+	friendlyErr := FormatGeminiHTTPError(resp.StatusCode, respBody, selectedModel, key)
 	return &ConnectionResult{
 		Success: false,
-		Message: friendlyMsg,
+		Message: friendlyErr.Error(),
 	}, nil
+}
+
+// FormatGeminiHTTPError formats an HTTP error response from Gemini into a clean, human-friendly error.
+func FormatGeminiHTTPError(statusCode int, body []byte, model string, apiKey string) error {
+	var errResp GeminiErrorResponse
+	_ = json.Unmarshal(body, &errResp)
+	errMsg := strings.TrimSpace(errResp.Error.Message)
+	cleanErr := sanitizeMessage(errMsg, apiKey)
+
+	switch statusCode {
+	case http.StatusTooManyRequests:
+		retryNotice := ""
+		lower := strings.ToLower(cleanErr)
+		if strings.Contains(lower, "retry in") {
+			idx := strings.Index(lower, "retry in")
+			if idx != -1 {
+				sub := cleanErr[idx:]
+				end := strings.IndexAny(sub, ".\n\r")
+				if end != -1 {
+					retryNotice = fmt.Sprintf(" (%s)", strings.TrimSpace(sub[:end]))
+				} else {
+					retryNotice = fmt.Sprintf(" (%s)", strings.TrimSpace(sub))
+				}
+			}
+		}
+		return fmt.Errorf("Gemini Quota Exceeded (429): You have reached the request limit for model '%s'%s. Please switch to another model (e.g. gemini-3.5-flash) in Settings -> AI Engine, or try again later.", model, retryNotice)
+
+	case http.StatusBadRequest:
+		if strings.Contains(strings.ToLower(cleanErr), "api key") {
+			return errors.New("Invalid Gemini API Key: Please verify your credentials in Settings -> AI Engine.")
+		}
+		if cleanErr != "" {
+			return fmt.Errorf("Gemini Request Error (400): %s", cleanErr)
+		}
+		return errors.New("Bad request (HTTP 400) sent to Gemini API.")
+
+	case http.StatusUnauthorized, http.StatusForbidden:
+		return errors.New("Authentication Failed (403): Gemini API key is invalid or unauthorized. Please verify it in Settings -> AI Engine.")
+
+	case http.StatusNotFound:
+		return fmt.Errorf("Model '%s' was not found or is unavailable for your Gemini account. Try selecting gemini-3.5-flash in Settings -> AI Engine.", model)
+
+	case http.StatusInternalServerError, http.StatusServiceUnavailable:
+		return fmt.Errorf("Google Gemini servers are temporarily unavailable (HTTP %d). Please try again in a few moments.", statusCode)
+
+	default:
+		if cleanErr != "" {
+			return fmt.Errorf("Gemini API error (HTTP %d): %s", statusCode, cleanErr)
+		}
+		return fmt.Errorf("Gemini API request failed with HTTP status %d.", statusCode)
+	}
 }
 
 // sanitizeMessage ensures any accidental presence of the raw key in error text is purged.

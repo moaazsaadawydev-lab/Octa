@@ -73,6 +73,8 @@ export interface QueryResult {
   errorMessage?: string;
   error?: string;
   isSelect?: boolean;
+  txStatus?: 'idle' | 'in_tx' | 'in_tx_error' | string;
+  notices?: string[];
 }
 
 export interface QueryTab {
@@ -88,6 +90,7 @@ export interface QueryTab {
   isExecuting?: boolean;
   activeConnectionName?: string;
   activeDatabaseName?: string;
+  txStatus?: 'idle' | 'in_tx' | 'in_tx_error' | string;
 }
 
 export interface SqlQueryItem {
@@ -96,6 +99,7 @@ export interface SqlQueryItem {
   name: string;
   content: string;
   database?: string;
+  connectionId?: string;
   createdAt?: number;
   updatedAt?: number;
 }

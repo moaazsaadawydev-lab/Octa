@@ -133,7 +133,7 @@ export const AIEngineTab: React.FC<AIEngineTabProps> = ({
               onChange={setSelectedModel}
               options={models.map((m) => ({
                 value: m.id,
-                label: `${m.label}${m.id === 'gemini-2.5-flash' ? ' (Recommended)' : ''}`,
+                label: `${m.label}${m.id === 'gemini-3.5-flash' ? ' (Recommended - Active)' : ''}`,
               }))}
             />
             <p className="text-[10px] text-slate-500 dark:text-zinc-500">

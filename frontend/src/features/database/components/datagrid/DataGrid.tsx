@@ -31,6 +31,7 @@ export interface DataGridProps {
   onRenameColumn: (oldName: string, newName: string) => Promise<void>;
   onSaveUpdates: (primaryKeyCol: string, updates: RowUpdate[]) => Promise<void>;
   onDeleteRows: (primaryKeyCol: string, rowIds: string[], isAllTable: boolean) => Promise<void>;
+  onDropTable?: () => void;
 }
 
 export const DataGrid: React.FC<DataGridProps> = ({
@@ -54,6 +55,7 @@ export const DataGrid: React.FC<DataGridProps> = ({
   onRenameColumn,
   onSaveUpdates,
   onDeleteRows,
+  onDropTable,
 }) => {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [stagedUpdates, setStagedUpdates] = useState<Record<string, Record<string, any>>>({});
@@ -137,6 +139,7 @@ export const DataGrid: React.FC<DataGridProps> = ({
         onDiscardUpdates={() => setStagedUpdates({})}
         selectedRowCount={selectedRowIds.size}
         onOpenDeleteModal={() => modals.setShowDeleteModal(true)}
+        onDropTable={onDropTable}
       />
 
       <DataGridFilterPopover

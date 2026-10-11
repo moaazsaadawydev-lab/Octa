@@ -10,6 +10,9 @@ func (a *App) ExecuteHttpRequest(payload HttpRequestPayload) (HttpResponsePayloa
 func (a *App) SelectFilesDialog() ([]SelectedFileMeta, error) {
 	return a.httpService.SelectFilesDialog()
 }
+func (a *App) SelectFileDialog() (*SelectedFileMeta, error) {
+	return a.httpService.SelectFileDialog()
+}
 func (a *App) SaveHttpClientData(jsonData string) error {
 	return a.httpService.SaveHttpClientData(jsonData)
 }

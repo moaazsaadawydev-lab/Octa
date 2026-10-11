@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { generateCommitMessage } from '../../services/aiApi';
+import { formatAIErrorMessage } from '../../utils/aiErrorFormatter';
 
 interface UseCommitAIOptions {
   showToast?: (message: string, type?: 'success' | 'error' | 'info') => void;
@@ -28,21 +29,21 @@ export function useCommitAI(options?: UseCommitAIOptions) {
               'No changes found to generate a commit message.',
               'info'
             );
-          } else if (lowerMsg.includes('api key is not configured')) {
+          } else if (lowerMsg.includes('api key is not configured') || lowerMsg.includes('api key not configured')) {
             options?.showToast?.(
               'Gemini API key not configured. Open Settings -> AI Engine.',
               'error'
             );
           } else {
             options?.showToast?.(
-              res.message || 'Failed to generate commit message',
+              formatAIErrorMessage(res.message || 'Failed to generate commit message'),
               'error'
             );
           }
         }
       } catch (err: any) {
         options?.showToast?.(
-          err?.message || 'Error generating commit message',
+          formatAIErrorMessage(err?.message || 'Error generating commit message'),
           'error'
         );
       } finally {

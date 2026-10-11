@@ -9,23 +9,21 @@ import { RedisTabBar } from './viewers/RedisTabBar';
 import { RedisKeyViewer } from './viewers/RedisKeyViewer';
 import { RedisWorkbench } from './RedisWorkbench';
 import { RedisZeroState } from './RedisZeroState';
-import { NewRedisConnectionModal } from './NewRedisConnectionModal';
-import { NewKeyModal } from './modals/NewKeyModal';
-import { NamespaceDeleteModal } from './modals/NamespaceDeleteModal';
-import { FlushDbModal } from './modals/FlushDbModal';
-import { RedisServerInfoModal } from './modals/RedisServerInfoModal';
+import { RedisModals } from './modals/RedisModals';
 import { useTheme } from '../../context/ThemeContext';
 
-interface RedisWorkspaceProps {
+export interface RedisWorkspaceProps {
   connections: RedisConnectionConfig[];
   onUpdateConnections: (connections: RedisConnectionConfig[]) => void;
   showToast: (message: string, type?: 'success' | 'error' | 'info') => void;
+  isVisible?: boolean;
 }
 
 export const RedisWorkspace: React.FC<RedisWorkspaceProps> = ({
   connections,
   onUpdateConnections,
   showToast,
+  isVisible = true,
 }) => {
   const { monacoTheme } = useTheme();
   const [workspaceMode, setWorkspaceMode] = useState<'explorer' | 'workbench'>('explorer');
@@ -86,8 +84,7 @@ export const RedisWorkspace: React.FC<RedisWorkspaceProps> = ({
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!isResizing) return;
-      const newWidth = Math.max(220, Math.min(550, e.clientX - 52));
-      setSidebarWidth(newWidth);
+      setSidebarWidth(Math.max(220, Math.min(550, e.clientX - 52)));
     };
     const handleMouseUp = () => {
       setIsResizing(false);
@@ -202,6 +199,8 @@ export const RedisWorkspace: React.FC<RedisWorkspaceProps> = ({
               activeTab={tabsState.activeTab}
               monacoTheme={monacoTheme}
               isSaving={tabsState.isSaving}
+              isRefreshing={tabsState.isRefreshing}
+              onRefresh={() => tabsState.handleRefreshKey()}
               onSave={tabsState.handleSaveActiveTabKey}
               onDelete={keysExplorer.handleDeleteKey}
               onUpdateTTL={tabsState.handleUpdateTTL}
@@ -218,44 +217,27 @@ export const RedisWorkspace: React.FC<RedisWorkspaceProps> = ({
         </div>
       )}
 
-      {/* Modals */}
-      <NewRedisConnectionModal
-        isOpen={connState.isConnModalOpen}
-        onClose={() => {
+      <RedisModals
+        isConnModalOpen={connState.isConnModalOpen}
+        onCloseConnModal={() => {
           connState.setIsConnModalOpen(false);
           connState.setEditingConn(null);
         }}
-        onSaved={connState.handleSaveConnection}
-        initialConfig={connState.editingConn}
-      />
-
-      <NewKeyModal
-        isOpen={keysExplorer.isNewKeyModalOpen}
-        onClose={() => keysExplorer.setIsNewKeyModalOpen(false)}
-        onSubmit={keysExplorer.handleCreateKey}
-      />
-
-      {keysExplorer.namespaceDeleteModal && (
-        <NamespaceDeleteModal
-          isOpen={true}
-          namespace={keysExplorer.namespaceDeleteModal.namespace}
-          keysCount={keysExplorer.namespaceDeleteModal.keys.length}
-          isDeleting={keysExplorer.isDeletingNamespace}
-          onCancel={() => keysExplorer.setNamespaceDeleteModal(null)}
-          onConfirm={keysExplorer.handleDeleteNamespace}
-        />
-      )}
-
-      <FlushDbModal
-        isOpen={keysExplorer.isFlushConfirmOpen}
+        onSaveConnection={connState.handleSaveConnection}
+        editingConn={connState.editingConn}
+        isNewKeyModalOpen={keysExplorer.isNewKeyModalOpen}
+        onCloseNewKeyModal={() => keysExplorer.setIsNewKeyModalOpen(false)}
+        onCreateKey={keysExplorer.handleCreateKey}
+        namespaceDeleteModal={keysExplorer.namespaceDeleteModal}
+        isDeletingNamespace={keysExplorer.isDeletingNamespace}
+        onCancelNamespaceDelete={() => keysExplorer.setNamespaceDeleteModal(null)}
+        onConfirmNamespaceDelete={keysExplorer.handleDeleteNamespace}
+        isFlushConfirmOpen={keysExplorer.isFlushConfirmOpen}
         activeDb={connState.activeDb}
-        onCancel={() => keysExplorer.setIsFlushConfirmOpen(false)}
-        onConfirm={keysExplorer.handleFlushDB}
-      />
-
-      <RedisServerInfoModal
-        isOpen={connState.isServerInfoOpen}
-        onClose={() => connState.setIsServerInfoOpen(false)}
+        onCancelFlush={() => keysExplorer.setIsFlushConfirmOpen(false)}
+        onConfirmFlush={keysExplorer.handleFlushDB}
+        isServerInfoOpen={connState.isServerInfoOpen}
+        onCloseServerInfo={() => connState.setIsServerInfoOpen(false)}
         serverInfo={connState.serverInfo}
       />
     </div>

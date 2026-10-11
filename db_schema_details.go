@@ -81,6 +81,16 @@ func (s *DBService) GetDatabaseSchemaDetails(config ConnectionConfig, dbName str
 				schema.Relationships = append(schema.Relationships, rel)
 			}
 		}
+
+		for i := range schema.Tables {
+			for j := range schema.Tables[i].Columns {
+				for _, rel := range schema.Relationships {
+					if rel.SourceTable == schema.Tables[i].Name && rel.SourceColumn == schema.Tables[i].Columns[j].Name {
+						schema.Tables[i].Columns[j].IsForeignKey = true
+					}
+				}
+			}
+		}
 	} else {
 		s.logQuery(fkQuery, durationMs, "ERROR", err.Error())
 	}

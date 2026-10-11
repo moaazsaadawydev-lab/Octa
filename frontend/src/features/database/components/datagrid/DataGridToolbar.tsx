@@ -15,6 +15,7 @@ export interface DataGridToolbarProps {
   onDiscardUpdates: () => void;
   selectedRowCount: number;
   onOpenDeleteModal: () => void;
+  onDropTable?: () => void;
 }
 
 export const DataGridToolbar: React.FC<DataGridToolbarProps> = ({
@@ -31,6 +32,7 @@ export const DataGridToolbar: React.FC<DataGridToolbarProps> = ({
   onDiscardUpdates,
   selectedRowCount,
   onOpenDeleteModal,
+  onDropTable,
 }) => {
   return (
     <div className="px-4 py-2 border-b border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-[#121318] flex items-center justify-between gap-3 flex-shrink-0 select-none text-xs">
@@ -105,6 +107,18 @@ export const DataGridToolbar: React.FC<DataGridToolbarProps> = ({
               <span>{savingUpdates ? 'Saving...' : 'Save Changes'}</span>
             </button>
           </div>
+        )}
+
+        {onDropTable && (
+          <button
+            type="button"
+            onClick={onDropTable}
+            title={`Drop table "${tableName}"`}
+            className="flex items-center gap-1 px-2 py-1 rounded text-slate-500 dark:text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-slate-200/60 dark:border-zinc-800 hover:border-rose-200 dark:hover:border-rose-900/40 text-xs transition-colors"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            <span>Drop Table</span>
+          </button>
         )}
       </div>
     </div>

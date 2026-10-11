@@ -14,14 +14,34 @@ export interface SupportedModel {
 
 export const SUPPORTED_GEMINI_MODELS: SupportedModel[] = [
   {
-    id: 'gemini-2.5-flash',
-    label: 'Gemini 2.5 Flash',
-    description: 'Fast, multimodal model optimized for real-time developer workflows',
+    id: 'gemini-3.5-flash',
+    label: 'Gemini 3.5 Flash',
+    description: 'High quota & ultra-fast. The recommended model for daily commits and tasks.',
   },
   {
-    id: 'gemini-2.5-pro',
-    label: 'Gemini 2.5 Pro',
-    description: 'Highest capability model designed for complex code and deep query reasoning',
+    id: 'gemini-3.5-flash-lite',
+    label: 'Gemini 3.5 Flash Lite',
+    description: 'Ultra-fast lightweight model optimized for high-frequency requests.',
+  },
+  {
+    id: 'gemini-3-flash-preview',
+    label: 'Gemini 3.0 Flash Preview',
+    description: 'Next-generation reasoning and multimodal developer preview.',
+  },
+  {
+    id: 'gemini-flash-lite-latest',
+    label: 'Gemini Flash Lite (Latest)',
+    description: 'Always points to the newest stable Flash Lite engine.',
+  },
+  {
+    id: 'gemini-flash-latest',
+    label: 'Gemini Flash (Latest)',
+    description: 'Always points to the newest stable flagship Flash engine.',
+  },
+  {
+    id: 'gemini-2.5-flash',
+    label: 'Gemini 2.5 Flash',
+    description: 'Gemini 2.5 Flash model (strict 20 requests/day limit on Free Tier).',
   },
 ];
 
@@ -36,7 +56,7 @@ export function useAISettings({ settings, onUpdateSettings, showToast }: UseAISe
     () => settings.gemini_api_key ?? settings.aiApiKey ?? ''
   );
   const [selectedModel, setSelectedModel] = useState<string>(
-    () => settings.gemini_selected_model ?? 'gemini-2.5-flash'
+    () => settings.gemini_selected_model ?? 'gemini-3.5-flash'
   );
   const [aiEnabled, setAiEnabled] = useState<boolean>(
     () => Boolean(settings.aiEnabled)

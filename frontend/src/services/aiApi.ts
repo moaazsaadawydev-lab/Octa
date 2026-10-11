@@ -1,3 +1,7 @@
+import { formatAIErrorMessage } from '../utils/aiErrorFormatter';
+
+export { formatAIErrorMessage };
+
 export interface GeminiTestResult {
   success: boolean;
   message: string;
@@ -120,12 +124,13 @@ export async function generateCommitMessage(
       };
     }
   } catch (err: any) {
-    const errMsg = err?.message || String(err);
-    console.warn('[AI generateCommitMessage Error]:', errMsg);
+    const rawMsg = err?.message || String(err);
+    const friendlyMsg = formatAIErrorMessage(rawMsg);
+    console.warn('[AI generateCommitMessage Error]:', friendlyMsg);
     return {
       success: false,
-      message: errMsg,
-      error: errMsg,
+      message: friendlyMsg,
+      error: friendlyMsg,
     };
   }
 

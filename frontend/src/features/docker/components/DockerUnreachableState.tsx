@@ -53,10 +53,16 @@ export const DockerUnreachableState: React.FC<DockerUnreachableStateProps> = ({
           : 'Octa could not communicate with Docker Desktop. Please ensure Docker Desktop or the Windows daemon service is started.'}
       </p>
 
-      {/* Engine Switcher Selector (if multiple engines exist) */}
-      {availableEngines && availableEngines.length > 1 && onSwitchEngine && (
+      {/* Engine Switcher Selector */}
+      {onSwitchEngine && (
         <div className="mt-4 flex items-center gap-1.5 p-1 rounded-xl bg-slate-100 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800">
-          {availableEngines.map((eng) => (
+          {(availableEngines && availableEngines.length > 0
+            ? availableEngines
+            : [
+                { id: 'wsl', label: 'WSL2 (Ubuntu)' },
+                { id: 'windows', label: 'Docker Desktop (Windows)' },
+              ]
+          ).map((eng) => (
             <button
               key={eng.id}
               type="button"

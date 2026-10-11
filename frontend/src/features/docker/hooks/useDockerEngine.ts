@@ -21,7 +21,7 @@ function getStoredDefaultEngine(): 'windows' | 'wsl' {
   } catch (e) {
     // ignore
   }
-  return 'windows';
+  return 'wsl';
 }
 
 interface UseDockerEngineOptions {
@@ -35,10 +35,11 @@ export function useDockerEngine(options?: UseDockerEngineOptions) {
   const initialEngine = settings?.docker_default_engine || getStoredDefaultEngine();
 
   const [availableEngines, setAvailableEngines] = useState<DockerEngineProvider[]>([
-    { id: initialEngine, label: initialEngine === 'wsl' ? 'WSL2 (Ubuntu)' : 'Docker Desktop (Windows)' },
+    { id: 'wsl', label: 'WSL2 (Ubuntu)', distro: 'Ubuntu' },
+    { id: 'windows', label: 'Docker Desktop (Windows)' },
   ]);
   const [activeEngine, setActiveEngineState] = useState<'windows' | 'wsl'>(initialEngine);
-  const [activeDistro, setActiveDistro] = useState<string | undefined>(undefined);
+  const [activeDistro, setActiveDistro] = useState<string | undefined>('Ubuntu');
   const [isOnline, setIsOnline] = useState<boolean>(false);
   const [isLoadingEngines, setIsLoadingEngines] = useState<boolean>(true);
 
@@ -58,13 +59,16 @@ export function useDockerEngine(options?: UseDockerEngineOptions) {
         if (Array.isArray(engines) && engines.length > 0) {
           setAvailableEngines(engines);
 
-          // Synchronize with preferred stored setting
+          // Synchronize with preferred stored setting or first detected engine
           const preferred = settings?.docker_default_engine || getStoredDefaultEngine();
           const matched = engines.find((e) => e.id === preferred) || engines[0];
           const matchedId = (matched.id === 'wsl' ? 'wsl' : 'windows') as 'windows' | 'wsl';
           setActiveEngineState(matchedId);
           setActiveDistro(matched.distro);
           await setDockerEngine(matchedId, matched.distro || '');
+          window.dispatchEvent(new CustomEvent('octa:docker:engine:changed', {
+            detail: { engine: matchedId, distro: matched.distro },
+          }));
         }
       } catch (e) {
         console.warn('[useDockerEngine] Detection error:', e);

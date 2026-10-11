@@ -82,6 +82,26 @@ export namespace docker {
 
 export namespace main {
 	
+	export class BinaryFilePayload {
+	    name: string;
+	    path: string;
+	    size: number;
+	    contentType: string;
+	    base64Data?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new BinaryFilePayload(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.path = source["path"];
+	        this.size = source["size"];
+	        this.contentType = source["contentType"];
+	        this.base64Data = source["base64Data"];
+	    }
+	}
 	export class ConnectionConfig {
 	    id: string;
 	    name: string;
@@ -479,6 +499,7 @@ export namespace main {
 	    bodyContent: string;
 	    formData?: FormFieldPayload[];
 	    urlEncoded?: Record<string, string>;
+	    binaryFile?: BinaryFilePayload;
 	    timeoutSec?: number;
 	
 	    static createFrom(source: any = {}) {
@@ -495,6 +516,7 @@ export namespace main {
 	        this.bodyContent = source["bodyContent"];
 	        this.formData = this.convertValues(source["formData"], FormFieldPayload);
 	        this.urlEncoded = source["urlEncoded"];
+	        this.binaryFile = this.convertValues(source["binaryFile"], BinaryFilePayload);
 	        this.timeoutSec = source["timeoutSec"];
 	    }
 	
@@ -761,6 +783,8 @@ export namespace main {
 	    errorMessage?: string;
 	    error?: string;
 	    isSelect: boolean;
+	    txStatus?: string;
+	    notices?: string[];
 	
 	    static createFrom(source: any = {}) {
 	        return new QueryResult(source);
@@ -779,6 +803,8 @@ export namespace main {
 	        this.errorMessage = source["errorMessage"];
 	        this.error = source["error"];
 	        this.isSelect = source["isSelect"];
+	        this.txStatus = source["txStatus"];
+	        this.notices = source["notices"];
 	    }
 	}
 	export class RedisCommandResult {

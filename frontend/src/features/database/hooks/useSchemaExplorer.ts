@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { ActiveSession, TableColumn } from '../types';
-import { getTables, getTableSchema } from '../../../services/api';
+import { getTables, getTableSchema, dropTable } from '../../../services/api';
 
 export interface UseSchemaExplorerOptions {
   activeSession: ActiveSession | null;
@@ -42,6 +42,12 @@ export function useSchemaExplorer({ activeSession, showToast = () => {} }: UseSc
     setSchemas({});
     setExpandedTables({});
   }, [activeSession?.connection?.id, activeSession?.activeDatabase, fetchTablesList]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('octa:db:active-table', { detail: activeTableTab }));
+    }
+  }, [activeTableTab]);
 
   const fetchSchema = useCallback(async (tableName: string): Promise<TableColumn[]> => {
     if (!activeSession) return [];
@@ -96,6 +102,33 @@ export function useSchemaExplorer({ activeSession, showToast = () => {} }: UseSc
     return tables.filter((t) => t.toLowerCase().includes(q));
   }, [tables, tableSearch]);
 
+  const handleDropTable = useCallback(
+    async (tableName: string, cascade: boolean = false): Promise<boolean> => {
+      if (!activeSession) return false;
+      try {
+        await dropTable(activeSession.connection, activeSession.activeDatabase, tableName, cascade);
+        showToast(`Table "${tableName}" dropped successfully`, 'success');
+        handleCloseTableTab(tableName);
+        setSchemas((prev) => {
+          const next = { ...prev };
+          delete next[tableName];
+          return next;
+        });
+        setExpandedTables((prev) => {
+          const next = { ...prev };
+          delete next[tableName];
+          return next;
+        });
+        await fetchTablesList();
+        return true;
+      } catch (err: any) {
+        showToast(`Failed to drop table "${tableName}": ${err?.message || err}`, 'error');
+        throw err;
+      }
+    },
+    [activeSession, showToast, handleCloseTableTab, fetchTablesList]
+  );
+
   return {
     tables,
     filteredTables,
@@ -113,5 +146,6 @@ export function useSchemaExplorer({ activeSession, showToast = () => {} }: UseSc
     toggleExpandTable,
     handleOpenTableTab,
     handleCloseTableTab,
+    handleDropTable,
   };
 }

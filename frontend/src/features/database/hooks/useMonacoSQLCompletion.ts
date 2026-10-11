@@ -1,7 +1,14 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
 import * as monaco from 'monaco-editor';
 import { ActiveSession } from '../types';
-import { getDatabaseSchemaDetails } from '../../../services/api';
+import { getDatabaseSchemaDetails, getDatabases } from '../../../services/api';
+import { analyzeSqlContext } from '../utils/sqlContextAnalyzer';
+import {
+  STATEMENT_KEYWORDS,
+  CLAUSE_KEYWORDS,
+  OPERATOR_KEYWORDS,
+} from '../utils/sqlCompletionData';
+import { buildSuggestions } from '../utils/sqlSuggestionBuilder';
 
 export interface SchemaTable {
   name: string;
@@ -19,6 +26,7 @@ export interface UseMonacoSQLCompletionOptions {
   schemaColumns?: SchemaColumn[];
   tables?: string[];
   columns?: string[];
+  databases?: string[];
   monacoInstance?: any;
 }
 
@@ -28,37 +36,46 @@ export function useMonacoSQLCompletion({
   schemaColumns: propSchemaColumns,
   tables: propTables,
   columns: propColumns,
+  databases: propDatabases,
   monacoInstance,
 }: UseMonacoSQLCompletionOptions = {}) {
   const [fetchedTables, setFetchedTables] = useState<SchemaTable[]>([]);
   const [fetchedColumns, setFetchedColumns] = useState<SchemaColumn[]>([]);
+  const [fetchedDatabases, setFetchedDatabases] = useState<string[]>([]);
 
-  // 1. Fetch schema whenever active connection or active database changes
   useEffect(() => {
     let isCancelled = false;
-
     if (!activeSession?.connection || !activeSession?.activeDatabase) {
       setFetchedTables([]);
       setFetchedColumns([]);
+      setFetchedDatabases([]);
       return;
     }
 
     getDatabaseSchemaDetails(activeSession.connection, activeSession.activeDatabase)
       .then((schema) => {
         if (isCancelled || !schema?.tables) return;
-        const tables: SchemaTable[] = schema.tables.map((t) => ({ name: t.name }));
-        const columns: SchemaColumn[] = schema.tables.flatMap((t) =>
-          (t.columns || []).map((c) => ({
-            name: c.name,
-            tableName: t.name,
-            dataType: c.dataType || '',
-          }))
+        setFetchedTables(schema.tables.map((t) => ({ name: t.name })));
+        setFetchedColumns(
+          schema.tables.flatMap((t) =>
+            (t.columns || []).map((c) => ({
+              name: c.name,
+              tableName: t.name,
+              dataType: c.dataType || '',
+            }))
+          )
         );
-        setFetchedTables(tables);
-        setFetchedColumns(columns);
       })
-      .catch((err) => {
-        console.warn('[useMonacoSQLCompletion] Failed to fetch database schema:', err);
+      .catch((err) => console.warn('[useMonacoSQLCompletion] Schema fetch error:', err));
+
+    getDatabases(activeSession.connection)
+      .then((dbs) => {
+        if (!isCancelled && Array.isArray(dbs)) setFetchedDatabases(dbs);
+      })
+      .catch(() => {
+        if (!isCancelled && activeSession.activeDatabase) {
+          setFetchedDatabases([activeSession.activeDatabase]);
+        }
       });
 
     return () => {
@@ -66,7 +83,6 @@ export function useMonacoSQLCompletion({
     };
   }, [activeSession?.connection?.id, activeSession?.activeDatabase]);
 
-  // 2. Compute effective tables and columns (props override fetched)
   const schemaTables = useMemo<SchemaTable[]>(() => {
     if (propSchemaTables && propSchemaTables.length > 0) return propSchemaTables;
     if (propTables && propTables.length > 0) return propTables.map((name) => ({ name }));
@@ -81,76 +97,61 @@ export function useMonacoSQLCompletion({
     return fetchedColumns;
   }, [propSchemaColumns, propColumns, fetchedColumns]);
 
+  const databases = useMemo<string[]>(() => {
+    if (propDatabases && propDatabases.length > 0) return propDatabases;
+    return fetchedDatabases;
+  }, [propDatabases, fetchedDatabases]);
+
   const tablesRef = useRef(schemaTables);
   const columnsRef = useRef(schemaColumns);
+  const databasesRef = useRef(databases);
+  useEffect(() => { tablesRef.current = schemaTables; }, [schemaTables]);
+  useEffect(() => { columnsRef.current = schemaColumns; }, [schemaColumns]);
+  useEffect(() => { databasesRef.current = databases; }, [databases]);
 
-  useEffect(() => {
-    tablesRef.current = schemaTables;
-  }, [schemaTables]);
-
-  useEffect(() => {
-    columnsRef.current = schemaColumns;
-  }, [schemaColumns]);
-
-  // 3. Register and clean up Monaco completion provider
   useEffect(() => {
     const monacoApi = monacoInstance || (window as any).monaco || monaco;
     if (!monacoApi?.languages?.registerCompletionItemProvider) return;
 
     const provider: monaco.languages.CompletionItemProvider = {
-      triggerCharacters: [' ', '.', '"'],
+      triggerCharacters: ['.'],
       provideCompletionItems: (model, position) => {
         const word = model.getWordUntilPosition(position);
-        const lineContent = model.getLineContent(position.lineNumber);
-        const hasOpeningQuote = word.startColumn > 1 && lineContent[word.startColumn - 2] === '"';
-        const hasClosingQuote = lineContent[word.endColumn - 1] === '"';
-
         const range = {
           startLineNumber: position.lineNumber,
           endLineNumber: position.lineNumber,
-          startColumn: hasOpeningQuote ? word.startColumn - 1 : word.startColumn,
-          endColumn: hasClosingQuote ? word.endColumn + 1 : word.endColumn,
+          startColumn: word.startColumn,
+          endColumn: position.column,
         };
 
-        const textBefore = lineContent.substring(0, word.startColumn - 1).trimEnd();
-        const dotMatch = textBefore.match(/([a-zA-Z0-9_"]+)\.$/);
-        const targetTable = dotMatch ? dotMatch[1].replace(/"/g, '').toLowerCase() : null;
+        const fullText = model.getValue();
+        const textBeforeCursor = model.getValueInRange({
+          startLineNumber: Math.max(1, position.lineNumber - 15),
+          startColumn: 1,
+          endLineNumber: position.lineNumber,
+          endColumn: position.column,
+        });
 
-        const filteredColumns = targetTable
-          ? columnsRef.current.filter((col) => col.tableName.toLowerCase() === targetTable)
-          : [];
-        const columnsToSuggest = filteredColumns.length > 0 ? filteredColumns : columnsRef.current;
-
-        const tableSuggestions = targetTable
-          ? []
-          : tablesRef.current.map((table) => ({
-              label: table.name,
-              kind: monacoApi.languages.CompletionItemKind.Class,
-              detail: 'Table',
-              insertText: `"${table.name}"`,
-              range,
-              sortText: `1_${table.name}`,
-            }));
-
-        const columnSuggestions = columnsToSuggest.map((col) => ({
-          label: col.name,
-          kind: monacoApi.languages.CompletionItemKind.Field,
-          detail: col.tableName ? `${col.tableName} (${col.dataType || 'column'})` : 'Column',
-          insertText: `"${col.name}"`,
+        const ctx = analyzeSqlContext(textBeforeCursor, fullText);
+        const suggestions = buildSuggestions(
+          monacoApi,
           range,
-          sortText: targetTable ? `0_${col.name}` : `2_${col.name}`,
-        }));
+          ctx,
+          tablesRef.current,
+          columnsRef.current,
+          databasesRef.current,
+          STATEMENT_KEYWORDS,
+          CLAUSE_KEYWORDS,
+          OPERATOR_KEYWORDS
+        );
 
-        return { suggestions: [...tableSuggestions, ...columnSuggestions] };
+        return { suggestions };
       },
     };
 
     const disposable = monacoApi.languages.registerCompletionItemProvider('sql', provider);
-
-    return () => {
-      disposable.dispose();
-    };
+    return () => { disposable.dispose(); };
   }, [monacoInstance, activeSession?.connection?.id, activeSession?.activeDatabase]);
 
-  return { schemaTables, schemaColumns };
+  return { schemaTables, schemaColumns, databases };
 }

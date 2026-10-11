@@ -1,18 +1,7 @@
 import React, { useState, useCallback, useRef } from 'react';
 import {
-  ReactFlow,
-  Background,
-  Controls,
-  MiniMap,
-  Panel,
-  useNodesState,
-  useEdgesState,
-  MarkerType,
-  BackgroundVariant,
-  useReactFlow,
-  ReactFlowProvider,
-  Node,
-  Edge,
+  ReactFlow, Background, Controls, MiniMap, Panel, useNodesState,
+  useEdgesState, MarkerType, BackgroundVariant, useReactFlow, ReactFlowProvider, Node, Edge,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { toPng, toSvg } from 'html-to-image';
@@ -69,10 +58,33 @@ const ErdCanvas: React.FC<ErdVisualizerProps> = ({
           return;
         }
 
+        const fkSet = new Set(
+          (schema.relationships || []).map((r) => `${r.sourceTable}.${r.sourceColumn}`)
+        );
+
+        schema.tables.forEach((tbl) => {
+          (tbl.columns || []).forEach((col) => {
+            if (fkSet.has(`${tbl.name}.${col.name}`)) col.isForeignKey = true;
+          });
+        });
+
+        const connSources = new Map<string, string[]>();
+        const connTargets = new Map<string, string[]>();
+        (schema.relationships || []).forEach((r) => {
+          if (!connSources.has(r.sourceTable)) connSources.set(r.sourceTable, []);
+          connSources.get(r.sourceTable)!.push(r.sourceColumn);
+          if (!connTargets.has(r.targetTable)) connTargets.set(r.targetTable, []);
+          connTargets.get(r.targetTable)!.push(r.targetColumn);
+        });
+
         const rawNodes: Node[] = schema.tables.map((tbl) => ({
           id: tbl.name,
           type: 'tableNode',
-          data: { table: tbl },
+          data: {
+            table: tbl,
+            connectedSourceCols: connSources.get(tbl.name) || [],
+            connectedTargetCols: connTargets.get(tbl.name) || [],
+          },
           position: { x: 0, y: 0 },
         }));
 
@@ -80,8 +92,8 @@ const ErdCanvas: React.FC<ErdVisualizerProps> = ({
           id: `e-${rel.sourceTable}-${rel.sourceColumn}->${rel.targetTable}-${rel.targetColumn}-${idx}`,
           source: rel.sourceTable,
           target: rel.targetTable,
-          sourceHandle: `${rel.sourceTable}-source`,
-          targetHandle: `${rel.targetTable}-target`,
+          sourceHandle: `${rel.sourceTable}-${rel.sourceColumn}-source`,
+          targetHandle: `${rel.targetTable}-${rel.targetColumn}-target`,
           type: 'smoothstep',
           style: { stroke: '#06b6d4', strokeWidth: 1.5 },
           markerEnd: { type: MarkerType.ArrowClosed, width: 14, height: 14, color: '#06b6d4' },
@@ -190,29 +202,20 @@ const ErdCanvas: React.FC<ErdVisualizerProps> = ({
           nodeTypes={nodeTypes}
           colorMode={resolvedTheme}
           fitView
+          panActivationKeyCode={null}
           minZoom={0.1}
           maxZoom={2.5}
         >
           <Background variant={BackgroundVariant.Dots} gap={20} size={1.2} color={isDark ? '#27272a' : '#cbd5e1'} />
-          <Controls
-            className="!bg-white dark:!bg-[#0c0d12] !border !border-slate-200 dark:!border-zinc-800 !rounded-lg overflow-hidden shadow-lg [&>button]:!bg-transparent [&>button]:!border-b [&>button]:!border-slate-200 dark:[&>button]:!border-zinc-800 [&>button:last-child]:!border-b-0 [&>button]:!text-slate-600 dark:[&>button]:!text-zinc-300 hover:[&>button]:!text-slate-900 dark:hover:[&>button]:!text-white hover:[&>button]:!bg-slate-100 dark:hover:[&>button]:!bg-zinc-800/80 [&>button>svg]:!fill-current"
-          />
-          <MiniMap
-            className="!bg-white dark:!bg-[#0c0d12] !border !border-slate-200 dark:!border-zinc-800 !rounded-lg overflow-hidden shadow-xl"
-            nodeColor={() => '#3b82f6'}
-            maskColor={isDark ? 'rgba(0, 0, 0, 0.7)' : 'rgba(240, 240, 240, 0.6)'}
-          />
+          <Controls className="!bg-white dark:!bg-[#0c0d12] !border !border-slate-200 dark:!border-zinc-800 !rounded-lg overflow-hidden shadow-lg [&>button]:!bg-transparent [&>button]:!border-b [&>button]:!border-slate-200 dark:[&>button]:!border-zinc-800 [&>button:last-child]:!border-b-0 [&>button]:!text-slate-600 dark:[&>button]:!text-zinc-300 hover:[&>button]:!text-slate-900 dark:hover:[&>button]:!text-white hover:[&>button]:!bg-slate-100 dark:hover:[&>button]:!bg-zinc-800/80 [&>button>svg]:!fill-current" />
+          <MiniMap className="!bg-white dark:!bg-[#0c0d12] !border !border-slate-200 dark:!border-zinc-800 !rounded-lg overflow-hidden shadow-xl" nodeColor={() => '#3b82f6'} maskColor={isDark ? 'rgba(0, 0, 0, 0.7)' : 'rgba(240, 240, 240, 0.6)'} />
           {!loading && nodes.length === 0 && (
             <Panel position="top-center" className="mt-20">
               <div className="p-6 rounded-2xl bg-white dark:bg-[#181818] border border-slate-200 dark:border-[#2d2d2d] shadow-2xl flex flex-col items-center text-center max-w-sm">
                 <TableIcon className="w-8 h-8 text-slate-400 mb-3" />
                 <h3 className="text-sm font-semibold text-slate-800 dark:text-gray-200 mb-1">No Tables Found</h3>
                 <p className="text-xs text-slate-500 mb-4">No public schema tables found in "{activeSession.activeDatabase}".</p>
-                <button
-                  type="button"
-                  onClick={() => loadSchema()}
-                  className="px-3 py-1.5 text-xs font-medium text-brand-600 bg-brand-500/10 border border-brand-500/30 rounded-lg hover:bg-brand-500/20"
-                >
+                <button type="button" onClick={() => loadSchema()} className="px-3 py-1.5 text-xs font-medium text-brand-600 bg-brand-500/10 border border-brand-500/30 rounded-lg hover:bg-brand-500/20">
                   Retry Inspection
                 </button>
               </div>

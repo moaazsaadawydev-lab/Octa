@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { QueryTab, SqlQueryItem, SqlQueryFolder, SqlTreeItem } from '../../types';
 
 export interface UsePlaygroundSaveOptions {
@@ -66,6 +66,35 @@ export function usePlaygroundSave({
     []
   );
 
+  // Auto-sync debounced changes to queriesTree when linked to a saved query
+  useEffect(() => {
+    if (!activeTab || !onSaveQueriesTree) return;
+    const targetId = activeTab.savedQueryId || activeTab.id;
+    const existing = findQueryInTree(queriesTree, targetId);
+    if (!existing) return;
+
+    const effectiveDb = activeDatabase || existing.database;
+    if (existing.content === activeTab.query && existing.database === effectiveDb) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      const updatedTree = updateQueryInTree(queriesTree, targetId, activeTab.query, effectiveDb);
+      onSaveQueriesTree(updatedTree);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [
+    activeTab?.id,
+    activeTab?.savedQueryId,
+    activeTab?.query,
+    activeDatabase,
+    queriesTree,
+    onSaveQueriesTree,
+    findQueryInTree,
+    updateQueryInTree,
+  ]);
+
   const handleTriggerSave = useCallback(() => {
     if (!activeTab) return;
 
@@ -73,15 +102,17 @@ export function usePlaygroundSave({
     const existingInTree = findQueryInTree(queriesTree, existingTargetId);
 
     if (existingInTree && onSaveQueriesTree) {
-      // Direct quick-save without popup
       const updatedTree = updateQueryInTree(queriesTree, existingTargetId, activeTab.query, activeDatabase);
       onSaveQueriesTree(updatedTree);
       setTabs((prev) =>
-        prev.map((t) => (t.id === activeTab.id ? { ...t, isDirty: false } : t))
+        prev.map((t) =>
+          t.id === activeTab.id
+            ? { ...t, isDirty: false, activeDatabaseName: activeDatabase || t.activeDatabaseName }
+            : t
+        )
       );
       showToast(`Saved query "${activeTab.title}"`, 'success');
     } else {
-      // Open modal to choose folder & name for new query
       setSaveModalName(activeTab.title || 'Untitled.sql');
       setIsSaveModalOpen(true);
     }

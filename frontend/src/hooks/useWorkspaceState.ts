@@ -1,11 +1,5 @@
-import { useState, useCallback, useEffect } from 'react';
-import {
-  ConnectionConfig,
-  ActiveSession,
-  QueryTab,
-  SqlQueryItem,
-  SqlQueryFolder,
-} from '../types/connection';
+import { useState } from 'react';
+import { ConnectionConfig, ActiveSession } from '../types/connection';
 import { ProjectHttpClient } from '../types/project';
 import { RedisConnectionConfig } from '../types/redis';
 import { AppSettings } from '../types/settings';
@@ -13,16 +7,7 @@ import { ActiveModule } from '../components/layout/ActivityBar';
 import { useToastState } from './useToastState';
 import { useProjectPersistence } from './useProjectPersistence';
 import { useDatabaseServers } from './useDatabaseServers';
-import { loadSqlQueriesData, saveSqlQueriesData } from '../services/api';
-
-const DEFAULT_PLAYGROUND_QUERY = `-- Octa SQL Playground
--- Press Ctrl + Enter to run selected text or full query
-
-SELECT 
-  'Octa' AS application,
-  'Database Management & SQL Workspace' AS milestone,
-  NOW() AS executed_at;
-`;
+import { useWorkspaceQueries } from '../features/database/hooks/useWorkspaceQueries';
 
 interface UseWorkspaceStateOptions {
   settings: AppSettings;
@@ -52,43 +37,6 @@ export function useWorkspaceState({ settings, updateSettings }: UseWorkspaceStat
   const [activeSession, setActiveSession] = useState<ActiveSession | null>(null);
   const [sidebarImportSession, setSidebarImportSession] = useState<ActiveSession | null>(null);
 
-  // SQL Queries Tree State
-  const [queriesTree, setQueriesTree] = useState<(SqlQueryFolder | SqlQueryItem)[]>(() => {
-    try {
-      const saved = localStorage.getItem('octa_sql_queries_tree');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) return parsed;
-      }
-    } catch {}
-    return [];
-  });
-
-  useEffect(() => {
-    loadSqlQueriesData()
-      .then((diskData) => {
-        if (diskData && diskData.trim()) {
-          const parsed = JSON.parse(diskData);
-          if (Array.isArray(parsed)) setQueriesTree(parsed);
-        }
-      })
-      .catch(() => {});
-  }, []);
-
-  // Query Playground Tabs State
-  const [queryTabs, setQueryTabs] = useState<QueryTab[]>([
-    {
-      id: 'tab-1',
-      title: 'Query 1.sql',
-      query: DEFAULT_PLAYGROUND_QUERY,
-      isDirty: false,
-      results: null,
-      activeResultIndex: 0,
-      isExecuting: false,
-    },
-  ]);
-  const [activeQueryTabId, setActiveQueryTabId] = useState<string | null>('tab-1');
-
   // Database server operations and expand states
   const dbServers = useDatabaseServers({
     connections,
@@ -100,6 +48,17 @@ export function useWorkspaceState({ settings, updateSettings }: UseWorkspaceStat
     showToast,
   });
 
+  // Queries & Tabs state with persistence and auto-activating DB
+  const workspaceQueries = useWorkspaceQueries({
+    connections,
+    activeSession,
+    databasesMap: dbServers.databasesMap,
+    handleConnectToDatabase: dbServers.handleConnectToDatabase,
+    setActiveModule,
+    setDbSubView,
+    showToast,
+  });
+
   // Project persistence & lifecycle
   const persistence = useProjectPersistence({
     settings,
@@ -107,8 +66,8 @@ export function useWorkspaceState({ settings, updateSettings }: UseWorkspaceStat
     showToast,
     connections,
     setConnections,
-    queriesTree,
-    setQueriesTree,
+    queriesTree: workspaceQueries.queriesTree,
+    setQueriesTree: workspaceQueries.setQueriesTree,
     redisConnections,
     setRedisConnections,
     httpData,
@@ -116,72 +75,6 @@ export function useWorkspaceState({ settings, updateSettings }: UseWorkspaceStat
     setActiveSession,
     setActiveModule,
   });
-
-  const handleSaveQueriesTree = useCallback((nextTree: (SqlQueryFolder | SqlQueryItem)[]) => {
-    setQueriesTree(nextTree);
-    try {
-      const json = JSON.stringify(nextTree);
-      localStorage.setItem('octa_sql_queries_tree', json);
-      saveSqlQueriesData(json).catch((err) => console.warn('Failed saveSqlQueriesData:', err));
-    } catch (e) {
-      console.warn('Failed saving sql queries:', e);
-    }
-  }, []);
-
-  const handleSelectQueryFromSidebar = (query: SqlQueryItem) => {
-    setActiveModule('databases');
-    setDbSubView('playground');
-
-    let targetTabId = query.id;
-
-    setQueryTabs((prev) => {
-      const existing = prev.find((t) => t.id === query.id || t.savedQueryId === query.id);
-      if (existing) {
-        targetTabId = existing.id;
-        return prev;
-      }
-
-      if (
-        prev.length === 1 &&
-        prev[0].title === 'Query 1.sql' &&
-        !prev[0].isDirty &&
-        !prev[0].savedQueryId &&
-        prev[0].results === null
-      ) {
-        targetTabId = query.id;
-        return [
-          {
-            id: query.id,
-            savedQueryId: query.id,
-            title: query.name,
-            query: query.content,
-            isDirty: false,
-            results: null,
-            activeResultIndex: 0,
-            isExecuting: false,
-            activeConnectionName: activeSession?.connection.name || 'Local Postgres',
-            activeDatabaseName: activeSession?.activeDatabase || 'postgres',
-          },
-        ];
-      }
-
-      const newTab: QueryTab = {
-        id: query.id,
-        savedQueryId: query.id,
-        title: query.name,
-        query: query.content,
-        isDirty: false,
-        results: null,
-        activeResultIndex: 0,
-        isExecuting: false,
-        activeConnectionName: activeSession?.connection.name || 'Local Postgres',
-        activeDatabaseName: activeSession?.activeDatabase || 'postgres',
-      };
-      return [...prev, newTab];
-    });
-
-    setActiveQueryTabId(targetTabId);
-  };
 
   return {
     activeProject: persistence.activeProject,
@@ -214,14 +107,15 @@ export function useWorkspaceState({ settings, updateSettings }: UseWorkspaceStat
     setActiveSession,
     sidebarImportSession,
     setSidebarImportSession,
-    queriesTree,
-    setQueriesTree,
-    queryTabs,
-    setQueryTabs,
-    activeQueryTabId,
-    setActiveQueryTabId,
-    handleSaveQueriesTree,
-    handleSelectQueryFromSidebar,
+    queriesTree: workspaceQueries.queriesTree,
+    setQueriesTree: workspaceQueries.setQueriesTree,
+    queryTabs: workspaceQueries.queryTabs,
+    setQueryTabs: workspaceQueries.setQueryTabs,
+    activeQueryTabId: workspaceQueries.activeQueryTabId,
+    setActiveQueryTabId: workspaceQueries.setActiveQueryTabId,
+    handleSaveQueriesTree: workspaceQueries.handleSaveQueriesTree,
+    handleSelectQueryFromSidebar: workspaceQueries.handleSelectQueryFromSidebar,
+    activateQueryDatabase: workspaceQueries.activateQueryDatabase,
     handleCreateProject: persistence.handleCreateProject,
     handleOpenProject: persistence.handleOpenProject,
     handleSelectRecent: persistence.handleSelectRecent,

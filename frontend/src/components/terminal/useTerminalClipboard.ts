@@ -1,20 +1,24 @@
-import { useState, useCallback, RefObject } from 'react';
+import { useState, useCallback, useRef, RefObject } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { writeTerminalSession } from '../../services/api';
 import * as runtime from '../../../wailsjs/runtime/runtime';
 
 interface UseTerminalClipboardProps {
-  sessionId: string;
+  sessionId?: string;
   termRef: RefObject<Terminal | null>;
-  onFocusRef: React.MutableRefObject<(() => void) | undefined>;
+  onFocusRef?: React.MutableRefObject<(() => void) | undefined>;
+  onWrite?: (text: string) => void;
 }
 
 export function useTerminalClipboard({
-  sessionId,
+  sessionId = '',
   termRef,
   onFocusRef,
+  onWrite,
 }: UseTerminalClipboardProps) {
   const [pasteModalText, setPasteModalText] = useState<string | null>(null);
+  const onWriteRef = useRef(onWrite);
+  onWriteRef.current = onWrite;
 
   const copyToClipboard = useCallback(async (text: string) => {
     if (!text) return;
@@ -28,6 +32,18 @@ export function useTerminalClipboard({
       console.warn('[Terminal] Failed to copy to clipboard:', err);
     }
   }, []);
+
+  const sendText = useCallback(
+    (text: string) => {
+      if (!text) return;
+      if (onWriteRef.current) {
+        onWriteRef.current(text);
+      } else if (sessionId) {
+        writeTerminalSession(sessionId, text);
+      }
+    },
+    [sessionId]
+  );
 
   const pasteFromClipboard = useCallback(async () => {
     try {
@@ -45,20 +61,20 @@ export function useTerminalClipboard({
       if (isMultiLine || isLarge) {
         setPasteModalText(text);
       } else {
-        writeTerminalSession(sessionId, text);
+        sendText(text);
       }
     } catch (err) {
       console.warn('[Terminal] Failed to paste from clipboard:', err);
     }
-  }, [sessionId]);
+  }, [sendText]);
 
   const handleConfirmPaste = useCallback(() => {
     if (pasteModalText) {
-      writeTerminalSession(sessionId, pasteModalText);
+      sendText(pasteModalText);
       setPasteModalText(null);
       termRef.current?.focus();
     }
-  }, [pasteModalText, sessionId, termRef]);
+  }, [pasteModalText, sendText, termRef]);
 
   const handleCancelPaste = useCallback(() => {
     setPasteModalText(null);
@@ -70,7 +86,7 @@ export function useTerminalClipboard({
       const isCtrlOrCmd = event.ctrlKey || event.metaKey;
       const term = termRef.current;
 
-      if (onFocusRef.current) {
+      if (onFocusRef?.current) {
         onFocusRef.current();
       }
 
@@ -128,7 +144,7 @@ export function useTerminalClipboard({
   const handleContextMenu = useCallback(
     async (e: MouseEvent) => {
       e.preventDefault();
-      if (onFocusRef.current) onFocusRef.current();
+      if (onFocusRef?.current) onFocusRef.current();
 
       const term = termRef.current;
       if (term && term.hasSelection()) {

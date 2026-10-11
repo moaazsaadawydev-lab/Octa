@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
-import { RedisConnectionConfig, RedisTab, ZSetMember } from '../types';
+import { RedisConnectionConfig, RedisTab, RedisKeyDetail, ZSetMember } from '../types';
 import { getRedisKeyDetails, updateRedisKey, setRedisTTL } from '../../../services/api';
 
 interface UseRedisTabsProps {
@@ -8,10 +8,25 @@ interface UseRedisTabsProps {
   onKeyModified?: () => void;
 }
 
+const mapDetailToTabUpdates = (detail: RedisKeyDetail) => ({
+  type: detail.type,
+  detail,
+  isLoading: false,
+  isDirty: false,
+  draftString: detail.stringValue || '',
+  draftHash: detail.hashValue
+    ? Object.entries(detail.hashValue).map(([field, value]) => ({ field, value }))
+    : [],
+  draftList: detail.listValue || [],
+  draftSet: detail.setValue || [],
+  draftZSet: detail.zsetValue || [],
+});
+
 export function useRedisTabs({ activeConn, showToast, onKeyModified }: UseRedisTabsProps) {
   const [tabs, setTabs] = useState<RedisTab[]>([]);
   const [activeTabKey, setActiveTabKey] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const activeTab = useMemo(() => {
     return tabs.find((t) => t.key === activeTabKey) || null;
@@ -19,14 +34,12 @@ export function useRedisTabs({ activeConn, showToast, onKeyModified }: UseRedisT
 
   const handleCloseTab = useCallback((keyToClose: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-
     setTabs((prev) => {
       const filtered = prev.filter((t) => t.key !== keyToClose);
       if (activeTabKey === keyToClose) {
         if (filtered.length > 0) {
           const closingIdx = prev.findIndex((t) => t.key === keyToClose);
-          const nextIdx = Math.max(0, closingIdx - 1);
-          setActiveTabKey(filtered[nextIdx]?.key || null);
+          setActiveTabKey(filtered[Math.max(0, closingIdx - 1)]?.key || null);
         } else {
           setActiveTabKey(null);
         }
@@ -36,12 +49,10 @@ export function useRedisTabs({ activeConn, showToast, onKeyModified }: UseRedisT
   }, [activeTabKey]);
 
   const handleOpenKeyInTab = useCallback(async (keyName: string) => {
-    const existingIndex = tabs.findIndex((t) => t.key === keyName);
-    if (existingIndex >= 0) {
+    if (tabs.some((t) => t.key === keyName)) {
       setActiveTabKey(keyName);
       return;
     }
-
     if (!activeConn) return;
 
     const newTab: RedisTab = {
@@ -65,22 +76,7 @@ export function useRedisTabs({ activeConn, showToast, onKeyModified }: UseRedisT
       const detail = await getRedisKeyDetails(activeConn, keyName);
       if (detail) {
         setTabs((prev) =>
-          prev.map((t) => {
-            if (t.key !== keyName) return t;
-            return {
-              ...t,
-              type: detail.type,
-              detail: detail,
-              isLoading: false,
-              draftString: detail.stringValue || '',
-              draftHash: detail.hashValue
-                ? Object.entries(detail.hashValue).map(([field, value]) => ({ field, value }))
-                : [],
-              draftList: detail.listValue || [],
-              draftSet: detail.setValue || [],
-              draftZSet: detail.zsetValue || [],
-            };
-          })
+          prev.map((t) => (t.key === keyName ? { ...t, ...mapDetailToTabUpdates(detail) } : t))
         );
       } else {
         showToast(`Key "${keyName}" no longer exists or expired`, 'info');
@@ -88,11 +84,32 @@ export function useRedisTabs({ activeConn, showToast, onKeyModified }: UseRedisT
       }
     } catch (err: any) {
       showToast(`Failed to fetch key details: ${err?.message || err}`, 'error');
-      setTabs((prev) =>
-        prev.map((t) => (t.key === keyName ? { ...t, isLoading: false } : t))
-      );
+      setTabs((prev) => prev.map((t) => (t.key === keyName ? { ...t, isLoading: false } : t)));
     }
   }, [activeConn, tabs, handleCloseTab, showToast]);
+
+  const handleRefreshKey = useCallback(async (keyName?: string) => {
+    const targetKey = keyName || activeTabKey;
+    if (!targetKey || !activeConn) return;
+
+    setIsRefreshing(true);
+    try {
+      const detail = await getRedisKeyDetails(activeConn, targetKey);
+      if (detail) {
+        setTabs((prev) =>
+          prev.map((t) => (t.key === targetKey ? { ...t, ...mapDetailToTabUpdates(detail) } : t))
+        );
+        showToast(`Refreshed "${targetKey}"`, 'success');
+      } else {
+        showToast(`Key "${targetKey}" no longer exists or expired`, 'info');
+        handleCloseTab(targetKey);
+      }
+    } catch (err: any) {
+      showToast(`Failed to refresh key: ${err?.message || err}`, 'error');
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [activeConn, activeTabKey, handleCloseTab, showToast]);
 
   const handleSaveActiveTabKey = async () => {
     if (!activeTab || !activeTab.detail || !activeConn) return;
@@ -161,38 +178,10 @@ export function useRedisTabs({ activeConn, showToast, onKeyModified }: UseRedisT
     }
   };
 
-  const updateDraftString = (val: string) => {
+  const updateDraft = (field: keyof RedisTab, val: any) => {
     if (!activeTab) return;
     setTabs((prev) =>
-      prev.map((t) => (t.key === activeTab.key ? { ...t, draftString: val, isDirty: true } : t))
-    );
-  };
-
-  const updateDraftHash = (hash: Array<{ field: string; value: string }>) => {
-    if (!activeTab) return;
-    setTabs((prev) =>
-      prev.map((t) => (t.key === activeTab.key ? { ...t, draftHash: hash, isDirty: true } : t))
-    );
-  };
-
-  const updateDraftList = (list: string[]) => {
-    if (!activeTab) return;
-    setTabs((prev) =>
-      prev.map((t) => (t.key === activeTab.key ? { ...t, draftList: list, isDirty: true } : t))
-    );
-  };
-
-  const updateDraftSet = (set: string[]) => {
-    if (!activeTab) return;
-    setTabs((prev) =>
-      prev.map((t) => (t.key === activeTab.key ? { ...t, draftSet: set, isDirty: true } : t))
-    );
-  };
-
-  const updateDraftZSet = (zset: ZSetMember[]) => {
-    if (!activeTab) return;
-    setTabs((prev) =>
-      prev.map((t) => (t.key === activeTab.key ? { ...t, draftZSet: zset, isDirty: true } : t))
+      prev.map((t) => (t.key === activeTab.key ? { ...t, [field]: val, isDirty: true } : t))
     );
   };
 
@@ -203,14 +192,16 @@ export function useRedisTabs({ activeConn, showToast, onKeyModified }: UseRedisT
     setActiveTabKey,
     activeTab,
     isSaving,
+    isRefreshing,
     handleOpenKeyInTab,
     handleCloseTab,
+    handleRefreshKey,
     handleSaveActiveTabKey,
     handleUpdateTTL,
-    updateDraftString,
-    updateDraftHash,
-    updateDraftList,
-    updateDraftSet,
-    updateDraftZSet,
+    updateDraftString: (val: string) => updateDraft('draftString', val),
+    updateDraftHash: (hash: Array<{ field: string; value: string }>) => updateDraft('draftHash', hash),
+    updateDraftList: (list: string[]) => updateDraft('draftList', list),
+    updateDraftSet: (set: string[]) => updateDraft('draftSet', set),
+    updateDraftZSet: (zset: ZSetMember[]) => updateDraft('draftZSet', zset),
   };
 }

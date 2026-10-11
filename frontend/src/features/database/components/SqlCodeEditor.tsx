@@ -19,10 +19,12 @@ export interface SqlCodeEditorProps {
   isExecuting?: boolean;
   tables?: string[];
   columns?: string[];
+  databases?: string[];
   schemaTables?: SchemaTable[];
   schemaColumns?: SchemaColumn[];
   activeSession?: ActiveSession | null;
   externalEditorRef?: React.MutableRefObject<any>;
+  theme?: string;
 }
 
 export const SqlCodeEditor: React.FC<SqlCodeEditorProps> = ({
@@ -33,12 +35,15 @@ export const SqlCodeEditor: React.FC<SqlCodeEditorProps> = ({
   onSave,
   tables = [],
   columns = [],
+  databases = [],
   schemaTables,
   schemaColumns,
   activeSession,
   externalEditorRef,
+  theme,
 }) => {
   const { monacoTheme } = useTheme();
+  const activeMonacoTheme = theme || monacoTheme;
   const editorRef = useRef<any>(null);
   const monacoRef = useRef<any>(null);
   const [monacoInstance, setMonacoInstance] = React.useState<any>(() => monaco);
@@ -50,14 +55,15 @@ export const SqlCodeEditor: React.FC<SqlCodeEditorProps> = ({
     schemaColumns,
     tables,
     columns,
+    databases,
     monacoInstance,
   });
 
   useEffect(() => {
     if (monacoRef.current) {
-      monacoRef.current.editor.setTheme(monacoTheme);
+      monacoRef.current.editor.setTheme(activeMonacoTheme);
     }
-  }, [monacoTheme]);
+  }, [activeMonacoTheme]);
 
   const handleBeforeMount: BeforeMount = (instance) => {
     setMonacoInstance(instance);
@@ -72,9 +78,15 @@ export const SqlCodeEditor: React.FC<SqlCodeEditorProps> = ({
     }
     monacoRef.current = instance;
     setMonacoInstance(instance);
-    instance.editor.setTheme(monacoTheme);
+    instance.editor.setTheme(activeMonacoTheme);
 
-    editor.addCommand(monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.Enter, () => {
+    editor.onKeyDown((e: any) => {
+      if (e.keyCode === instance.KeyCode.Space) {
+        e.stopPropagation();
+      }
+    });
+
+    editor.addCommand(instance.KeyMod.CtrlCmd | instance.KeyCode.Enter, () => {
       const model = editor.getModel();
       const selection = editor.getSelection();
       let queryToExecute = '';
@@ -86,12 +98,12 @@ export const SqlCodeEditor: React.FC<SqlCodeEditorProps> = ({
       onExecute(queryToExecute);
     });
 
-    editor.addCommand(monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyCode.KeyS, () => {
+    editor.addCommand(instance.KeyMod.CtrlCmd | instance.KeyCode.KeyS, () => {
       onSave?.();
     });
 
     editor.addCommand(
-      monacoInstance.KeyMod.CtrlCmd | monacoInstance.KeyMod.Shift | monacoInstance.KeyCode.KeyF,
+      instance.KeyMod.CtrlCmd | instance.KeyMod.Shift | instance.KeyCode.KeyF,
       () => {
         if (onFormat) {
           onFormat();
@@ -105,13 +117,20 @@ export const SqlCodeEditor: React.FC<SqlCodeEditorProps> = ({
   };
 
   return (
-    <div className="w-full h-full flex flex-col flex-1 min-h-0 relative overflow-hidden bg-white dark:bg-[#141416]">
+    <div
+      className="w-full h-full flex flex-col flex-1 min-h-0 relative overflow-hidden bg-white dark:bg-[#141416] nokey"
+      onKeyDownCapture={(e) => {
+        if (e.key === ' ' || e.code === 'Space') {
+          e.stopPropagation();
+        }
+      }}
+    >
       <Editor
         height="100%"
         width="100%"
         defaultLanguage="sql"
         language="sql"
-        theme={monacoTheme}
+        theme={activeMonacoTheme}
         value={value ?? ''}
         onChange={(val) => onChange(val || '')}
         loading={
@@ -123,7 +142,7 @@ export const SqlCodeEditor: React.FC<SqlCodeEditorProps> = ({
         beforeMount={handleBeforeMount}
         onMount={handleEditorDidMount}
         options={{
-          theme: monacoTheme,
+          theme: activeMonacoTheme,
           fontSize: 14,
           fontFamily: EDITOR_FONT_FAMILY,
           fontLigatures: editorFontLigatures,
@@ -133,7 +152,10 @@ export const SqlCodeEditor: React.FC<SqlCodeEditorProps> = ({
           lineNumbers: 'on',
           renderLineHighlight: 'all',
           suggestOnTriggerCharacters: true,
-          quickSuggestions: { other: true, comments: false, strings: true },
+          acceptSuggestionOnCommitCharacter: false,
+          acceptSuggestionOnEnter: 'on',
+          tabCompletion: 'on',
+          quickSuggestions: { other: true, comments: false, strings: false },
           tabSize: 2,
           wordWrap: 'on',
           padding: { top: 10, bottom: 10 },

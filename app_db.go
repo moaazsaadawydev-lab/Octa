@@ -49,8 +49,14 @@ func (a *App) DeleteTableRows(config ConnectionConfig, dbName, tableName, pkColu
 func (a *App) TruncateTable(config ConnectionConfig, dbName, tableName string) (bool, error) {
 	return a.dbService.TruncateTable(config, dbName, tableName)
 }
-func (a *App) ExecuteRawQuery(config ConnectionConfig, dbName string, sqlQuery string) ([]QueryResult, error) {
-	return a.dbService.ExecuteRawQuery(config, dbName, sqlQuery)
+func (a *App) DropTable(config ConnectionConfig, dbName, tableName string, cascade bool) (bool, error) {
+	return a.dbService.DropTable(config, dbName, tableName, cascade)
+}
+func (a *App) ExecuteRawQuery(config ConnectionConfig, dbName string, sqlQuery string, tabID string) ([]QueryResult, error) {
+	return a.dbService.ExecuteRawQuery(config, dbName, sqlQuery, tabID)
+}
+func (a *App) CloseTabSession(tabID string) (bool, error) {
+	return a.dbService.CloseTabSession(tabID)
 }
 func (a *App) GetDatabaseSchemaDetails(config ConnectionConfig, dbName string) (DatabaseSchema, error) {
 	return a.dbService.GetDatabaseSchemaDetails(config, dbName)

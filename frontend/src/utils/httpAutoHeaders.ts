@@ -53,6 +53,12 @@ export function getDynamicAutoHeaderDefinitions(
       value: 'application/x-www-form-urlencoded',
       description: 'URL-encoded form payload',
     });
+  } else if (req.bodyType === 'binary') {
+    list.push({
+      key: 'Content-Type',
+      value: req.bodyBinary?.type || 'application/octet-stream',
+      description: 'Binary payload MIME type',
+    });
   }
 
   if (req.method === 'POST' || req.method === 'PUT' || req.method === 'PATCH') {
@@ -75,6 +81,9 @@ export function getDynamicAutoHeaderDefinitions(
           }
           const str = params.toString();
           return String(new TextEncoder().encode(str).length);
+        }
+        if (r.bodyType === 'binary' && r.bodyBinary?.size !== undefined) {
+          return String(r.bodyBinary.size);
         }
         if (r.bodyType === 'form-data') {
           return '<calculated when request is sent>';

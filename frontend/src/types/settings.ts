@@ -40,7 +40,7 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   aiApiKey: '',
   gemini_api_key: '',
   gemini_selected_model: 'gemini-2.5-flash',
-  docker_default_engine: 'windows',
+  docker_default_engine: 'wsl',
 };
 
 

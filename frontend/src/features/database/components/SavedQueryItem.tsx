@@ -146,6 +146,15 @@ export const SavedQueryItem: React.FC<SavedQueryItemProps> = ({
           </span>
         )}
 
+        {!isFolder && !isEditing && (item as SqlQueryItem).database && (
+          <span
+            className="text-[9px] px-1 py-0.2 rounded bg-amber-500/10 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 font-mono border border-amber-500/20 max-w-[85px] truncate flex-shrink-0"
+            title={`Database: ${(item as SqlQueryItem).database}`}
+          >
+            {(item as SqlQueryItem).database}
+          </span>
+        )}
+
         {isFolder && !isEditing && (
           <span className="text-[10px] text-slate-400 dark:text-zinc-600 font-mono pr-1">
             {countQueriesInTree(item)}
@@ -195,11 +204,7 @@ export const SavedQueryItem: React.FC<SavedQueryItemProps> = ({
                 ) : null}
                 <button
                   type="button"
-                  onClick={() => {
-                    setEditingId(item.id);
-                    setEditingName(item.name);
-                    setQueryMenuOpenId(null);
-                  }}
+                  onClick={() => { setEditingId(item.id); setEditingName(item.name); setQueryMenuOpenId(null); }}
                   className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-zinc-800 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
                 >
                   <Edit2 className="w-3.5 h-3.5 text-slate-400 dark:text-zinc-400" />
@@ -207,10 +212,7 @@ export const SavedQueryItem: React.FC<SavedQueryItemProps> = ({
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    onDeleteItem(item.id);
-                    setQueryMenuOpenId(null);
-                  }}
+                  onClick={() => { onDeleteItem(item.id); setQueryMenuOpenId(null); }}
                   className="w-full px-3 py-1.5 flex items-center gap-2 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
@@ -223,9 +225,7 @@ export const SavedQueryItem: React.FC<SavedQueryItemProps> = ({
       </div>
 
       {isFolder && item.isOpen && item.items.length > 0 && (
-        <div className="space-y-0.5">
-          {renderChildItems(item.items, depth + 1)}
-        </div>
+        <div className="space-y-0.5">{renderChildItems(item.items, depth + 1)}</div>
       )}
     </div>
   );

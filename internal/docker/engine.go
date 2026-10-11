@@ -26,7 +26,16 @@ type EngineService struct {
 func NewEngineService() *EngineService {
 	storedEngine, storedDistro := LoadStoredEngine()
 	if storedEngine == "" {
-		storedEngine = "windows"
+		detected := DetectEngines()
+		if len(detected) > 0 {
+			storedEngine = detected[0].ID
+			storedDistro = detected[0].Distro
+		} else {
+			storedEngine = "windows"
+		}
+	}
+	if storedEngine == "wsl" && storedDistro == "" {
+		storedDistro = "Ubuntu"
 	}
 	return &EngineService{
 		activeEngine: storedEngine,

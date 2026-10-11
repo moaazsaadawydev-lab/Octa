@@ -41,15 +41,15 @@ export const WorkspaceViewRenderer: React.FC<WorkspaceViewRendererProps> = ({
     );
   }
 
+  const server = state.activeSession?.connection;
+  const activeConnKey = server ? (server.id || server.name || `${server.host}:${server.port}`) : '';
+  const currentDatabases = (activeConnKey && state.databasesMap[activeConnKey]) || [];
+  const activeQueryTab = state.queryTabs.find((t) => t.id === state.activeQueryTabId);
+
   return (
     <div className="flex-1 flex overflow-hidden relative">
-      {/* 1. Persistent Terminal Workspace (Kept alive in DOM across module switches) */}
-      <div
-        className={clsx(
-          'w-full h-full min-h-0 min-w-0',
-          state.activeModule === 'terminal' ? 'flex flex-col' : 'hidden'
-        )}
-      >
+      {/* 1. Terminal Workspace */}
+      <div className={clsx('w-full h-full min-h-0 min-w-0', state.activeModule === 'terminal' ? 'flex flex-col' : 'hidden')}>
         <TerminalWorkspace
           activeProject={state.activeProject}
           projectFilePath={state.projectFilePath}
@@ -60,21 +60,17 @@ export const WorkspaceViewRenderer: React.FC<WorkspaceViewRendererProps> = ({
       </div>
 
       {/* 2. Redis Workspace */}
-      {state.activeModule === 'redis' && (
+      <div className={clsx('w-full h-full min-h-0 min-w-0', state.activeModule === 'redis' ? 'flex flex-col' : 'hidden')}>
         <RedisWorkspace
           connections={state.redisConnections}
           onUpdateConnections={state.setRedisConnections}
           showToast={state.showToast}
+          isVisible={state.activeModule === 'redis'}
         />
-      )}
+      </div>
 
-      {/* 3. Persistent HTTP Client Workspace (Kept alive in DOM across module switches) */}
-      <div
-        className={clsx(
-          'w-full h-full min-h-0 min-w-0',
-          state.activeModule === 'http' ? 'flex flex-col' : 'hidden'
-        )}
-      >
+      {/* 3. HTTP Client Workspace */}
+      <div className={clsx('w-full h-full min-h-0 min-w-0', state.activeModule === 'http' ? 'flex flex-col' : 'hidden')}>
         <HttpClientWorkspace
           data={state.httpData}
           onUpdateData={state.setHttpData}
@@ -83,13 +79,8 @@ export const WorkspaceViewRenderer: React.FC<WorkspaceViewRendererProps> = ({
         />
       </div>
 
-      {/* 4. Persistent Git Workspace (Kept alive in DOM across module switches) */}
-      <div
-        className={clsx(
-          'w-full h-full min-h-0 min-w-0',
-          state.activeModule === 'git' ? 'flex flex-col' : 'hidden'
-        )}
-      >
+      {/* 4. Git Workspace */}
+      <div className={clsx('w-full h-full min-h-0 min-w-0', state.activeModule === 'git' ? 'flex flex-col' : 'hidden')}>
         <GitWorkspace
           activeProject={state.activeProject}
           projectFilePath={state.projectFilePath}
@@ -104,13 +95,8 @@ export const WorkspaceViewRenderer: React.FC<WorkspaceViewRendererProps> = ({
         />
       </div>
 
-      {/* 5. Persistent Docker Workspace (Kept alive in DOM across module switches) */}
-      <div
-        className={clsx(
-          'w-full h-full min-h-0 min-w-0',
-          state.activeModule === 'docker' ? 'flex flex-col' : 'hidden'
-        )}
-      >
+      {/* 5. Docker Workspace */}
+      <div className={clsx('w-full h-full min-h-0 min-w-0', state.activeModule === 'docker' ? 'flex flex-col' : 'hidden')}>
         <DockerWorkspace
           isVisible={state.activeModule === 'docker'}
           settings={settings}
@@ -120,69 +106,81 @@ export const WorkspaceViewRenderer: React.FC<WorkspaceViewRendererProps> = ({
       </div>
 
       {/* 6. Settings View */}
-      {state.activeModule === 'settings' && <SettingsView showToast={state.showToast} />}
+      <div className={clsx('w-full h-full min-h-0 min-w-0', state.activeModule === 'settings' ? 'flex flex-col' : 'hidden')}>
+        <SettingsView showToast={state.showToast} />
+      </div>
 
       {/* 7. Database Workspace */}
-      {state.activeModule === 'databases' && (
-        <div className="flex-1 flex overflow-hidden">
-          {/* Main Secondary Sidebar (Server Explorer & Queries) */}
-          {state.isSidebarVisible && (
-            <Sidebar
-              connections={state.connections}
+      <div className={clsx('w-full h-full min-h-0 min-w-0', state.activeModule === 'databases' ? 'flex-1 flex overflow-hidden' : 'hidden')}>
+        {state.isSidebarVisible && (
+          <Sidebar
+            connections={state.connections}
+            activeSession={state.activeSession}
+            databasesMap={state.databasesMap}
+            loadingMap={state.loadingMap}
+            expandedServers={state.expandedServers}
+            onToggleExpand={state.handleToggleExpand}
+            onOpenNewModal={() => state.setIsModalOpen(true)}
+            onRefreshConnections={() => {}}
+            onConnectToDatabase={state.handleConnectToDatabase}
+            onDeleteConnection={state.handleDeleteConnection}
+            onExportDatabase={state.handleExportDatabase}
+            onImportSQL={state.handleImportSQL}
+            onSelectQuery={state.handleSelectQueryFromSidebar}
+            activeQueryId={state.activeQueryTabId}
+            queriesTree={state.queriesTree}
+            onSaveQueriesTree={state.handleSaveQueriesTree}
+          />
+        )}
+
+        <div className="flex-1 flex flex-col overflow-hidden relative">
+          <DatabaseHeader
+            activeSession={state.activeSession}
+            activeProject={state.activeProject}
+            dbSubView={state.dbSubView}
+            setDbSubView={state.setDbSubView}
+            connections={state.connections}
+            onSelectConnection={(conn) => state.handleConnectDirect(conn)}
+            databases={currentDatabases}
+            onSelectDatabase={(dbName) => state.handleConnectToDatabase(state.activeSession!.connection, dbName)}
+            onNavigateHome={() => state.setActiveModule('welcome')}
+            activeQueryTitle={activeQueryTab?.title}
+          />
+
+          <div className={clsx('flex-1 min-h-0 overflow-hidden', state.dbSubView === 'playground' ? 'flex flex-col' : 'hidden')}>
+            <QueryPlayground
               activeSession={state.activeSession}
-              databasesMap={state.databasesMap}
-              loadingMap={state.loadingMap}
-              expandedServers={state.expandedServers}
-              onToggleExpand={state.handleToggleExpand}
+              databases={currentDatabases}
               onOpenNewModal={() => state.setIsModalOpen(true)}
-              onRefreshConnections={() => {}}
-              onConnectToDatabase={state.handleConnectToDatabase}
-              onDeleteConnection={state.handleDeleteConnection}
-              onExportDatabase={state.handleExportDatabase}
-              onImportSQL={state.handleImportSQL}
-              onSelectQuery={state.handleSelectQueryFromSidebar}
-              activeQueryId={state.activeQueryTabId}
+              showToast={state.showToast}
+              tabs={state.queryTabs}
+              activeTabId={state.activeQueryTabId}
+              onTabsChange={state.setQueryTabs}
+              onActiveTabChange={state.setActiveQueryTabId}
               queriesTree={state.queriesTree}
               onSaveQueriesTree={state.handleSaveQueriesTree}
             />
-          )}
+          </div>
 
-          {/* Database Workspace Views (Tables vs Monaco SQL Playground vs Schema ERD) */}
-          <div className="flex-1 flex flex-col overflow-hidden relative">
-            <DatabaseHeader
-              activeSession={state.activeSession}
-              dbSubView={state.dbSubView}
-              setDbSubView={state.setDbSubView}
-            />
-
-            {state.dbSubView === 'playground' ? (
-              <QueryPlayground
-                activeSession={state.activeSession}
-                onOpenNewModal={() => state.setIsModalOpen(true)}
-                showToast={state.showToast}
-                tabs={state.queryTabs}
-                activeTabId={state.activeQueryTabId}
-                onTabsChange={state.setQueryTabs}
-                onActiveTabChange={state.setActiveQueryTabId}
-                queriesTree={state.queriesTree}
-                onSaveQueriesTree={state.handleSaveQueriesTree}
-              />
-            ) : state.dbSubView === 'erd' ? (
+          {state.dbSubView === 'erd' && (
+            <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
               <ErdVisualizer
                 activeSession={state.activeSession}
                 onOpenNewModal={() => state.setIsModalOpen(true)}
                 showToast={state.showToast}
               />
-            ) : (
-              <Workspace
-                activeSession={state.activeSession}
-                onOpenNewModal={() => state.setIsModalOpen(true)}
-                showToast={state.showToast}
-              />
-            )}
+            </div>
+          )}
+
+          <div className={clsx('flex-1 min-h-0 overflow-hidden', state.dbSubView === 'tables' ? 'flex flex-col' : 'hidden')}>
+            <Workspace
+              activeSession={state.activeSession}
+              onOpenNewModal={() => state.setIsModalOpen(true)}
+              showToast={state.showToast}
+            />
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 };
