@@ -5,6 +5,7 @@ import { defineOctaTheme } from '../../types/http';
 import { useTheme } from '../../context/ThemeContext';
 import { useEditorLigatures, EDITOR_FONT_FAMILY } from '../../utils/editorSettings';
 import { registerRedisLanguage } from '../../utils/monacoRedis';
+import { attachEditorClickableLinks } from '../../utils/monacoLinks';
 import { RedisWorkbenchProps } from './workbench/types';
 import { useRedisExecution } from './workbench/useRedisExecution';
 import { RedisWorkbenchHeader } from './workbench/RedisWorkbenchHeader';
@@ -59,6 +60,7 @@ export const RedisWorkbench: React.FC<RedisWorkbenchProps> = ({
   const handleEditorOnMount = (editor: any, monaco: any) => {
     editorRef.current = editor;
     monacoRef.current = monaco;
+    attachEditorClickableLinks(editor, monaco);
 
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
       handleRun();
@@ -113,6 +115,7 @@ export const RedisWorkbench: React.FC<RedisWorkbenchProps> = ({
               onMount={handleEditorOnMount}
               onChange={(val) => setCommandText(val || '')}
               options={{
+                links: true,
                 fontSize: 13,
                 fontFamily: EDITOR_FONT_FAMILY,
                 fontLigatures: editorFontLigatures,

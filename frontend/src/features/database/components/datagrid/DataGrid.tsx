@@ -9,6 +9,7 @@ import { DataGridPagination } from './DataGridPagination';
 import { DataGridModals } from './DataGridModals';
 import { useDataGridModals } from './useDataGridModals';
 import { useColumnResize } from './useColumnResize';
+import { useDataGridLiveSync } from './useDataGridLiveSync';
 
 export interface DataGridProps {
   tableName: string;
@@ -32,6 +33,7 @@ export interface DataGridProps {
   onSaveUpdates: (primaryKeyCol: string, updates: RowUpdate[]) => Promise<void>;
   onDeleteRows: (primaryKeyCol: string, rowIds: string[], isAllTable: boolean) => Promise<void>;
   onDropTable?: () => void;
+  onRefresh?: () => void;
 }
 
 export const DataGrid: React.FC<DataGridProps> = ({
@@ -56,6 +58,7 @@ export const DataGrid: React.FC<DataGridProps> = ({
   onSaveUpdates,
   onDeleteRows,
   onDropTable,
+  onRefresh,
 }) => {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [stagedUpdates, setStagedUpdates] = useState<Record<string, Record<string, any>>>({});
@@ -97,14 +100,15 @@ export const DataGrid: React.FC<DataGridProps> = ({
   );
   const allPageSelected = rows.length > 0 && rows.every((r, i) => selectedRowIds.has(String(r[pkCol] ?? i)));
 
+  const { isLiveSync, toggleLiveSync } = useDataGridLiveSync({
+    onRefresh,
+    loading,
+    hasPendingEdits: stagedCount > 0 || Boolean(editingCell),
+  });
+
   const handleToggleSelectAll = () => {
-    if (allPageSelected) {
-      setSelectedRowIds(new Set());
-    } else {
-      const next = new Set(selectedRowIds);
-      rows.forEach((r, i) => next.add(String(r[pkCol] ?? i)));
-      setSelectedRowIds(next);
-    }
+    if (allPageSelected) setSelectedRowIds(new Set());
+    else setSelectedRowIds(new Set([...selectedRowIds, ...rows.map((r, i) => String(r[pkCol] ?? i))]));
   };
 
   const handleSaveStaged = async () => {
@@ -140,6 +144,10 @@ export const DataGrid: React.FC<DataGridProps> = ({
         selectedRowCount={selectedRowIds.size}
         onOpenDeleteModal={() => modals.setShowDeleteModal(true)}
         onDropTable={onDropTable}
+        onRefresh={onRefresh}
+        loading={loading}
+        isLive={isLiveSync}
+        onToggleLive={toggleLiveSync}
       />
 
       <DataGridFilterPopover
@@ -152,18 +160,12 @@ export const DataGrid: React.FC<DataGridProps> = ({
         setInputFilterOp={setInputFilterOp}
         inputFilterVal={inputFilterVal}
         setInputFilterVal={setInputFilterVal}
-        onApply={() => {
-          setIsFilterOpen(false);
-          onApplyFilter?.(inputFilterCol, inputFilterOp, inputFilterVal);
-        }}
-        onClear={() => {
-          setIsFilterOpen(false);
-          onClearFilter?.();
-        }}
+        onApply={() => { setIsFilterOpen(false); onApplyFilter?.(inputFilterCol, inputFilterOp, inputFilterVal); }}
+        onClear={() => { setIsFilterOpen(false); onClearFilter?.(); }}
       />
 
       <div className="flex-1 overflow-auto relative">
-        {loading && (
+        {loading && !dataResult && (
           <div className="absolute inset-0 z-30 bg-white/60 dark:bg-black/60 backdrop-blur-[1px] flex items-center justify-center">
             <Loader2 className="w-5 h-5 animate-spin text-brand-500" />
           </div>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Filter, Save, RotateCcw, Trash2, X } from 'lucide-react';
+import { Filter, Save, RotateCcw, Trash2, X, Play, RefreshCw } from 'lucide-react';
 
 export interface DataGridToolbarProps {
   tableName: string;
@@ -16,6 +16,10 @@ export interface DataGridToolbarProps {
   selectedRowCount: number;
   onOpenDeleteModal: () => void;
   onDropTable?: () => void;
+  onRefresh?: () => void;
+  loading?: boolean;
+  isLive?: boolean;
+  onToggleLive?: () => void;
 }
 
 export const DataGridToolbar: React.FC<DataGridToolbarProps> = ({
@@ -33,10 +37,57 @@ export const DataGridToolbar: React.FC<DataGridToolbarProps> = ({
   selectedRowCount,
   onOpenDeleteModal,
   onDropTable,
+  onRefresh,
+  loading = false,
+  isLive = false,
+  onToggleLive,
 }) => {
   return (
     <div className="px-4 py-2 border-b border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-[#121318] flex items-center justify-between gap-3 flex-shrink-0 select-none text-xs">
       <div className="flex items-center gap-2 flex-wrap">
+        {onRefresh && (
+          <button
+            type="button"
+            onClick={onRefresh}
+            disabled={loading}
+            title={`Re-read table "${tableName}" from database (Ctrl+R / F5)`}
+            className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs shadow-xs cursor-pointer transition-colors disabled:opacity-60"
+          >
+            {loading ? (
+              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Play className="w-3.5 h-3.5 fill-current" />
+            )}
+            <span>Play</span>
+          </button>
+        )}
+
+        {onToggleLive && (
+          <button
+            type="button"
+            onClick={onToggleLive}
+            title={
+              isLive
+                ? 'Live Sync Active: Automatically fetching new writes every 3s. Click to pause.'
+                : 'Live Sync Inactive: Click to enable real-time auto-refresh (every 3s).'
+            }
+            className={
+              'flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-xs font-medium transition-colors cursor-pointer ' +
+              (isLive
+                ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700 shadow-xs'
+                : 'bg-white dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 border-slate-200 dark:border-zinc-700 hover:bg-slate-100 dark:hover:bg-zinc-700')
+            }
+          >
+            <span
+              className={
+                'w-2 h-2 rounded-full ' +
+                (isLive ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400 dark:bg-zinc-500')
+              }
+            />
+            <span>{isLive ? 'Live: ON (3s)' : 'Live: OFF'}</span>
+          </button>
+        )}
+
         <button
           type="button"
           onClick={onToggleFilter}
@@ -58,7 +109,7 @@ export const DataGridToolbar: React.FC<DataGridToolbarProps> = ({
               <button
                 type="button"
                 onClick={onClearFilter}
-                className="hover:text-rose-500 rounded p-0.5"
+                className="hover:text-rose-500 rounded p-0.5 cursor-pointer"
               >
                 <X className="w-3 h-3" />
               </button>
@@ -74,7 +125,7 @@ export const DataGridToolbar: React.FC<DataGridToolbarProps> = ({
             <button
               type="button"
               onClick={onOpenDeleteModal}
-              className="flex items-center gap-1 px-2 py-1 rounded bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/60 hover:bg-rose-100 font-medium"
+              className="flex items-center gap-1 px-2 py-1 rounded bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/60 hover:bg-rose-100 font-medium cursor-pointer"
             >
               <Trash2 className="w-3 h-3" />
               <span>Delete</span>
@@ -93,7 +144,7 @@ export const DataGridToolbar: React.FC<DataGridToolbarProps> = ({
               type="button"
               onClick={onDiscardUpdates}
               title="Discard all pending changes"
-              className="p-1 rounded text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200 hover:bg-slate-200 dark:hover:bg-zinc-800"
+              className="p-1 rounded text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200 hover:bg-slate-200 dark:hover:bg-zinc-800 cursor-pointer"
             >
               <RotateCcw className="w-3.5 h-3.5" />
             </button>
@@ -101,7 +152,7 @@ export const DataGridToolbar: React.FC<DataGridToolbarProps> = ({
               type="button"
               disabled={savingUpdates}
               onClick={onSaveUpdates}
-              className="flex items-center gap-1 px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-medium shadow-sm"
+              className="flex items-center gap-1 px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-medium shadow-sm cursor-pointer"
             >
               <Save className="w-3.5 h-3.5" />
               <span>{savingUpdates ? 'Saving...' : 'Save Changes'}</span>
@@ -114,7 +165,7 @@ export const DataGridToolbar: React.FC<DataGridToolbarProps> = ({
             type="button"
             onClick={onDropTable}
             title={`Drop table "${tableName}"`}
-            className="flex items-center gap-1 px-2 py-1 rounded text-slate-500 dark:text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-slate-200/60 dark:border-zinc-800 hover:border-rose-200 dark:hover:border-rose-900/40 text-xs transition-colors"
+            className="flex items-center gap-1 px-2 py-1 rounded text-slate-500 dark:text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-slate-200/60 dark:border-zinc-800 hover:border-rose-200 dark:hover:border-rose-900/40 text-xs transition-colors cursor-pointer"
           >
             <Trash2 className="w-3.5 h-3.5" />
             <span>Drop Table</span>

@@ -8,6 +8,7 @@ import {
   Info,
   Keyboard,
   Boxes,
+  Code2,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { AppSettings } from '../../types/settings';
@@ -20,6 +21,7 @@ import {
   ShortcutsTab,
   AIEngineTab,
   DockerTab,
+  EditorTab,
   AboutTab,
 } from '../settings/tabs';
 
@@ -31,7 +33,7 @@ interface SettingsModalProps {
   showToast: (message: string, type?: 'success' | 'error' | 'info') => void;
 }
 
-export type SettingsCategory = 'general' | 'shortcuts' | 'terminal' | 'appearance' | 'ai' | 'docker' | 'about';
+export type SettingsCategory = 'general' | 'shortcuts' | 'editor' | 'terminal' | 'appearance' | 'ai' | 'docker' | 'about';
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
   isOpen,
@@ -75,6 +77,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const NAV_ITEMS = [
     { id: 'general', label: 'General', icon: Sliders },
     { id: 'shortcuts', label: 'Keyboard Shortcuts', icon: Keyboard },
+    { id: 'editor', label: 'Code Editor', icon: Code2 },
     { id: 'terminal', label: 'Terminal', icon: TerminalIcon },
     { id: 'appearance', label: 'Appearance & Theme', icon: Palette },
     { id: 'ai', label: 'AI Engine', icon: Sparkles },
@@ -146,6 +149,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               />
             )}
             {activeTab === 'shortcuts' && <ShortcutsTab />}
+            {activeTab === 'editor' && (
+              <EditorTab settings={settings} onUpdateSettings={onUpdateSettings} />
+            )}
             {activeTab === 'terminal' && (
               <TerminalTab
                 settings={settings}

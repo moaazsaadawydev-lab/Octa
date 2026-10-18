@@ -15,19 +15,24 @@ import { saveHttpClientData } from '../../../services/httpApi';
 
 export interface UseCollectionsOptions {
   initialCollections?: HttpFolderItem[];
-  onDataChange?: (collections: HttpFolderItem[]) => void;
+  initialOpenTabs?: HttpRequestItem[];
+  initialActiveTabId?: string | null;
+  onDataChange?: (collections: HttpFolderItem[], openTabs: HttpRequestItem[], activeTabId: string) => void;
   showToast: (message: string, type?: 'success' | 'error' | 'info') => void;
   onPostmanImport?: (result: ReturnType<typeof mapPostmanCollection>, nextCols: HttpFolderItem[]) => void;
 }
 
 export function useCollections({
   initialCollections = [],
+  initialOpenTabs,
+  initialActiveTabId,
   onDataChange,
   showToast,
   onPostmanImport,
 }: UseCollectionsOptions) {
   const [collections, setCollections] = useState<HttpFolderItem[]>(() => normalizeCollections(initialCollections));
   const [openTabs, setOpenTabs] = useState<HttpRequestItem[]>(() => {
+    if (initialOpenTabs !== undefined) return initialOpenTabs;
     try {
       const saved = localStorage.getItem('octa_http_open_tabs');
       if (saved) {
@@ -38,6 +43,8 @@ export function useCollections({
     return [];
   });
   const [activeTabId, setActiveTabId] = useState<string>(() => {
+    if (initialActiveTabId !== undefined && initialActiveTabId !== null) return initialActiveTabId;
+    if (initialOpenTabs && initialOpenTabs.length > 0) return initialOpenTabs[0].id;
     try { return localStorage.getItem('octa_http_active_tab_id') || ''; } catch { return ''; }
   });
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -46,11 +53,13 @@ export function useCollections({
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
-    try {
-      localStorage.setItem('octa_http_open_tabs', JSON.stringify(openTabs));
-      localStorage.setItem('octa_http_active_tab_id', activeTabId);
-    } catch {}
-  }, [openTabs, activeTabId]);
+    if (initialOpenTabs === undefined) {
+      try {
+        localStorage.setItem('octa_http_open_tabs', JSON.stringify(openTabs));
+        localStorage.setItem('octa_http_active_tab_id', activeTabId);
+      } catch {}
+    }
+  }, [openTabs, activeTabId, initialOpenTabs]);
 
   const editInputRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -75,8 +84,8 @@ export function useCollections({
   const saveTreeData = useCallback((nextCols: HttpFolderItem[]) => {
     collectionsRef.current = nextCols;
     setCollections(nextCols);
-    onDataChange?.(nextCols);
-  }, [onDataChange]);
+    onDataChange?.(nextCols, openTabs, activeTabId);
+  }, [onDataChange, openTabs, activeTabId]);
 
   const dnd = useTreeDragDrop({ collections, saveTreeData });
 
@@ -141,9 +150,7 @@ export function useCollections({
       ? [{ ...createDefaultCollection('Default Collection'), items: [newFolder] }]
       : insertItemInTree(collections, parentId || collections[0].id, newFolder);
     saveTreeData(nextTree);
-    setEditingId(newFolder.id);
-    setEditingName(newFolder.name);
-    setMenuOpenId(null);
+    setEditingId(newFolder.id); setEditingName(newFolder.name); setMenuOpenId(null);
     showToast('Created new folder', 'info');
   };
 
@@ -154,9 +161,7 @@ export function useCollections({
       : insertItemInTree(collections, parentId || (collections[0]?.id ?? null), newReq);
     saveTreeData(nextTree);
     handleOpenRequestInTab(newReq);
-    setEditingId(newReq.id);
-    setEditingName(newReq.name);
-    setMenuOpenId(null);
+    setEditingId(newReq.id); setEditingName(newReq.name); setMenuOpenId(null);
     showToast('Created new request', 'info');
   };
 
@@ -187,40 +192,14 @@ export function useCollections({
     if (!file) return;
     try {
       const text = await file.text();
-      const json = JSON.parse(text);
-      const result = mapPostmanCollection(json);
+      const result = mapPostmanCollection(JSON.parse(text));
       const importedCol = result.collection;
-
-      // 1. Optimistic / immediate functional state update to trigger UI re-render and unmount empty state
-      let nextCols: HttpFolderItem[] = [];
-      setCollections((prev) => {
-        nextCols = [...prev.filter((c) => c.id !== importedCol.id), importedCol];
-        collectionsRef.current = nextCols;
-        return nextCols;
-      });
-      if (nextCols.length === 0) {
-        nextCols = [...collectionsRef.current.filter((c) => c.id !== importedCol.id), importedCol];
-        collectionsRef.current = nextCols;
-      }
-
-      // 2. Notify parent workspace synchronizer
-      onDataChange?.(nextCols);
+      const nextCols = [...collections.filter((c) => c.id !== importedCol.id), importedCol];
+      collectionsRef.current = nextCols;
+      setCollections(nextCols);
+      onDataChange?.(nextCols, openTabs, activeTabId);
       onPostmanImport?.(result, nextCols);
-
-      // 3. Immediately persist to localStorage and backend disk storage
-      try {
-        const rawLocal = localStorage.getItem('octa_http_client_data');
-        const existingData = rawLocal ? JSON.parse(rawLocal) : {};
-        const existingCols = Array.isArray(existingData.collections) ? existingData.collections : [];
-        const serialized = JSON.stringify({
-          ...existingData,
-          collections: [...existingCols.filter((c: any) => c.id !== importedCol.id), importedCol],
-        });
-        localStorage.setItem('octa_http_client_data', serialized);
-        saveHttpClientData(serialized).catch(() => {});
-      } catch {}
-
-      showToast(`Imported "${importedCol.name}" (${result.totalRequests} requests, ${result.totalFolders} folders)`, 'success');
+      showToast(`Imported "${importedCol.name}" (${result.totalRequests} requests)`, 'success');
     } catch (err: any) {
       showToast(`Failed to import Postman collection: ${err?.message || err}`, 'error');
     } finally {

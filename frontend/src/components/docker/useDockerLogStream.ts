@@ -3,8 +3,10 @@ import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebglAddon } from '@xterm/addon-webgl';
 import { SearchAddon } from '@xterm/addon-search';
+import { WebLinksAddon } from '@xterm/addon-web-links';
 import { startDockerLogStream, stopDockerLogStream } from '../../services/api';
 import * as runtime from '../../../wailsjs/runtime/runtime';
+import { openExternalUrl } from '../../utils/urlUtils';
 
 interface UseDockerLogStreamOptions {
   containerId: string | undefined;
@@ -96,9 +98,11 @@ export function useDockerLogStream({ containerId, activeTab, isVisible = true }:
 
     const fitAddon = new FitAddon();
     const searchAddon = new SearchAddon();
+    const webLinksAddon = new WebLinksAddon((_event, uri) => openExternalUrl(uri));
 
     term.loadAddon(fitAddon);
     term.loadAddon(searchAddon);
+    term.loadAddon(webLinksAddon);
     term.open(domNode);
 
     try {

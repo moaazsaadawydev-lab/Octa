@@ -395,6 +395,48 @@ export namespace main {
 	        this.rawOutput = source["rawOutput"];
 	    }
 	}
+	export class FileNode {
+	    name: string;
+	    path: string;
+	    fullPath: string;
+	    isDir: boolean;
+	    extension: string;
+	    size: number;
+	    children?: FileNode[];
+	
+	    static createFrom(source: any = {}) {
+	        return new FileNode(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.path = source["path"];
+	        this.fullPath = source["fullPath"];
+	        this.isDir = source["isDir"];
+	        this.extension = source["extension"];
+	        this.size = source["size"];
+	        this.children = this.convertValues(source["children"], FileNode);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	
 	export class FormFieldPayload {
 	    key: string;
@@ -602,6 +644,28 @@ export namespace main {
 	        this.repoName = source["repoName"];
 	    }
 	}
+	export class ProjectUIState {
+	    activeModule?: string;
+	    dbSubView?: string;
+	    activeQueryTabId?: string;
+	    queryTabs?: any[];
+	    isSidebarVisible?: boolean;
+	    http?: any;
+	
+	    static createFrom(source: any = {}) {
+	        return new ProjectUIState(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.activeModule = source["activeModule"];
+	        this.dbSubView = source["dbSubView"];
+	        this.activeQueryTabId = source["activeQueryTabId"];
+	        this.queryTabs = source["queryTabs"];
+	        this.isSidebarVisible = source["isSidebarVisible"];
+	        this.http = source["http"];
+	    }
+	}
 	export class ProjectGitConfig {
 	    repoPath: string;
 	    autoWatch: boolean;
@@ -623,6 +687,8 @@ export namespace main {
 	    environments: any[];
 	    globalVariables: any[];
 	    activeEnvironmentId: string;
+	    openTabs?: any[];
+	    activeTabId?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new ProjectHttpClient(source);
@@ -634,6 +700,8 @@ export namespace main {
 	        this.environments = source["environments"];
 	        this.globalVariables = source["globalVariables"];
 	        this.activeEnvironmentId = source["activeEnvironmentId"];
+	        this.openTabs = source["openTabs"];
+	        this.activeTabId = source["activeTabId"];
 	    }
 	}
 	export class RedisConnectionConfig {
@@ -673,6 +741,7 @@ export namespace main {
 	    redis: RedisConnectionConfig[];
 	    httpClient: ProjectHttpClient;
 	    git: ProjectGitConfig;
+	    state?: ProjectUIState;
 	
 	    static createFrom(source: any = {}) {
 	        return new ProjectWorkspace(source);
@@ -690,6 +759,7 @@ export namespace main {
 	        this.redis = this.convertValues(source["redis"], RedisConnectionConfig);
 	        this.httpClient = this.convertValues(source["httpClient"], ProjectHttpClient);
 	        this.git = this.convertValues(source["git"], ProjectGitConfig);
+	        this.state = this.convertValues(source["state"], ProjectUIState);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -746,6 +816,7 @@ export namespace main {
 		    return a;
 		}
 	}
+	
 	
 	
 	

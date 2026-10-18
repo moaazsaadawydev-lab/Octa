@@ -14,7 +14,8 @@ import {
 } from 'lucide-react';
 import { ActiveSession } from '../../types/connection';
 import { ActiveModule } from './ActivityBar';
-import { ProjectWorkspace } from '../../types/project';
+import { ProjectWorkspace, RecentProject } from '../../types/project';
+import { ProjectDropdownMenu } from './ProjectDropdownMenu';
 
 interface TitleBarProps {
   activeModule: ActiveModule;
@@ -22,12 +23,15 @@ interface TitleBarProps {
   activeProject?: ProjectWorkspace | null;
   projectFilePath?: string | null;
   isSavingProject?: boolean;
+  onNewProject?: () => void;
   onSaveProject?: () => void;
   onSaveProjectAs?: () => void;
   onCloseProject?: () => void;
   onOpenProject?: () => void;
   onOpenSettings?: () => void;
   onOpenCommandPalette?: () => void;
+  recentProjects?: RecentProject[];
+  onSelectRecentProject?: (filePath: string) => void;
 }
 
 export const TitleBar: React.FC<TitleBarProps> = ({
@@ -35,12 +39,15 @@ export const TitleBar: React.FC<TitleBarProps> = ({
   activeSession,
   activeProject,
   projectFilePath,
+  onNewProject,
   onSaveProject,
   onSaveProjectAs,
   onCloseProject,
   onOpenProject,
   onOpenSettings,
   onOpenCommandPalette,
+  recentProjects = [],
+  onSelectRecentProject,
 }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -64,92 +71,39 @@ export const TitleBar: React.FC<TitleBarProps> = ({
     >
       {/* Left: Brand Identity & Active Project */}
       <div className="flex items-center gap-2 flex-shrink-0">
-        {activeProject ? (
-          <div className="relative" ref={menuRef} style={{ '--wails-draggable': 'no-drag' } as any}>
-            <button
-              type="button"
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-              title={projectFilePath || 'Active Project'}
-              className="flex items-center gap-1 px-1.5 py-0.5 rounded-md hover:bg-slate-200/80 dark:hover:bg-zinc-800/80 text-slate-700 dark:text-zinc-200 hover:text-slate-900 dark:hover:text-white transition-all cursor-pointer font-medium text-xs group"
-            >
-              <Folder className="w-3.5 h-3.5 text-brand-500 dark:text-brand-400" />
-              <span className="truncate max-w-[150px]">{activeProject.name}</span>
-              <ChevronDown className="w-3 h-3 text-slate-400 dark:text-zinc-500" />
-            </button>
+        <div className="relative" ref={menuRef} style={{ '--wails-draggable': 'no-drag' } as any}>
+          <button
+            type="button"
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+            title={projectFilePath || activeProject?.name || 'Octa Projects'}
+            className="flex items-center gap-1 px-1.5 py-0.5 rounded-md hover:bg-slate-200/80 dark:hover:bg-zinc-800/80 text-slate-700 dark:text-zinc-200 hover:text-slate-900 dark:hover:text-white transition-all cursor-pointer font-medium text-xs group"
+          >
+            <Folder className="w-3.5 h-3.5 text-brand-500 dark:text-brand-400" />
+            <span className="truncate max-w-[150px]">{activeProject ? activeProject.name : 'Octa'}</span>
+            <ChevronDown className="w-3 h-3 text-slate-400 dark:text-zinc-500" />
+          </button>
 
-            {isMenuOpen && (
-              <div className="absolute left-0 top-full mt-1 w-52 bg-white dark:bg-[#18181b] border border-slate-200 dark:border-zinc-700/80 rounded-xl shadow-2xl py-1 z-50 text-xs text-slate-800 dark:text-zinc-200 animate-in fade-in zoom-in-95 duration-100">
-                <div className="px-3 py-1.5 border-b border-slate-200 dark:border-zinc-800 text-[11px] text-slate-400 dark:text-zinc-500 font-mono truncate">
-                  {projectFilePath || 'In-Memory Project'}
-                </div>
-                {onSaveProject && (
-                  <button
-                    type="button"
-                    onClick={() => { setIsMenuOpen(false); onSaveProject(); }}
-                    className="w-full px-3 py-1.5 flex items-center justify-between hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Save className="w-3.5 h-3.5 text-brand-500 dark:text-brand-400" />
-                      <span>Save Project</span>
-                    </div>
-                    <span className="text-[10px] text-slate-400 dark:text-zinc-500 font-mono">Ctrl+S</span>
-                  </button>
-                )}
-                {onSaveProjectAs && (
-                  <button
-                    type="button"
-                    onClick={() => { setIsMenuOpen(false); onSaveProjectAs(); }}
-                    className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
-                  >
-                    <FileCode className="w-3.5 h-3.5 text-slate-500 dark:text-zinc-400" />
-                    <span>Save Project As...</span>
-                  </button>
-                )}
-                {onOpenProject && (
-                  <button
-                    type="button"
-                    onClick={() => { setIsMenuOpen(false); onOpenProject(); }}
-                    className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
-                  >
-                    <FolderOpen className="w-3.5 h-3.5 text-slate-500 dark:text-zinc-400" />
-                    <span>Open Another Project...</span>
-                  </button>
-                )}
-                {onOpenSettings && (
-                  <button
-                    type="button"
-                    onClick={() => { setIsMenuOpen(false); onOpenSettings(); }}
-                    className="w-full px-3 py-1.5 flex items-center justify-between hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Settings className="w-3.5 h-3.5 text-slate-500 dark:text-zinc-400" />
-                      <span>Preferences</span>
-                    </div>
-                    <span className="text-[10px] text-slate-400 dark:text-zinc-500 font-mono">Ctrl+,</span>
-                  </button>
-                )}
-                <div className="h-px bg-slate-200 dark:bg-zinc-800 my-1" />
-                {onCloseProject && (
-                  <button
-                    type="button"
-                    onClick={() => { setIsMenuOpen(false); onCloseProject(); }}
-                    className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 transition-colors cursor-pointer"
-                  >
-                    <LogOut className="w-3.5 h-3.5 text-rose-500 dark:text-rose-400" />
-                    <span>Close Project</span>
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-        ) : (
-          <span className="text-[11px] text-zinc-400 font-medium">Welcome</span>
-        )}
+          <ProjectDropdownMenu
+            isOpen={isMenuOpen}
+            onClose={() => setIsMenuOpen(false)}
+            activeProject={activeProject}
+            projectFilePath={projectFilePath}
+            onNewProject={onNewProject}
+            onOpenProject={onOpenProject}
+            onSaveProject={onSaveProject}
+            onSaveProjectAs={onSaveProjectAs}
+            onCloseProject={onCloseProject}
+            onOpenSettings={onOpenSettings}
+            recentProjects={recentProjects}
+            onSelectRecentProject={onSelectRecentProject}
+          />
+        </div>
 
         {activeProject && (
           <>
             <span className="text-zinc-600">/</span>
             <span className="text-[11px] text-zinc-400 flex items-center gap-1">
+              {activeModule === 'editor' && <><FileCode className="w-3 h-3 text-zinc-500" /><span>Code Editor</span></>}
               {activeModule === 'databases' && <><Database className="w-3 h-3 text-zinc-500" /><span>Databases</span></>}
               {activeModule === 'redis' && <><Layers className="w-3 h-3 text-zinc-500" /><span>Redis</span></>}
               {activeModule === 'http' && <><Globe className="w-3 h-3 text-zinc-500" /><span>HTTP Client</span></>}

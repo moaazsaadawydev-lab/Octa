@@ -1,8 +1,8 @@
 import React from 'react';
-import { Database, Globe, Layers, Settings, Terminal, Boxes, GitBranch } from 'lucide-react';
+import { Database, Globe, Layers, Settings, Terminal, Boxes, GitBranch, Code2 } from 'lucide-react';
 import appIcon from '../../assets/appicon.png';
 
-export type ActiveModule = 'welcome' | 'databases' | 'redis' | 'http' | 'git' | 'docker' | 'terminal' | 'settings';
+export type ActiveModule = 'editor' | 'welcome' | 'databases' | 'redis' | 'http' | 'git' | 'docker' | 'terminal' | 'settings';
 
 interface ActivityBarProps {
   activeModule: ActiveModule;
@@ -31,11 +31,27 @@ export const ActivityBar: React.FC<ActivityBarProps> = ({
 
       {/* Primary Workspace Nav Items */}
       <div className="flex flex-col gap-2 w-full items-center">
-        {/* 1. Databases Workspace */}
+        {/* 1. Code Editor & Reviewer Workspace */}
+        <button
+          type="button"
+          onClick={() => setActiveModule('editor')}
+          title="Code Editor & Reviewer (Ctrl+1)"
+          className={`activity-bar-btn relative w-10 h-10 rounded-lg flex items-center justify-center transition-all ${activeModule === 'editor'
+              ? 'bg-slate-200 dark:bg-zinc-800 text-brand-600 dark:text-brand-400 font-medium shadow-sm cursor-pointer'
+              : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-200/60 dark:hover:bg-zinc-800/60 cursor-pointer'
+            }`}
+        >
+          {activeModule === 'editor' && (
+            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-brand-500 dark:bg-brand-400 rounded-r shadow-[0_0_8px_rgba(56,189,248,0.8)]" />
+          )}
+          <Code2 className="w-5 h-5" />
+        </button>
+
+        {/* 2. Databases Workspace */}
         <button
           type="button"
           onClick={() => setActiveModule('databases')}
-          title="Databases (Tables, SQL Playground, ERD) (Ctrl+1)"
+          title="Databases (Tables, SQL Playground, ERD) (Ctrl+2)"
           className={`activity-bar-btn relative w-10 h-10 rounded-lg flex items-center justify-center transition-all ${activeModule === 'databases'
               ? 'bg-slate-200 dark:bg-zinc-800 text-brand-600 dark:text-brand-400 font-medium shadow-sm cursor-pointer'
               : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-200/60 dark:hover:bg-zinc-800/60 cursor-pointer'
@@ -47,11 +63,11 @@ export const ActivityBar: React.FC<ActivityBarProps> = ({
           <Database className="w-5 h-5" />
         </button>
 
-        {/* 2. Redis Cache Explorer Workspace */}
+        {/* 3. Redis Cache Explorer Workspace */}
         <button
           type="button"
           onClick={() => setActiveModule('redis')}
-          title="Redis / Cache Explorer (Ctrl+2)"
+          title="Redis / Cache Explorer (Ctrl+3)"
           className={`activity-bar-btn relative w-10 h-10 rounded-lg flex items-center justify-center transition-all ${activeModule === 'redis'
               ? 'bg-slate-200 dark:bg-zinc-800 text-brand-600 dark:text-brand-400 font-medium shadow-sm cursor-pointer'
               : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-200/60 dark:hover:bg-zinc-800/60 cursor-pointer'
@@ -63,11 +79,11 @@ export const ActivityBar: React.FC<ActivityBarProps> = ({
           <Layers className="w-5 h-5" />
         </button>
 
-        {/* 3. HTTP / API Client Workspace */}
+        {/* 4. HTTP / API Client Workspace */}
         <button
           type="button"
           onClick={() => setActiveModule('http')}
-          title="HTTP / API Client (Ctrl+3)"
+          title="HTTP / API Client (Ctrl+4)"
           className={`activity-bar-btn relative w-10 h-10 rounded-lg flex items-center justify-center transition-all ${activeModule === 'http'
               ? 'bg-slate-200 dark:bg-zinc-800 text-brand-600 dark:text-brand-400 font-medium shadow-sm cursor-pointer'
               : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-200/60 dark:hover:bg-zinc-800/60 cursor-pointer'
@@ -79,11 +95,11 @@ export const ActivityBar: React.FC<ActivityBarProps> = ({
           <Globe className="w-5 h-5" />
         </button>
 
-        {/* 4. Source Control / Git Workspace */}
+        {/* 5. Source Control / Git Workspace */}
         <button
           type="button"
           onClick={() => setActiveModule('git')}
-          title="Source Control / Git (Changes, Diff, Commit, Push) (Ctrl+4)"
+          title="Source Control / Git (Changes, Diff, Commit, Push) (Ctrl+5)"
           className={`activity-bar-btn relative w-10 h-10 rounded-lg flex items-center justify-center transition-all ${activeModule === 'git'
               ? 'bg-slate-200 dark:bg-zinc-800 text-brand-600 dark:text-brand-400 font-medium shadow-sm cursor-pointer'
               : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-200/60 dark:hover:bg-zinc-800/60 cursor-pointer'
@@ -95,11 +111,11 @@ export const ActivityBar: React.FC<ActivityBarProps> = ({
           <GitBranch className="w-5 h-5" />
         </button>
 
-        {/* 5. Docker Manager Workspace */}
+        {/* 6. Docker Manager Workspace */}
         <button
           type="button"
           onClick={() => setActiveModule('docker')}
-          title="Docker Manager (Containers, Compose, Live Logs) (Ctrl+5)"
+          title="Docker Manager (Containers, Compose, Live Logs) (Ctrl+6)"
           className={`activity-bar-btn relative w-10 h-10 rounded-lg flex items-center justify-center transition-all ${activeModule === 'docker'
               ? 'bg-slate-200 dark:bg-zinc-800 text-brand-600 dark:text-brand-400 font-medium shadow-sm cursor-pointer'
               : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-200/60 dark:hover:bg-zinc-800/60 cursor-pointer'
@@ -111,11 +127,11 @@ export const ActivityBar: React.FC<ActivityBarProps> = ({
           <Boxes className="w-5 h-5" />
         </button>
 
-        {/* 6. Terminal Workspace */}
+        {/* 7. Terminal Workspace */}
         <button
           type="button"
           onClick={() => setActiveModule('terminal')}
-          title="Terminal / PowerShell (Ctrl+6)"
+          title="Terminal / PowerShell (Ctrl+7)"
           className={`activity-bar-btn relative w-10 h-10 rounded-lg flex items-center justify-center transition-all ${activeModule === 'terminal'
               ? 'bg-slate-200 dark:bg-zinc-800 text-brand-600 dark:text-brand-400 font-medium shadow-sm cursor-pointer'
               : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-200/60 dark:hover:bg-zinc-800/60 cursor-pointer'

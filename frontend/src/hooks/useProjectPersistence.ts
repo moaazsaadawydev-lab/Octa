@@ -4,15 +4,13 @@ import { ProjectWorkspace, ProjectHttpClient } from '../types/project';
 import { RedisConnectionConfig } from '../types/redis';
 import { AppSettings } from '../types/settings';
 import { ActiveModule } from '../components/layout/ActivityBar';
-import {
-  readProjectFile,
-  saveProjectFile,
-  closeProjectConnections,
-  wipeLegacyStorage,
-} from '../services/api';
-import { loadHttpClientData, saveHttpClientData } from '../services/httpApi';
+import { saveProjectFile, closeProjectConnections } from '../services/api';
+import { saveHttpClientData } from '../services/httpApi';
 import { useRecentProjects } from './useRecentProjects';
 import { useProjectFileOps } from './useProjectFileOps';
+import { useStartupProject } from './useStartupProject';
+
+const DEFAULT_PLAYGROUND_QUERY = `-- Octa SQL Playground\n-- Press Ctrl + Enter to run selected text or full query\n\nSELECT \n  'Octa' AS application,\n  'Database Management & SQL Workspace' AS milestone,\n  NOW() AS executed_at;\n`;
 
 interface UseProjectPersistenceOptions {
   settings: AppSettings;
@@ -27,7 +25,16 @@ interface UseProjectPersistenceOptions {
   httpData: ProjectHttpClient;
   setHttpData: React.Dispatch<React.SetStateAction<ProjectHttpClient>>;
   setActiveSession: React.Dispatch<React.SetStateAction<ActiveSession | null>>;
+  activeModule: ActiveModule;
   setActiveModule: (mod: ActiveModule) => void;
+  dbSubView: 'tables' | 'playground' | 'erd';
+  setDbSubView: (view: 'tables' | 'playground' | 'erd') => void;
+  isSidebarVisible: boolean;
+  setIsSidebarVisible: React.Dispatch<React.SetStateAction<boolean>>;
+  queryTabs: any[];
+  setQueryTabs: React.Dispatch<React.SetStateAction<any[]>>;
+  activeQueryTabId: string | null;
+  setActiveQueryTabId: (id: string | null) => void;
 }
 
 export function useProjectPersistence({
@@ -43,7 +50,16 @@ export function useProjectPersistence({
   httpData,
   setHttpData,
   setActiveSession,
+  activeModule,
   setActiveModule,
+  dbSubView,
+  setDbSubView,
+  isSidebarVisible,
+  setIsSidebarVisible,
+  queryTabs,
+  setQueryTabs,
+  activeQueryTabId,
+  setActiveQueryTabId,
 }: UseProjectPersistenceOptions) {
   const [activeProject, setActiveProject] = useState<ProjectWorkspace | null>(null);
   const [projectFilePath, setProjectFilePath] = useState<string | null>(null);
@@ -57,6 +73,36 @@ export function useProjectPersistence({
     handleClearRecents,
   } = useRecentProjects(showToast);
 
+  const buildCurrentProjectWorkspace = useCallback((): ProjectWorkspace | null => {
+    if (!activeProject) return null;
+    return {
+      ...activeProject,
+      updatedAt: new Date().toISOString(),
+      databases: connections,
+      sqlQueries: queriesTree,
+      redis: redisConnections,
+      httpClient: httpData,
+      state: {
+        activeModule,
+        dbSubView,
+        activeQueryTabId,
+        queryTabs: (queryTabs || []).map((t) => ({
+          id: t.id,
+          title: t.title,
+          query: t.query,
+          savedQueryId: t.savedQueryId,
+          activeDatabaseName: t.activeDatabaseName,
+          activeConnectionName: t.activeConnectionName,
+        })),
+        isSidebarVisible,
+        http: {
+          openTabs: httpData.openTabs || [],
+          activeTabId: httpData.activeTabId || null,
+        },
+      },
+    };
+  }, [activeProject, connections, queriesTree, redisConnections, httpData, activeModule, dbSubView, activeQueryTabId, queryTabs, isSidebarVisible]);
+
   const loadProjectIntoWorkspace = useCallback(
     (proj: ProjectWorkspace, filePath: string) => {
       setActiveProject(proj);
@@ -64,20 +110,42 @@ export function useProjectPersistence({
       setConnections(proj.databases || []);
       setQueriesTree(proj.sqlQueries || []);
       setRedisConnections(proj.redis || []);
-      setHttpData(
-        proj.httpClient || {
-          collections: [],
-          environments: [],
-          globalVariables: [],
-          activeEnvironmentId: null,
-        }
-      );
+
+      const loadedOpenTabs = proj.httpClient?.openTabs || proj.state?.http?.openTabs || [];
+      const loadedActiveTabId = proj.httpClient?.activeTabId || proj.state?.http?.activeTabId || (loadedOpenTabs[0]?.id ?? null);
+      setHttpData({
+        collections: proj.httpClient?.collections || [],
+        environments: proj.httpClient?.environments || [],
+        globalVariables: proj.httpClient?.globalVariables || [],
+        activeEnvironmentId: proj.httpClient?.activeEnvironmentId ?? null,
+        openTabs: loadedOpenTabs,
+        activeTabId: loadedActiveTabId,
+      });
+
+      if (proj.state?.queryTabs && proj.state.queryTabs.length > 0) {
+        setQueryTabs(proj.state.queryTabs);
+        setActiveQueryTabId(proj.state.activeQueryTabId || proj.state.queryTabs[0].id);
+      } else {
+        const defaultTabId = 'tab-' + Date.now();
+        setQueryTabs([{ id: defaultTabId, title: 'Query 1.sql', query: DEFAULT_PLAYGROUND_QUERY, isDirty: false, results: null }]);
+        setActiveQueryTabId(defaultTabId);
+      }
+
       setActiveSession(null);
-      setActiveModule('databases');
+      if (proj.state?.activeModule) setActiveModule(proj.state.activeModule as ActiveModule);
+      else setActiveModule('databases');
+      if (proj.state?.dbSubView) setDbSubView(proj.state.dbSubView);
+      if (proj.state?.isSidebarVisible !== undefined) setIsSidebarVisible(proj.state.isSidebarVisible);
+
+      try {
+        localStorage.removeItem('octa_http_open_tabs');
+        localStorage.removeItem('octa_http_active_tab_id');
+      } catch {}
+
       recordRecentProject(proj.name, filePath);
       updateSettings({ lastOpenedProjectFilePath: filePath });
     },
-    [recordRecentProject, updateSettings, setConnections, setQueriesTree, setRedisConnections, setHttpData, setActiveSession, setActiveModule]
+    [recordRecentProject, updateSettings, setConnections, setQueriesTree, setRedisConnections, setHttpData, setQueryTabs, setActiveQueryTabId, setActiveSession, setActiveModule, setDbSubView, setIsSidebarVisible]
   );
 
   const fileOps = useProjectFileOps({
@@ -92,105 +160,52 @@ export function useProjectPersistence({
     queriesTree,
     redisConnections,
     httpData,
+    buildCurrentWorkspace: buildCurrentProjectWorkspace,
   });
 
-  const restoreStandaloneHttpData = useCallback(async () => {
-    try {
-      const raw = await loadHttpClientData();
-      if (raw?.trim()) {
-        const parsed = JSON.parse(raw);
-        if (parsed && (parsed.collections?.length || parsed.environments?.length)) {
-          setHttpData(parsed);
-          return;
-        }
-      }
-    } catch {}
-    try {
-      const local = localStorage.getItem('octa_http_client_data');
-      if (local) {
-        const parsed = JSON.parse(local);
-        if (parsed && (parsed.collections?.length || parsed.environments?.length)) setHttpData(parsed);
-      }
-    } catch {}
-  }, [setHttpData]);
-
-  useEffect(() => {
-    const hasResetLegacy = localStorage.getItem('octa_legacy_wiped_v3');
-    if (!hasResetLegacy) {
-      wipeLegacyStorage();
-      localStorage.removeItem('octa_connections');
-      localStorage.removeItem('octa_sql_queries_tree');
-      localStorage.removeItem('octa_redis_connections');
-      localStorage.removeItem('octa_http_client_data');
-      localStorage.removeItem('octa_http_environments');
-      localStorage.setItem('octa_legacy_wiped_v3', 'true');
-    }
-
-    if (settings.onStartup === 'last_project' && settings.lastOpenedProjectFilePath) {
-      (async () => {
-        setIsOpeningProject(true);
-        try {
-          const res = await readProjectFile(settings.lastOpenedProjectFilePath!);
-          if (res.project && res.filePath) {
-            loadProjectIntoWorkspace(res.project, res.filePath);
-            showToast(`Restored "${res.project.name}"`, 'info');
-          } else {
-            restoreStandaloneHttpData();
-            showToast('Previous project not found, opened Welcome Screen', 'info');
-          }
-        } catch {
-          restoreStandaloneHttpData();
-          showToast('Previous project not found, opened Welcome Screen', 'info');
-        } finally {
-          setIsOpeningProject(false);
-        }
-      })();
-    } else {
-      restoreStandaloneHttpData();
-    }
-  }, []);
+  const { restoreStandaloneHttpData } = useStartupProject({
+    settings,
+    loadProjectIntoWorkspace,
+    setHttpData,
+    setIsOpeningProject,
+    showToast,
+  });
 
   const handleCloseProject = async () => {
     try {
+      if (activeProject && projectFilePath) {
+        const current = buildCurrentProjectWorkspace();
+        if (current) await saveProjectFile(projectFilePath, current);
+      }
       await closeProjectConnections();
     } catch (e) {
       console.warn('Error closing connections:', e);
     }
-    setActiveProject(null);
-    setProjectFilePath(null);
-    setActiveSession(null);
-    setConnections([]);
-    setQueriesTree([]);
-    setRedisConnections([]);
-    setActiveModule('welcome');
+    setActiveProject(null); setProjectFilePath(null); setActiveSession(null);
+    setConnections([]); setQueriesTree([]); setRedisConnections([]);
+    setHttpData({ collections: [], environments: [], globalVariables: [], activeEnvironmentId: null, openTabs: [], activeTabId: null });
+    setQueryTabs([{ id: 'tab-1', title: 'Query 1.sql', query: DEFAULT_PLAYGROUND_QUERY, isDirty: false, results: null }]);
+    setActiveQueryTabId('tab-1'); setActiveModule('welcome');
+    try { localStorage.removeItem('octa_http_open_tabs'); localStorage.removeItem('octa_http_active_tab_id'); } catch {}
     restoreStandaloneHttpData();
     showToast('Project closed', 'info');
   };
 
   useEffect(() => {
     if (!activeProject || !projectFilePath) return;
-
     const timer = setTimeout(async () => {
       setIsSavingProject(true);
       try {
-        const updatedProj: ProjectWorkspace = {
-          ...activeProject,
-          updatedAt: new Date().toISOString(),
-          databases: connections,
-          sqlQueries: queriesTree,
-          redis: redisConnections,
-          httpClient: httpData,
-        };
-        await saveProjectFile(projectFilePath, updatedProj);
+        const updatedProj = buildCurrentProjectWorkspace();
+        if (updatedProj) await saveProjectFile(projectFilePath, updatedProj);
       } catch (err) {
         console.warn('Auto-save error:', err);
       } finally {
         setIsSavingProject(false);
       }
     }, 600);
-
     return () => clearTimeout(timer);
-  }, [activeProject, projectFilePath, connections, queriesTree, redisConnections, httpData]);
+  }, [buildCurrentProjectWorkspace, activeProject, projectFilePath]);
 
   useEffect(() => {
     if (activeProject && projectFilePath) return;

@@ -7,6 +7,20 @@ export interface ProjectHttpClient {
   environments: Environment[];
   globalVariables: EnvironmentVariable[];
   activeEnvironmentId: string | null;
+  openTabs?: any[];
+  activeTabId?: string | null;
+}
+
+export interface ProjectUIState {
+  activeModule?: string;
+  dbSubView?: 'tables' | 'playground' | 'erd';
+  activeQueryTabId?: string | null;
+  queryTabs?: any[];
+  isSidebarVisible?: boolean;
+  http?: {
+    openTabs?: any[];
+    activeTabId?: string | null;
+  };
 }
 
 export interface ProjectGitConfig {
@@ -26,6 +40,7 @@ export interface ProjectWorkspace {
   redis: RedisConnectionConfig[];
   httpClient: ProjectHttpClient;
   git?: ProjectGitConfig;
+  state?: ProjectUIState;
 }
 
 

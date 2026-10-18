@@ -53,10 +53,13 @@ export function App() {
         activeProject={state.activeProject}
         projectFilePath={state.projectFilePath}
         isSavingProject={state.isSavingProject}
+        onNewProject={state.handleCreateProject}
         onOpenProject={state.handleOpenProject}
         onSaveProject={state.handleSaveProject}
         onSaveProjectAs={state.handleSaveProjectAs}
         onCloseProject={state.handleCloseProject}
+        recentProjects={state.recentProjects}
+        onSelectRecentProject={state.handleSelectRecent}
         onOpenSettings={() => state.setIsSettingsModalOpen(true)}
         onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
       />

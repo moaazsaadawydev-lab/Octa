@@ -11,6 +11,7 @@ import { HttpClientWorkspace } from '../http/HttpClientWorkspace';
 import { TerminalWorkspace } from '../terminal';
 import { DockerWorkspace } from '../docker';
 import { GitWorkspace } from '../git/GitWorkspace';
+import { EditorWorkspace } from '../../features/editor/EditorWorkspace';
 import { SettingsView } from './SettingsView';
 import { AppSettings } from '../../types/settings';
 import { getProjectRootDir } from '../../types/project';
@@ -48,6 +49,16 @@ export const WorkspaceViewRenderer: React.FC<WorkspaceViewRendererProps> = ({
 
   return (
     <div className="flex-1 flex overflow-hidden relative">
+      {/* 0. Code Editor & Reviewer Workspace */}
+      <div className={clsx('w-full h-full min-h-0 min-w-0', state.activeModule === 'editor' ? 'flex flex-col' : 'hidden')}>
+        <EditorWorkspace
+          initialRootPath={getProjectRootDir(state.projectFilePath) || undefined}
+          isVisible={state.activeModule === 'editor'}
+          settings={settings}
+          showToast={state.showToast}
+        />
+      </div>
+
       {/* 1. Terminal Workspace */}
       <div className={clsx('w-full h-full min-h-0 min-w-0', state.activeModule === 'terminal' ? 'flex flex-col' : 'hidden')}>
         <TerminalWorkspace
@@ -72,6 +83,7 @@ export const WorkspaceViewRenderer: React.FC<WorkspaceViewRendererProps> = ({
       {/* 3. HTTP Client Workspace */}
       <div className={clsx('w-full h-full min-h-0 min-w-0', state.activeModule === 'http' ? 'flex flex-col' : 'hidden')}>
         <HttpClientWorkspace
+          key={state.activeProject?.id || 'standalone'}
           data={state.httpData}
           onUpdateData={state.setHttpData}
           showToast={state.showToast}

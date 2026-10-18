@@ -45,12 +45,16 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
 
   const cols = useCollections({
     initialCollections: propData?.collections || [],
-    onDataChange: (nextCols) => {
+    initialOpenTabs: propData?.openTabs || [],
+    initialActiveTabId: propData?.activeTabId ?? '',
+    onDataChange: (nextCols, nextOpenTabs, nextActiveTabId) => {
       recordAndEmit({
         collections: nextCols,
         environments: envs.environments,
         globalVariables: envs.globalVariables,
         activeEnvironmentId: envs.activeEnvironmentId,
+        openTabs: nextOpenTabs,
+        activeTabId: nextActiveTabId,
       });
     },
     showToast,
@@ -66,7 +70,7 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
           envs.setActiveEnvironmentId(newEnv.id);
         }
       }
-      recordAndEmit({ collections: nextCols, environments: nextEnvs, globalVariables: envs.globalVariables, activeEnvironmentId: nextActiveEnvId });
+      recordAndEmit({ collections: nextCols, environments: nextEnvs, globalVariables: envs.globalVariables, activeEnvironmentId: nextActiveEnvId, openTabs: cols.openTabs, activeTabId: cols.activeTabId });
     },
   });
 
@@ -79,6 +83,10 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
     envs.setEnvironments(propData.environments || []);
     envs.setGlobalVariables(propData.globalVariables || []);
     envs.setActiveEnvironmentId(propData.activeEnvironmentId ?? null);
+    if (propData.openTabs !== undefined) {
+      cols.setOpenTabs(propData.openTabs || []);
+      cols.setActiveTabId(propData.activeTabId || (propData.openTabs?.[0]?.id ?? ''));
+    }
   }, [propData]);
 
   latestPayloadRef.current = {
@@ -86,6 +94,8 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
     environments: envs.environments,
     globalVariables: envs.globalVariables,
     activeEnvironmentId: envs.activeEnvironmentId,
+    openTabs: cols.openTabs,
+    activeTabId: cols.activeTabId,
   };
 
   useEffect(() => {
@@ -97,7 +107,7 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
       recordAndEmit(payload);
     }, 150);
     return () => clearTimeout(timer);
-  }, [cols.collections, envs.environments, envs.globalVariables, envs.activeEnvironmentId, onUpdateData]);
+  }, [cols.collections, cols.openTabs, cols.activeTabId, envs.environments, envs.globalVariables, envs.activeEnvironmentId, onUpdateData]);
 
   useEffect(() => {
     return () => {
@@ -111,19 +121,13 @@ export const HttpClientWorkspace: React.FC<HttpClientWorkspaceProps> = ({
   }, [onUpdateData]);
 
   const http = useHttpClient({
-    activeRequest: cols.activeRequest,
-    activeEnvironment: envs.activeEnvironment,
-    globalVariables: envs.globalVariables,
-    updateActiveRequest: cols.updateActiveRequest,
-    showToast,
+    activeRequest: cols.activeRequest, activeEnvironment: envs.activeEnvironment,
+    globalVariables: envs.globalVariables, updateActiveRequest: cols.updateActiveRequest, showToast,
   });
 
   useHttpShortcuts({
-    activeTabId: cols.activeTabId,
-    onSendRequest: http.handleSendRequest,
-    onNewTab: cols.handleNewTab,
-    onCloseTab: cols.handleCloseTab,
-    isVisible,
+    activeTabId: cols.activeTabId, onSendRequest: http.handleSendRequest,
+    onNewTab: cols.handleNewTab, onCloseTab: cols.handleCloseTab, isVisible,
   });
 
   const computedAutoHeaders = getComputedAutoHeaders(cols.activeRequest, http.cookieJar);

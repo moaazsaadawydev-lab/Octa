@@ -24,6 +24,8 @@ import { NAVIGATION_SHORTCUTS } from '../../constants/shortcuts';
 export const SettingsView: React.FC<SettingsViewProps> = ({ showToast }) => {
   const handleClearCache = () => {
     localStorage.removeItem('octa_query_history');
+    localStorage.removeItem('octa_editor_root_path');
+    localStorage.removeItem('octa_editor_sidebar_width');
     showToast('Application cache and query history cleared', 'success');
   };
 

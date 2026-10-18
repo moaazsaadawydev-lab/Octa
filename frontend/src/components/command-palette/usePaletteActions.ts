@@ -16,6 +16,7 @@ import {
   LayoutGrid,
   FolderPlus,
   PanelLeft,
+  Code2,
 } from 'lucide-react';
 import { PaletteAction } from './types';
 import { useWorkspaceState } from '../../hooks/useWorkspaceState';
@@ -54,12 +55,13 @@ export function usePaletteActions({ state, onClose }: UsePaletteActionsProps): P
     });
 
     const actions: PaletteAction[] = [
-      act('ws-db', 'Switch to Databases', 'Tables, SQL Playground, ERD', 'Workspaces', Database, 'Ctrl+1', ['db', 'sql'], () => state.setActiveModule('databases')),
-      act('ws-redis', 'Switch to Redis Explorer', 'Key-value explorer, TTL, Workbench', 'Workspaces', Layers, 'Ctrl+2', ['cache', 'keys'], () => state.setActiveModule('redis')),
-      act('ws-http', 'Switch to HTTP Client', 'Postman-like request builder', 'Workspaces', Globe, 'Ctrl+3', ['api', 'curl', 'rest'], () => state.setActiveModule('http')),
-      act('ws-git', 'Switch to Git Workspace', 'Branches, commits, diffs', 'Workspaces', GitBranch, 'Ctrl+4', ['vcs', 'commit'], () => state.setActiveModule('git')),
-      act('ws-docker', 'Switch to Docker', 'Containers, logs, stats', 'Workspaces', Boxes, 'Ctrl+5', ['container', 'image'], () => state.setActiveModule('docker')),
-      act('ws-term', 'Switch to Terminal', 'Multi-shell (PowerShell, WSL)', 'Workspaces', Terminal, 'Ctrl+6', ['shell', 'cmd'], () => state.setActiveModule('terminal')),
+      act('ws-editor', 'Switch to Code Editor', 'Lightweight reviewer & code editor', 'Workspaces', Code2, 'Ctrl+1', ['code', 'editor', 'review'], () => state.setActiveModule('editor')),
+      act('ws-db', 'Switch to Databases', 'Tables, SQL Playground, ERD', 'Workspaces', Database, 'Ctrl+2', ['db', 'sql'], () => state.setActiveModule('databases')),
+      act('ws-redis', 'Switch to Redis Explorer', 'Key-value explorer, TTL, Workbench', 'Workspaces', Layers, 'Ctrl+3', ['cache', 'keys'], () => state.setActiveModule('redis')),
+      act('ws-http', 'Switch to HTTP Client', 'Postman-like request builder', 'Workspaces', Globe, 'Ctrl+4', ['api', 'curl', 'rest'], () => state.setActiveModule('http')),
+      act('ws-git', 'Switch to Git Workspace', 'Branches, commits, diffs', 'Workspaces', GitBranch, 'Ctrl+5', ['vcs', 'commit'], () => state.setActiveModule('git')),
+      act('ws-docker', 'Switch to Docker', 'Containers, logs, stats', 'Workspaces', Boxes, 'Ctrl+6', ['container', 'image'], () => state.setActiveModule('docker')),
+      act('ws-term', 'Switch to Terminal', 'Multi-shell (PowerShell, WSL)', 'Workspaces', Terminal, 'Ctrl+7', ['shell', 'cmd'], () => state.setActiveModule('terminal')),
 
       act('db-new', 'New Database Connection', 'Add PostgreSQL, MySQL, SQLite', 'Databases', Plus, undefined, ['connect', 'add'], () => {
         state.setActiveModule('databases');

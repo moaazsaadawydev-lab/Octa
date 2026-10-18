@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
+import { WebLinksAddon } from '@xterm/addon-web-links';
 import { WebglAddon } from '@xterm/addon-webgl';
 import '@xterm/xterm/css/xterm.css';
+import { openExternalUrl } from '../../utils/urlUtils';
 
 import { DockerContainer } from '../../types/docker';
 import {
@@ -113,8 +115,9 @@ export const DockerExecTerminal: React.FC<DockerExecTerminalProps> = ({
     });
 
     const fitAddon = new FitAddon();
+    const webLinksAddon = new WebLinksAddon((_event, uri) => openExternalUrl(uri));
     term.loadAddon(fitAddon);
-
+    term.loadAddon(webLinksAddon);
     term.open(domNode);
 
     // Hardware Acceleration via WebGL

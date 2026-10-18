@@ -6,8 +6,11 @@ import './style.css'
 import App from './App'
 import { ThemeProvider } from './context/ThemeContext'
 
+import { initGlobalMonacoLinks } from './utils/monacoLinks'
+
 // Ensure all Monaco instances use locally bundled monaco-editor package rather than fetching from CDN
 loader.config({ monaco })
+initGlobalMonacoLinks(monaco)
 
 
 const container = document.getElementById('root')

@@ -20,12 +20,23 @@ interface ProjectFileOpsContext {
   queriesTree: (SqlQueryFolder | SqlQueryItem)[];
   redisConnections: RedisConnectionConfig[];
   httpData: ProjectHttpClient;
+  buildCurrentWorkspace?: () => ProjectWorkspace | null;
 }
 
 export function useProjectFileOps(ctx: ProjectFileOpsContext) {
+  const flushBeforeSwitch = async () => {
+    if (ctx.activeProject && ctx.projectFilePath && ctx.buildCurrentWorkspace) {
+      try {
+        const current = ctx.buildCurrentWorkspace();
+        if (current) await saveProjectFile(ctx.projectFilePath, current);
+      } catch {}
+    }
+  };
+
   const handleCreateProject = async () => {
     ctx.setIsOpeningProject(true);
     try {
+      await flushBeforeSwitch();
       const res = await createProjectFileDialog('my-workspace');
       if (res.cancelled) return;
       if (res.error) {
@@ -46,6 +57,7 @@ export function useProjectFileOps(ctx: ProjectFileOpsContext) {
   const handleOpenProject = async () => {
     ctx.setIsOpeningProject(true);
     try {
+      await flushBeforeSwitch();
       const res = await openProjectFileDialog();
       if (res.cancelled) return;
       if (res.error) {
@@ -66,6 +78,7 @@ export function useProjectFileOps(ctx: ProjectFileOpsContext) {
   const handleSelectRecent = async (filePath: string) => {
     ctx.setIsOpeningProject(true);
     try {
+      await flushBeforeSwitch();
       const res = await readProjectFile(filePath);
       if (res.error) {
         ctx.showToast(`Could not open project: ${res.error}`, 'error');
@@ -86,7 +99,7 @@ export function useProjectFileOps(ctx: ProjectFileOpsContext) {
     if (!ctx.activeProject || !ctx.projectFilePath) return;
     ctx.setIsSavingProject(true);
     try {
-      const updatedProj: ProjectWorkspace = {
+      const updatedProj: ProjectWorkspace = (ctx.buildCurrentWorkspace && ctx.buildCurrentWorkspace()) || {
         ...ctx.activeProject,
         updatedAt: new Date().toISOString(),
         databases: ctx.connections,
@@ -113,8 +126,9 @@ export function useProjectFileOps(ctx: ProjectFileOpsContext) {
     try {
       const res = await createProjectFileDialog(ctx.activeProject.name + '-copy');
       if (res.cancelled || !res.filePath) return;
+      const base = (ctx.buildCurrentWorkspace && ctx.buildCurrentWorkspace()) || ctx.activeProject;
       const updatedProj: ProjectWorkspace = {
-        ...ctx.activeProject,
+        ...base,
         id: 'octa-' + Date.now(),
         name: res.filePath.replace(/^.*[\\\/]/, '').replace(/\.octa$/, ''),
         updatedAt: new Date().toISOString(),

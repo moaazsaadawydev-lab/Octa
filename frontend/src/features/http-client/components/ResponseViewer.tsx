@@ -3,6 +3,7 @@ import Editor from '@monaco-editor/react';
 import { Copy, Send } from 'lucide-react';
 import { HttpResponseState, defineOctaTheme } from '../types';
 import { getResponseEditorConfig } from '../utils/responseHelpers';
+import { attachEditorClickableLinks } from '../../../utils/monacoLinks';
 
 export interface ResponseViewerProps {
   activeResponseState: HttpResponseState | null;
@@ -69,10 +70,12 @@ export const ResponseViewer: React.FC<ResponseViewerProps> = ({
             language={config.language}
             theme={monacoTheme}
             beforeMount={(monacoInstance) => defineOctaTheme(monacoInstance)}
+            onMount={(editor, monacoInstance) => attachEditorClickableLinks(editor, monacoInstance)}
             value={config.value}
             options={{
               readOnly: true,
               domReadOnly: true,
+              links: true,
               fontSize: 12.5,
               fontFamily: "JetBrains Mono, Fira Code, Menlo, Monaco, Consolas, 'Courier New', monospace",
               minimap: { enabled: false },

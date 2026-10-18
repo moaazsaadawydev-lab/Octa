@@ -80,10 +80,17 @@ func (s *ProjectService) CreateProjectFileDialog(defaultName string) (ProjectFil
 			Environments:        make([]any, 0),
 			GlobalVariables:     make([]any, 0),
 			ActiveEnvironmentID: "",
+			OpenTabs:            make([]any, 0),
+			ActiveTabID:         "",
 		},
 		Git: ProjectGitConfig{
 			RepoPath:  "",
 			AutoWatch: true,
+		},
+		State: &ProjectUIState{
+			ActiveModule: "databases",
+			DbSubView:    "tables",
+			QueryTabs:    make([]any, 0),
 		},
 	}
 
@@ -152,6 +159,9 @@ func (s *ProjectService) ReadProjectFile(filePath string) (ProjectFileResult, er
 	}
 	if proj.HttpClient.GlobalVariables == nil {
 		proj.HttpClient.GlobalVariables = make([]any, 0)
+	}
+	if proj.HttpClient.OpenTabs == nil {
+		proj.HttpClient.OpenTabs = make([]any, 0)
 	}
 
 	return ProjectFileResult{

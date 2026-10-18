@@ -31,6 +31,10 @@ export function CommitChanges(arg1:string,arg2:string):Promise<void>;
 
 export function ConnectRedis(arg1:main.RedisConnectionConfig):Promise<main.RedisConnectResult>;
 
+export function CreateEditorFile(arg1:string):Promise<void>;
+
+export function CreateEditorFolder(arg1:string):Promise<void>;
+
 export function CreateProjectFileDialog(arg1:string):Promise<main.ProjectFileResult>;
 
 export function CreateRedisKey(arg1:main.RedisConnectionConfig,arg2:string,arg3:string,arg4:any,arg5:number):Promise<boolean>;
@@ -38,6 +42,8 @@ export function CreateRedisKey(arg1:main.RedisConnectionConfig,arg2:string,arg3:
 export function CreateTerminalSession(arg1:string,arg2:string,arg3:number,arg4:number,arg5:string):Promise<void>;
 
 export function DeleteConnection(arg1:string):Promise<boolean>;
+
+export function DeleteEditorEntry(arg1:string):Promise<void>;
 
 export function DeleteRedisKey(arg1:main.RedisConnectionConfig,arg2:string):Promise<boolean>;
 
@@ -83,6 +89,10 @@ export function GetEnumValues(arg1:main.ConnectionConfig,arg2:string,arg3:string
 
 export function GetFileDiff(arg1:string,arg2:string,arg3:boolean):Promise<string>;
 
+export function GetFileTree(arg1:string,arg2:number):Promise<Array<main.FileNode>>;
+
+export function GetGitOriginalFile(arg1:string,arg2:string):Promise<string>;
+
 export function GetQueryLogs():Promise<Array<main.QueryLog>>;
 
 export function GetRedisKeyDetails(arg1:main.RedisConnectionConfig,arg2:string):Promise<main.RedisKeyDetail>;
@@ -115,6 +125,8 @@ export function LoadRedisConnections():Promise<string>;
 
 export function LoadSqlQueriesData():Promise<string>;
 
+export function OpenEditorDirectoryDialog():Promise<string>;
+
 export function OpenProjectFileDialog():Promise<main.ProjectFileResult>;
 
 export function OpenRepositoryDialog():Promise<string>;
@@ -123,11 +135,15 @@ export function PullChanges(arg1:string):Promise<void>;
 
 export function PushChanges(arg1:string):Promise<void>;
 
+export function ReadEditorFile(arg1:string):Promise<string>;
+
 export function ReadProjectFile(arg1:string):Promise<main.ProjectFileResult>;
 
 export function RemoveContainer(arg1:string,arg2:boolean):Promise<boolean>;
 
 export function RenameColumn(arg1:main.ConnectionConfig,arg2:string,arg3:string,arg4:string,arg5:string):Promise<boolean>;
+
+export function RenameEditorEntry(arg1:string,arg2:string):Promise<void>;
 
 export function ResetToFactoryDefaults():Promise<boolean>;
 
@@ -140,6 +156,8 @@ export function RestartContainer(arg1:string):Promise<boolean>;
 export function SaveAISettings(arg1:string,arg2:string):Promise<boolean>;
 
 export function SaveConnection(arg1:main.ConnectionConfig):Promise<boolean|string>;
+
+export function SaveEditorFile(arg1:string,arg2:string):Promise<void>;
 
 export function SaveEnvironmentsData(arg1:string):Promise<void>;
 

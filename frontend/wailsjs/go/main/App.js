@@ -54,6 +54,14 @@ export function ConnectRedis(arg1) {
   return window['go']['main']['App']['ConnectRedis'](arg1);
 }
 
+export function CreateEditorFile(arg1) {
+  return window['go']['main']['App']['CreateEditorFile'](arg1);
+}
+
+export function CreateEditorFolder(arg1) {
+  return window['go']['main']['App']['CreateEditorFolder'](arg1);
+}
+
 export function CreateProjectFileDialog(arg1) {
   return window['go']['main']['App']['CreateProjectFileDialog'](arg1);
 }
@@ -68,6 +76,10 @@ export function CreateTerminalSession(arg1, arg2, arg3, arg4, arg5) {
 
 export function DeleteConnection(arg1) {
   return window['go']['main']['App']['DeleteConnection'](arg1);
+}
+
+export function DeleteEditorEntry(arg1) {
+  return window['go']['main']['App']['DeleteEditorEntry'](arg1);
 }
 
 export function DeleteRedisKey(arg1, arg2) {
@@ -158,6 +170,14 @@ export function GetFileDiff(arg1, arg2, arg3) {
   return window['go']['main']['App']['GetFileDiff'](arg1, arg2, arg3);
 }
 
+export function GetFileTree(arg1, arg2) {
+  return window['go']['main']['App']['GetFileTree'](arg1, arg2);
+}
+
+export function GetGitOriginalFile(arg1, arg2) {
+  return window['go']['main']['App']['GetGitOriginalFile'](arg1, arg2);
+}
+
 export function GetQueryLogs() {
   return window['go']['main']['App']['GetQueryLogs']();
 }
@@ -222,6 +242,10 @@ export function LoadSqlQueriesData() {
   return window['go']['main']['App']['LoadSqlQueriesData']();
 }
 
+export function OpenEditorDirectoryDialog() {
+  return window['go']['main']['App']['OpenEditorDirectoryDialog']();
+}
+
 export function OpenProjectFileDialog() {
   return window['go']['main']['App']['OpenProjectFileDialog']();
 }
@@ -238,6 +262,10 @@ export function PushChanges(arg1) {
   return window['go']['main']['App']['PushChanges'](arg1);
 }
 
+export function ReadEditorFile(arg1) {
+  return window['go']['main']['App']['ReadEditorFile'](arg1);
+}
+
 export function ReadProjectFile(arg1) {
   return window['go']['main']['App']['ReadProjectFile'](arg1);
 }
@@ -248,6 +276,10 @@ export function RemoveContainer(arg1, arg2) {
 
 export function RenameColumn(arg1, arg2, arg3, arg4, arg5) {
   return window['go']['main']['App']['RenameColumn'](arg1, arg2, arg3, arg4, arg5);
+}
+
+export function RenameEditorEntry(arg1, arg2) {
+  return window['go']['main']['App']['RenameEditorEntry'](arg1, arg2);
 }
 
 export function ResetToFactoryDefaults() {
@@ -272,6 +304,10 @@ export function SaveAISettings(arg1, arg2) {
 
 export function SaveConnection(arg1) {
   return window['go']['main']['App']['SaveConnection'](arg1);
+}
+
+export function SaveEditorFile(arg1, arg2) {
+  return window['go']['main']['App']['SaveEditorFile'](arg1, arg2);
 }
 
 export function SaveEnvironmentsData(arg1) {

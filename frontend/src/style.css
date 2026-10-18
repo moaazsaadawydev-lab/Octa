@@ -201,3 +201,52 @@
 .dark .react-flow__controls-button svg {
   fill: currentColor !important;
 }
+
+/* ========================================================================= */
+/* Monaco Editor Git Gutter & Change Markers                                 */
+/* ========================================================================= */
+
+.git-gutter-added {
+  box-sizing: border-box !important;
+  border-left: 3px solid #2ea043 !important;
+  margin-left: 3px !important;
+}
+
+.git-gutter-modified {
+  box-sizing: border-box !important;
+  border-left: 3px solid #0078d4 !important;
+  margin-left: 3px !important;
+}
+
+.git-gutter-deleted {
+  box-sizing: border-box !important;
+  border-left: 3px solid #f85149 !important;
+  margin-left: 3px !important;
+}
+
+/* ========================================================================= */
+/* Monaco Editor Clickable Links (VS Code Advanced Style)                    */
+/* ========================================================================= */
+
+.monaco-editor .detected-link {
+  text-decoration: none !important;
+}
+
+.monaco-editor .detected-link-active,
+.monaco-editor .detected-link-active * {
+  cursor: pointer !important;
+  color: #38bdf8 !important;
+  text-decoration: underline !important;
+  text-decoration-color: #38bdf8 !important;
+  text-decoration-thickness: 1.5px !important;
+  text-underline-offset: 3px !important;
+  text-shadow: 0 0 8px rgba(56, 189, 248, 0.4) !important;
+}
+
+:root:not(.dark) .monaco-editor .detected-link-active,
+:root:not(.dark) .monaco-editor .detected-link-active * {
+  color: #0284c7 !important;
+  text-decoration-color: #0284c7 !important;
+  text-shadow: none !important;
+}
+

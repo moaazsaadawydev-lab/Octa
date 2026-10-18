@@ -53,7 +53,7 @@ export const AboutTab: React.FC = () => {
         <span>License: MIT &copy; 2026 Octa Team</span>
         <div className="flex items-center gap-4">
           <a
-            href="https://github.com"
+            href="https://github.com/moaazsaadawydev-lab/Octa"
             target="_blank"
             rel="noreferrer"
             className="flex items-center gap-1 hover:text-brand-500 transition-colors"

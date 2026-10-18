@@ -3,6 +3,7 @@ import { Terminal, Copy, Check, Clock, Code2, Table, FileCode } from 'lucide-rea
 import Editor from '@monaco-editor/react';
 import { RedisCommandResult } from '../../../types/redis';
 import { EDITOR_FONT_FAMILY } from '../../../utils/editorSettings';
+import { attachEditorClickableLinks } from '../../../utils/monacoLinks';
 import { CommandHistoryItem } from './types';
 import { RedisResultBadge } from './RedisResultBadge';
 import { RedisResultTable } from './RedisResultTable';
@@ -176,9 +177,11 @@ export const RedisResultConsole: React.FC<RedisResultConsoleProps> = ({
               height="100%"
               language="json"
               theme={monacoTheme}
+              onMount={(editor, monaco) => attachEditorClickableLinks(editor, monaco)}
               value={JSON.stringify(activeResult.rawOutput, null, 2)}
               options={{
                 readOnly: true,
+                links: true,
                 fontSize: 12,
                 fontFamily: EDITOR_FONT_FAMILY,
                 fontLigatures: editorFontLigatures,

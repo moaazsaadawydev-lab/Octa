@@ -7,6 +7,7 @@ import { useEditorLigatures, EDITOR_FONT_FAMILY } from '../../../utils/editorSet
 import { registerSqlProviders } from '../utils/sqlCompletionProvider';
 import { ActiveSession } from '../types';
 import { useMonacoSQLCompletion, SchemaTable, SchemaColumn } from '../hooks/useMonacoSQLCompletion';
+import { attachEditorClickableLinks } from '../../../utils/monacoLinks';
 
 loader.config({ monaco });
 
@@ -79,6 +80,7 @@ export const SqlCodeEditor: React.FC<SqlCodeEditorProps> = ({
     monacoRef.current = instance;
     setMonacoInstance(instance);
     instance.editor.setTheme(activeMonacoTheme);
+    attachEditorClickableLinks(editor, instance);
 
     editor.onKeyDown((e: any) => {
       if (e.keyCode === instance.KeyCode.Space) {
@@ -142,6 +144,7 @@ export const SqlCodeEditor: React.FC<SqlCodeEditorProps> = ({
         beforeMount={handleBeforeMount}
         onMount={handleEditorDidMount}
         options={{
+          links: true,
           theme: activeMonacoTheme,
           fontSize: 14,
           fontFamily: EDITOR_FONT_FAMILY,

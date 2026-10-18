@@ -20,6 +20,12 @@ export interface AppSettings {
   aiApiKey?: string;
   gemini_api_key?: string;
   gemini_selected_model?: string;
+  // Code Editor
+  editorFontSize?: number;
+  editorAutoSave?: 'off' | 'afterDelay' | 'onFocusChange';
+  editorAutoSaveDelay?: number;
+  editorWordWrap?: 'on' | 'off';
+  editorTabSize?: number;
   // Docker Engine
   docker_default_engine?: 'windows' | 'wsl';
 }
@@ -40,6 +46,11 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   aiApiKey: '',
   gemini_api_key: '',
   gemini_selected_model: 'gemini-2.5-flash',
+  editorFontSize: 14,
+  editorAutoSave: 'afterDelay',
+  editorAutoSaveDelay: 1000,
+  editorWordWrap: 'on',
+  editorTabSize: 2,
   docker_default_engine: 'wsl',
 };
 

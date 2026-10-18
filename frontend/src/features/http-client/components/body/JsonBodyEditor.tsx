@@ -2,6 +2,7 @@ import React from 'react';
 import Editor from '@monaco-editor/react';
 import { Sparkles, Minimize2, Trash2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { DEFAULT_JSON_BODY, defineOctaTheme } from '../../types';
+import { attachEditorClickableLinks } from '../../../../utils/monacoLinks';
 
 export interface JsonBodyEditorProps {
   bodyContent: string;
@@ -90,7 +91,8 @@ export const JsonBodyEditor: React.FC<JsonBodyEditorProps> = ({
           language="json"
           theme={monacoTheme}
           beforeMount={(monacoInstance) => defineOctaTheme(monacoInstance)}
-          onMount={(editor) => {
+          onMount={(editor, monacoInstance) => {
+            attachEditorClickableLinks(editor, monacoInstance);
             setTimeout(() => {
               try { editor.layout(); } catch {}
             }, 60);
@@ -98,6 +100,7 @@ export const JsonBodyEditor: React.FC<JsonBodyEditorProps> = ({
           value={bodyContent !== undefined ? bodyContent : DEFAULT_JSON_BODY}
           onChange={(val) => onBodyChange(val || '')}
           options={{
+            links: true,
             fontSize: 12.5,
             fontFamily: "JetBrains Mono, Fira Code, Menlo, Monaco, Consolas, 'Courier New', monospace",
             minimap: { enabled: false },

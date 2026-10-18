@@ -130,12 +130,24 @@ type SelectedFileMeta struct {
 	ContentType string `json:"contentType"`
 }
 
+// ProjectUIState holds persistent UI / workspace state in the .octa file.
+type ProjectUIState struct {
+	ActiveModule     string `json:"activeModule,omitempty"`
+	DbSubView        string `json:"dbSubView,omitempty"`
+	ActiveQueryTabID string `json:"activeQueryTabId,omitempty"`
+	QueryTabs        []any  `json:"queryTabs,omitempty"`
+	IsSidebarVisible *bool  `json:"isSidebarVisible,omitempty"`
+	Http             any    `json:"http,omitempty"`
+}
+
 // ProjectHttpClient holds HTTP client data for the project.
 type ProjectHttpClient struct {
 	Collections         []any  `json:"collections"`
 	Environments        []any  `json:"environments"`
 	GlobalVariables     []any  `json:"globalVariables"`
 	ActiveEnvironmentID string `json:"activeEnvironmentId"`
+	OpenTabs            []any  `json:"openTabs,omitempty"`
+	ActiveTabID         string `json:"activeTabId,omitempty"`
 }
 
 // ProjectGitConfig holds Git repository configuration and active state.
@@ -157,6 +169,7 @@ type ProjectWorkspace struct {
 	Redis         []RedisConnectionConfig `json:"redis"`
 	HttpClient    ProjectHttpClient       `json:"httpClient"`
 	Git           ProjectGitConfig        `json:"git"`
+	State         *ProjectUIState         `json:"state,omitempty"`
 }
 
 // ProjectFileResult is returned from project file operations.

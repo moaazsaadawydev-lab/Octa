@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { ActiveSession, TableTabState, RowUpdate } from '../types';
 import {
   getTableSchema,
@@ -30,11 +30,16 @@ export interface UseTableDataOptions {
 
 export function useTableData({ activeSession, showToast = () => {} }: UseTableDataOptions) {
   const [tableStates, setTableStates] = useState<Record<string, TableTabState>>({});
+  const tableStatesRef = useRef<Record<string, TableTabState>>({});
+
+  useEffect(() => {
+    tableStatesRef.current = tableStates;
+  }, [tableStates]);
 
   const loadTableDetails = useCallback(
     async (tblName: string, stateOverrides?: Partial<TableTabState>) => {
-      if (!activeSession) return;
-      const current = tableStates[tblName] || createDefaultTableState();
+      if (!activeSession || !tblName) return;
+      const current = tableStatesRef.current[tblName] || tableStates[tblName] || createDefaultTableState();
       const effectiveState: TableTabState = {
         ...current,
         ...stateOverrides,
@@ -74,7 +79,7 @@ export function useTableData({ activeSession, showToast = () => {} }: UseTableDa
         showToast('Failed to load table ' + tblName + ': ' + (err?.message || err), 'error');
       }
     },
-    [activeSession, tableStates, showToast]
+    [activeSession, showToast]
   );
 
   const handleSortChange = useCallback((tblName: string, colName: string, newOrder: 'ASC' | 'DESC' | '') => {

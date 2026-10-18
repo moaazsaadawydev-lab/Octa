@@ -48,15 +48,18 @@ function getDigitFromEvent(e: KeyboardEvent): number | null {
     case 'Digit6':
     case 'Numpad6':
       return 6;
+    case 'Digit7':
+    case 'Numpad7':
+      return 7;
   }
 
   const parsed = parseInt(e.key, 10);
-  if (!isNaN(parsed) && parsed >= 1 && parsed <= 6) {
+  if (!isNaN(parsed) && parsed >= 1 && parsed <= 7) {
     return parsed;
   }
 
   const arabicDigits: Record<string, number> = {
-    '١': 1, '٢': 2, '٣': 3, '٤': 4, '٥': 5, '٦': 6,
+    '١': 1, '٢': 2, '٣': 3, '٤': 4, '٥': 5, '٦': 6, '٧': 7,
   };
   return arabicDigits[e.key] || null;
 }
@@ -95,19 +98,20 @@ export function useGlobalShortcuts({
         return;
       }
 
-      // 3. Workspace Navigation: Ctrl + 1 through Ctrl + 6
+      // 3. Workspace Navigation: Ctrl + 1 through Ctrl + 7
       if (isCtrlOrCmd && !isShift && !isAlt) {
         const digit = getDigitFromEvent(e);
         if (digit !== null) {
           e.preventDefault();
           e.stopPropagation();
           const tabMap: Record<number, ActiveModule> = {
-            1: 'databases',
-            2: 'redis',
-            3: 'http',
-            4: 'git',
-            5: 'docker',
-            6: 'terminal',
+            1: 'editor',
+            2: 'databases',
+            3: 'redis',
+            4: 'http',
+            5: 'git',
+            6: 'docker',
+            7: 'terminal',
           };
           const targetTab = tabMap[digit];
           if (targetTab) {

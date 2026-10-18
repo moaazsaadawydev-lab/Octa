@@ -20,6 +20,7 @@ type App struct {
 	gitService          *GitService
 	settingsService     *settings.SettingsService
 	aiService           *AIService
+	editorService       *EditorService
 }
 
 // NewApp creates a new App application struct with domain services.
@@ -35,6 +36,7 @@ func NewApp() *App {
 		gitService:          NewGitService(),
 		settingsService:     settings.NewSettingsService(),
 		aiService:           NewAIService(),
+		editorService:       NewEditorService(),
 	}
 }
 
@@ -51,6 +53,7 @@ func (a *App) startup(ctx context.Context) {
 	a.gitService.SetContext(ctx)
 	a.settingsService.SetContext(ctx)
 	a.aiService.SetContext(ctx)
+	a.editorService.SetContext(ctx)
 }
 
 // shutdown is called when the app closes to cleanly release all system resources.

@@ -10,6 +10,7 @@ import {
   startTerminalSession, writeTerminalSession, resizeTerminalSession, closeTerminalSession
 } from '../../services/api';
 import * as runtime from '../../../wailsjs/runtime/runtime';
+import { openExternalUrl } from '../../utils/urlUtils';
 import { PasteConfirmModal } from './PasteConfirmModal';
 import { DARK_THEME, LIGHT_THEME, mapCursorStyle } from './terminalThemes';
 import { useTerminalClipboard } from './useTerminalClipboard';
@@ -89,8 +90,7 @@ export const XTermInstance: React.FC<XTermInstanceProps> = ({
     });
 
     const fitAddon = new FitAddon();
-    const webLinksAddon = new WebLinksAddon();
-
+    const webLinksAddon = new WebLinksAddon((_event, uri) => openExternalUrl(uri));
     term.loadAddon(fitAddon);
     term.loadAddon(webLinksAddon);
     term.open(container);

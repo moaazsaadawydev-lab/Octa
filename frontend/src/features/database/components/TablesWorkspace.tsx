@@ -28,10 +28,10 @@ export const TablesWorkspace: React.FC<TablesWorkspaceProps> = ({
   const [tableToDrop, setTableToDrop] = useState<string | null>(null);
 
   useEffect(() => {
-    if (schema.activeTableTab && !tableData.tableStates[schema.activeTableTab]?.tableData) {
+    if (schema.activeTableTab) {
       tableData.loadTableDetails(schema.activeTableTab);
     }
-  }, [schema.activeTableTab, tableData]);
+  }, [schema.activeTableTab, tableData.loadTableDetails]);
 
   if (!activeSession) {
     return <HomeLanding onOpenNewModal={onOpenNewModal} />;
@@ -81,9 +81,7 @@ export const TablesWorkspace: React.FC<TablesWorkspaceProps> = ({
             tableStates={tableData.tableStates}
             onSelectTab={(tbl) => {
               schema.setActiveTableTab(tbl);
-              if (!tableData.tableStates[tbl]?.tableData) {
-                tableData.loadTableDetails(tbl);
-              }
+              tableData.loadTableDetails(tbl);
             }}
             onCloseTab={schema.handleCloseTableTab}
           />
@@ -120,6 +118,7 @@ export const TablesWorkspace: React.FC<TablesWorkspaceProps> = ({
                   tableData.handleDeleteRows(schema.activeTableTab!, pk, ids, all)
                 }
                 onDropTable={() => setTableToDrop(schema.activeTableTab)}
+                onRefresh={() => tableData.loadTableDetails(schema.activeTableTab!)}
               />
             ) : (
               <div className="flex-1 flex flex-col items-center justify-center h-full text-slate-400 dark:text-zinc-500">

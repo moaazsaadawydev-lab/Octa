@@ -73,7 +73,16 @@ export function useWorkspaceState({ settings, updateSettings }: UseWorkspaceStat
     httpData,
     setHttpData,
     setActiveSession,
+    activeModule,
     setActiveModule,
+    dbSubView,
+    setDbSubView,
+    isSidebarVisible,
+    setIsSidebarVisible,
+    queryTabs: workspaceQueries.queryTabs,
+    setQueryTabs: workspaceQueries.setQueryTabs,
+    activeQueryTabId: workspaceQueries.activeQueryTabId,
+    setActiveQueryTabId: workspaceQueries.setActiveQueryTabId,
   });
 
   return {

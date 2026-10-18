@@ -1,6 +1,7 @@
 import React from 'react';
 import Editor from '@monaco-editor/react';
 import { defineOctaTheme } from '../../../types/http';
+import { attachEditorClickableLinks } from '../../../utils/monacoLinks';
 
 interface StringKeyViewerProps {
   value: string;
@@ -64,9 +65,11 @@ export const StringKeyViewer: React.FC<StringKeyViewerProps> = ({
           language="json"
           theme={monacoTheme}
           beforeMount={(monaco) => defineOctaTheme(monaco)}
+          onMount={(editor, monaco) => attachEditorClickableLinks(editor, monaco)}
           value={value}
           onChange={(val) => onChange(val || '')}
           options={{
+            links: true,
             minimap: { enabled: false },
             fontSize: 12,
             lineNumbers: 'on',
