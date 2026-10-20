@@ -28,6 +28,7 @@ export interface AppSettings {
   editorTabSize?: number;
   // Docker Engine
   docker_default_engine?: 'windows' | 'wsl';
+  docker_default_running_only?: boolean;
 }
 
 export const DEFAULT_APP_SETTINGS: AppSettings = {
@@ -52,6 +53,7 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   editorWordWrap: 'on',
   editorTabSize: 2,
   docker_default_engine: 'wsl',
+  docker_default_running_only: false,
 };
 
 

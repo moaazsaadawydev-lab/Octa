@@ -93,6 +93,62 @@ export function useEditorTabs({ rootPath, showToast }: UseEditorTabsOptions) {
     );
   }, []);
 
+  const openFileLocation = useCallback(
+    async (fullPath: string, line?: number, col?: number, matchLen?: number) => {
+      const normalizedPath = fullPath.replace(/\\/g, '/');
+      const existing = tabsRef.current.find(
+        (t) =>
+          t.fullPath.replace(/\\/g, '/') === normalizedPath ||
+          t.id.replace(/\\/g, '/') === normalizedPath
+      );
+
+      if (existing) {
+        setActiveTabId(existing.id);
+        return { tabId: existing.id, line: line || 1, col: col || 1, matchLen };
+      }
+
+      try {
+        const name = normalizedPath.split('/').pop() || 'file';
+        const relPath = rootPath
+          ? normalizedPath.replace(rootPath.replace(/\\/g, '/'), '').replace(/^\//, '')
+          : name;
+        const [content, originalContent] = await Promise.all([
+          readEditorFile(normalizedPath),
+          rootPath ? getGitOriginalFile(rootPath, relPath) : Promise.resolve(''),
+        ]);
+
+        const newTab: EditorTab = {
+          id: normalizedPath,
+          title: name,
+          fullPath: normalizedPath,
+          relPath,
+          content,
+          originalContent: originalContent || undefined,
+          isDirty: false,
+          language: detectLanguage(name),
+          isDiffMode: false,
+          isPreview: false,
+        };
+
+        setTabs((prev) => {
+          const previewIdx = prev.findIndex((t) => t.isPreview && !t.isDirty);
+          if (previewIdx !== -1) {
+            const next = [...prev];
+            next[previewIdx] = newTab;
+            return next;
+          }
+          return [...prev, newTab];
+        });
+        setActiveTabId(newTab.id);
+        return { tabId: newTab.id, line: line || 1, col: col || 1, matchLen };
+      } catch (err: any) {
+        showToast?.('Failed to open file: ' + (err?.message || err), 'error');
+        return null;
+      }
+    },
+    [rootPath, showToast]
+  );
+
   const saveActiveTab = useCallback(async () => {
     const curr = tabsRef.current.find((t) => t.id === activeTabIdRef.current);
     if (!curr) return;
@@ -140,5 +196,6 @@ export function useEditorTabs({ rootPath, showToast }: UseEditorTabsOptions) {
     saveActiveTab,
     toggleDiffMode,
     pinTab,
+    openFileLocation,
   };
 }

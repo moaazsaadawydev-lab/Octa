@@ -26,3 +26,23 @@ export interface EditorTab {
 export interface GitStatusMap {
   [relPath: string]: GitStatusType;
 }
+
+export interface SearchMatch {
+  line: number;
+  column: number;
+  lineText: string;
+  matchLen: number;
+}
+
+export interface FileSearchResult {
+  filePath: string;
+  relPath: string;
+  fileName: string;
+  matches: SearchMatch[];
+}
+
+export interface ProjectSearchResult {
+  query: string;
+  totalMatches: number;
+  files: FileSearchResult[];
+}

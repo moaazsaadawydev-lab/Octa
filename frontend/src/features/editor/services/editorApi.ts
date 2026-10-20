@@ -1,5 +1,5 @@
 import * as AppApi from '../../../../wailsjs/go/main/App';
-import { FileNode } from '../../../types/editor';
+import { FileNode, ProjectSearchResult } from '../../../types/editor';
 
 export async function fetchFileTree(rootPath: string, maxDepth = 6): Promise<FileNode[]> {
   try {
@@ -55,6 +55,44 @@ export async function fetchGitStatus(repoPath: string) {
   try {
     return await (AppApi as any).GetRepoStatus(repoPath);
   } catch {
+    return null;
+  }
+}
+
+export async function resolveEditorDefinition(
+  projectRoot: string,
+  currentFilePath: string,
+  word: string,
+  lineContent: string
+): Promise<{ fullPath: string; line: number; column: number } | null> {
+  try {
+    return await (AppApi as any).ResolveEditorDefinition(
+      projectRoot,
+      currentFilePath,
+      word,
+      lineContent
+    );
+  } catch (err) {
+    console.error('Failed to resolve definition:', err);
+    return null;
+  }
+}
+
+export async function searchProjectContent(
+  projectRoot: string,
+  query: string,
+  caseSensitive = false,
+  maxResults = 500
+): Promise<ProjectSearchResult | null> {
+  try {
+    return await (AppApi as any).SearchProjectContent(
+      projectRoot,
+      query,
+      caseSensitive,
+      maxResults
+    );
+  } catch (err) {
+    console.error('Failed to search project:', err);
     return null;
   }
 }

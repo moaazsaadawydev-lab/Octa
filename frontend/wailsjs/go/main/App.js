@@ -22,6 +22,10 @@ export function CheckDockerStatus(arg1) {
   return window['go']['main']['App']['CheckDockerStatus'](arg1);
 }
 
+export function CheckLocalhostStatus(arg1) {
+  return window['go']['main']['App']['CheckLocalhostStatus'](arg1);
+}
+
 export function ClearAppCache() {
   return window['go']['main']['App']['ClearAppCache']();
 }
@@ -178,6 +182,10 @@ export function GetGitOriginalFile(arg1, arg2) {
   return window['go']['main']['App']['GetGitOriginalFile'](arg1, arg2);
 }
 
+export function GetLocalhostProxy(arg1) {
+  return window['go']['main']['App']['GetLocalhostProxy'](arg1);
+}
+
 export function GetQueryLogs() {
   return window['go']['main']['App']['GetQueryLogs']();
 }
@@ -294,6 +302,10 @@ export function ResizeTerminalSession(arg1, arg2, arg3) {
   return window['go']['main']['App']['ResizeTerminalSession'](arg1, arg2, arg3);
 }
 
+export function ResolveEditorDefinition(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['ResolveEditorDefinition'](arg1, arg2, arg3, arg4);
+}
+
 export function RestartContainer(arg1) {
   return window['go']['main']['App']['RestartContainer'](arg1);
 }
@@ -336,6 +348,10 @@ export function SaveSqlQueriesData(arg1) {
 
 export function ScanRedisKeys(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['ScanRedisKeys'](arg1, arg2, arg3, arg4);
+}
+
+export function SearchProjectContent(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['SearchProjectContent'](arg1, arg2, arg3, arg4);
 }
 
 export function SelectFileDialog() {

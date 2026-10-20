@@ -21,6 +21,7 @@ type App struct {
 	settingsService     *settings.SettingsService
 	aiService           *AIService
 	editorService       *EditorService
+	browserService      *BrowserService
 }
 
 // NewApp creates a new App application struct with domain services.
@@ -37,6 +38,7 @@ func NewApp() *App {
 		settingsService:     settings.NewSettingsService(),
 		aiService:           NewAIService(),
 		editorService:       NewEditorService(),
+		browserService:      NewBrowserService(),
 	}
 }
 
@@ -72,5 +74,8 @@ func (a *App) shutdown(ctx context.Context) {
 	}
 	if a.gitService != nil {
 		a.gitService.StopAutoWatch()
+	}
+	if a.browserService != nil {
+		a.browserService.CloseAllProxies()
 	}
 }

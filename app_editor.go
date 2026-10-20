@@ -44,3 +44,13 @@ func (a *App) GetGitOriginalFile(repoPath, relPath string) (string, error) {
 func (a *App) OpenEditorDirectoryDialog() (string, error) {
 	return a.editorService.OpenDirectoryDialog()
 }
+
+// ResolveEditorDefinition locates cross-file symbol definitions for the editor
+func (a *App) ResolveEditorDefinition(projectRoot, currentFilePath, word, lineContent string) (*DefinitionLocation, error) {
+	return a.editorService.ResolveDefinition(projectRoot, currentFilePath, word, lineContent)
+}
+
+// SearchProjectContent searches for text across project files (excluding node_modules, cache, dist)
+func (a *App) SearchProjectContent(projectRoot, query string, caseSensitive bool, maxResults int) (*ProjectSearchResult, error) {
+	return a.editorService.SearchProjectContent(projectRoot, query, caseSensitive, maxResults)
+}

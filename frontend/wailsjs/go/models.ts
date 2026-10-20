@@ -268,6 +268,22 @@ export namespace main {
 		    return a;
 		}
 	}
+	export class DefinitionLocation {
+	    fullPath: string;
+	    line: number;
+	    column: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new DefinitionLocation(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.fullPath = source["fullPath"];
+	        this.line = source["line"];
+	        this.column = source["column"];
+	    }
+	}
 	export class DockerPortMapping {
 	    privatePort: number;
 	    publicPort?: number;
@@ -417,6 +433,60 @@ export namespace main {
 	        this.extension = source["extension"];
 	        this.size = source["size"];
 	        this.children = this.convertValues(source["children"], FileNode);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class SearchMatch {
+	    line: number;
+	    column: number;
+	    lineText: string;
+	    matchLen: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new SearchMatch(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.line = source["line"];
+	        this.column = source["column"];
+	        this.lineText = source["lineText"];
+	        this.matchLen = source["matchLen"];
+	    }
+	}
+	export class FileSearchResult {
+	    filePath: string;
+	    relPath: string;
+	    fileName: string;
+	    matches: SearchMatch[];
+	
+	    static createFrom(source: any = {}) {
+	        return new FileSearchResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.filePath = source["filePath"];
+	        this.relPath = source["relPath"];
+	        this.fileName = source["fileName"];
+	        this.matches = this.convertValues(source["matches"], SearchMatch);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -644,6 +714,24 @@ export namespace main {
 	        this.repoName = source["repoName"];
 	    }
 	}
+	export class LocalhostStatus {
+	    isOnline: boolean;
+	    statusCode: number;
+	    hasFrameBlock: boolean;
+	    serverName: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new LocalhostStatus(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.isOnline = source["isOnline"];
+	        this.statusCode = source["statusCode"];
+	        this.hasFrameBlock = source["hasFrameBlock"];
+	        this.serverName = source["serverName"];
+	    }
+	}
 	export class ProjectUIState {
 	    activeModule?: string;
 	    dbSubView?: string;
@@ -818,6 +906,40 @@ export namespace main {
 	}
 	
 	
+	export class ProjectSearchResult {
+	    query: string;
+	    totalMatches: number;
+	    files: FileSearchResult[];
+	
+	    static createFrom(source: any = {}) {
+	        return new ProjectSearchResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.query = source["query"];
+	        this.totalMatches = source["totalMatches"];
+	        this.files = this.convertValues(source["files"], FileSearchResult);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	
 	
 	export class QueryLog {
@@ -1086,6 +1208,7 @@ export namespace main {
 	        this.newValue = source["newValue"];
 	    }
 	}
+	
 	export class SelectedFileMeta {
 	    name: string;
 	    path: string;

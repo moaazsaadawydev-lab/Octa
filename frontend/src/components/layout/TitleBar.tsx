@@ -11,6 +11,7 @@ import {
   LogOut,
   FolderOpen,
   Search,
+  Compass,
 } from 'lucide-react';
 import { ActiveSession } from '../../types/connection';
 import { ActiveModule } from './ActivityBar';
@@ -107,6 +108,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
               {activeModule === 'databases' && <><Database className="w-3 h-3 text-zinc-500" /><span>Databases</span></>}
               {activeModule === 'redis' && <><Layers className="w-3 h-3 text-zinc-500" /><span>Redis</span></>}
               {activeModule === 'http' && <><Globe className="w-3 h-3 text-zinc-500" /><span>HTTP Client</span></>}
+              {activeModule === 'browser' && <><Compass className="w-3 h-3 text-zinc-500" /><span>Localhost Browser</span></>}
               {activeModule === 'settings' && <><Settings className="w-3 h-3 text-zinc-500" /><span>Settings</span></>}
             </span>
           </>

@@ -51,15 +51,18 @@ function getDigitFromEvent(e: KeyboardEvent): number | null {
     case 'Digit7':
     case 'Numpad7':
       return 7;
+    case 'Digit8':
+    case 'Numpad8':
+      return 8;
   }
 
   const parsed = parseInt(e.key, 10);
-  if (!isNaN(parsed) && parsed >= 1 && parsed <= 7) {
+  if (!isNaN(parsed) && parsed >= 1 && parsed <= 8) {
     return parsed;
   }
 
   const arabicDigits: Record<string, number> = {
-    '١': 1, '٢': 2, '٣': 3, '٤': 4, '٥': 5, '٦': 6, '٧': 7,
+    '١': 1, '٢': 2, '٣': 3, '٤': 4, '٥': 5, '٦': 6, '٧': 7, '٨': 8,
   };
   return arabicDigits[e.key] || null;
 }
@@ -112,6 +115,7 @@ export function useGlobalShortcuts({
             5: 'git',
             6: 'docker',
             7: 'terminal',
+            8: 'browser',
           };
           const targetTab = tabMap[digit];
           if (targetTab) {

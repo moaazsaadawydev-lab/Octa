@@ -1,8 +1,8 @@
 import React from 'react';
-import { Database, Globe, Layers, Settings, Terminal, Boxes, GitBranch, Code2 } from 'lucide-react';
+import { Database, Globe, Layers, Settings, Terminal, Boxes, GitBranch, Code2, Compass } from 'lucide-react';
 import appIcon from '../../assets/appicon.png';
 
-export type ActiveModule = 'editor' | 'welcome' | 'databases' | 'redis' | 'http' | 'git' | 'docker' | 'terminal' | 'settings';
+export type ActiveModule = 'editor' | 'welcome' | 'databases' | 'redis' | 'http' | 'git' | 'docker' | 'terminal' | 'browser' | 'settings';
 
 interface ActivityBarProps {
   activeModule: ActiveModule;
@@ -141,6 +141,22 @@ export const ActivityBar: React.FC<ActivityBarProps> = ({
             <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-brand-500 dark:bg-brand-400 rounded-r shadow-[0_0_8px_rgba(56,189,248,0.8)]" />
           )}
           <Terminal className="w-5 h-5" />
+        </button>
+
+        {/* 8. Integrated Localhost Browser */}
+        <button
+          type="button"
+          onClick={() => setActiveModule('browser')}
+          title="Integrated Localhost Browser (Ctrl+8)"
+          className={`activity-bar-btn relative w-10 h-10 rounded-lg flex items-center justify-center transition-all ${activeModule === 'browser'
+              ? 'bg-slate-200 dark:bg-zinc-800 text-brand-600 dark:text-brand-400 font-medium shadow-sm cursor-pointer'
+              : 'text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-200/60 dark:hover:bg-zinc-800/60 cursor-pointer'
+            }`}
+        >
+          {activeModule === 'browser' && (
+            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-brand-500 dark:bg-brand-400 rounded-r shadow-[0_0_8px_rgba(56,189,248,0.8)]" />
+          )}
+          <Compass className="w-5 h-5" />
         </button>
       </div>
 

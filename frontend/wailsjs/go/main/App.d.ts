@@ -15,6 +15,8 @@ export function CheckDockerAvailability():Promise<boolean|string>;
 
 export function CheckDockerStatus(arg1:string):Promise<boolean>;
 
+export function CheckLocalhostStatus(arg1:string):Promise<main.LocalhostStatus>;
+
 export function ClearAppCache():Promise<boolean>;
 
 export function ClearQueryLogs():Promise<boolean>;
@@ -93,6 +95,8 @@ export function GetFileTree(arg1:string,arg2:number):Promise<Array<main.FileNode
 
 export function GetGitOriginalFile(arg1:string,arg2:string):Promise<string>;
 
+export function GetLocalhostProxy(arg1:string):Promise<string>;
+
 export function GetQueryLogs():Promise<Array<main.QueryLog>>;
 
 export function GetRedisKeyDetails(arg1:main.RedisConnectionConfig,arg2:string):Promise<main.RedisKeyDetail>;
@@ -151,6 +155,8 @@ export function ResizeContainerExec(arg1:string,arg2:number,arg3:number):Promise
 
 export function ResizeTerminalSession(arg1:string,arg2:number,arg3:number):Promise<void>;
 
+export function ResolveEditorDefinition(arg1:string,arg2:string,arg3:string,arg4:string):Promise<main.DefinitionLocation>;
+
 export function RestartContainer(arg1:string):Promise<boolean>;
 
 export function SaveAISettings(arg1:string,arg2:string):Promise<boolean>;
@@ -172,6 +178,8 @@ export function SaveSQLDumpDialog(arg1:string,arg2:string):Promise<string>;
 export function SaveSqlQueriesData(arg1:string):Promise<void>;
 
 export function ScanRedisKeys(arg1:main.RedisConnectionConfig,arg2:string,arg3:number,arg4:number):Promise<main.RedisScanResult>;
+
+export function SearchProjectContent(arg1:string,arg2:string,arg3:boolean,arg4:number):Promise<main.ProjectSearchResult>;
 
 export function SelectFileDialog():Promise<main.SelectedFileMeta>;
 

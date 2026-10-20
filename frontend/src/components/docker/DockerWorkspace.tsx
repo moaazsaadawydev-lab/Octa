@@ -25,8 +25,16 @@ export const DockerWorkspace: React.FC<DockerWorkspaceProps> = ({
   const [groups, setGroups] = useState<DockerProjectGroup[]>([]);
   const [selectedContainer, setSelectedContainer] = useState<DockerContainer | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [onlyRunning, setOnlyRunning] = useState(false);
+  const [onlyRunning, setOnlyRunning] = useState<boolean>(() => {
+    return settings?.docker_default_running_only ?? false;
+  });
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  useEffect(() => {
+    if (settings?.docker_default_running_only !== undefined) {
+      setOnlyRunning(settings.docker_default_running_only);
+    }
+  }, [settings?.docker_default_running_only]);
   const [sidebarWidth, setSidebarWidth] = useState(320);
   const isResizing = useRef(false);
   const workspaceRef = useRef<HTMLDivElement>(null);

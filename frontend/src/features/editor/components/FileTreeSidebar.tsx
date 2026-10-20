@@ -92,7 +92,7 @@ export const FileTreeSidebar: React.FC<FileTreeSidebarProps> = ({
   return (
     <div
       style={{ width: width ? `${width}px` : undefined }}
-      className="w-64 min-w-[160px] h-full bg-slate-50 dark:bg-[#0c0d12] border-r border-slate-200 dark:border-zinc-800 flex flex-col select-none text-xs flex-shrink-0"
+      className="w-full h-full bg-slate-50 dark:bg-[#0c0d12] flex flex-col select-none text-xs flex-shrink-0"
     >
       {/* Root Header */}
       <div className="p-3 border-b border-slate-200 dark:border-zinc-800 flex items-center justify-between gap-2">

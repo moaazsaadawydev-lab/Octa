@@ -17,6 +17,7 @@ import {
   FolderPlus,
   PanelLeft,
   Code2,
+  Compass,
 } from 'lucide-react';
 import { PaletteAction } from './types';
 import { useWorkspaceState } from '../../hooks/useWorkspaceState';
@@ -62,6 +63,7 @@ export function usePaletteActions({ state, onClose }: UsePaletteActionsProps): P
       act('ws-git', 'Switch to Git Workspace', 'Branches, commits, diffs', 'Workspaces', GitBranch, 'Ctrl+5', ['vcs', 'commit'], () => state.setActiveModule('git')),
       act('ws-docker', 'Switch to Docker', 'Containers, logs, stats', 'Workspaces', Boxes, 'Ctrl+6', ['container', 'image'], () => state.setActiveModule('docker')),
       act('ws-term', 'Switch to Terminal', 'Multi-shell (PowerShell, WSL)', 'Workspaces', Terminal, 'Ctrl+7', ['shell', 'cmd'], () => state.setActiveModule('terminal')),
+      act('ws-browser', 'Switch to Localhost Browser', 'Integrated lightweight web previewer', 'Workspaces', Compass, 'Ctrl+8', ['browser', 'localhost', 'web', 'preview'], () => state.setActiveModule('browser')),
 
       act('db-new', 'New Database Connection', 'Add PostgreSQL, MySQL, SQLite', 'Databases', Plus, undefined, ['connect', 'add'], () => {
         state.setActiveModule('databases');

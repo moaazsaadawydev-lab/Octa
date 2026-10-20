@@ -74,6 +74,14 @@ export const ALL_SHORTCUTS: ShortcutItem[] = [
     category: 'Workspace Navigation',
     targetTab: 'terminal',
   },
+  {
+    id: 'nav-browser',
+    label: 'Localhost Browser',
+    description: 'Switch to integrated lightweight localhost web previewer',
+    keys: ['Ctrl', '8'],
+    category: 'Workspace Navigation',
+    targetTab: 'browser',
+  },
 
   // 2. General & Window
   {

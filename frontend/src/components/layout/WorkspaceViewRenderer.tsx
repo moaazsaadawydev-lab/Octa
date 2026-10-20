@@ -12,6 +12,7 @@ import { TerminalWorkspace } from '../terminal';
 import { DockerWorkspace } from '../docker';
 import { GitWorkspace } from '../git/GitWorkspace';
 import { EditorWorkspace } from '../../features/editor/EditorWorkspace';
+import { BrowserWorkspace } from '../../features/browser/BrowserWorkspace';
 import { SettingsView } from './SettingsView';
 import { AppSettings } from '../../types/settings';
 import { getProjectRootDir } from '../../types/project';
@@ -120,6 +121,14 @@ export const WorkspaceViewRenderer: React.FC<WorkspaceViewRendererProps> = ({
       {/* 6. Settings View */}
       <div className={clsx('w-full h-full min-h-0 min-w-0', state.activeModule === 'settings' ? 'flex flex-col' : 'hidden')}>
         <SettingsView showToast={state.showToast} />
+      </div>
+
+      {/* 8. Integrated Localhost Browser Workspace */}
+      <div className={clsx('w-full h-full min-h-0 min-w-0', state.activeModule === 'browser' ? 'flex flex-col' : 'hidden')}>
+        <BrowserWorkspace
+          isVisible={state.activeModule === 'browser'}
+          showToast={state.showToast}
+        />
       </div>
 
       {/* 7. Database Workspace */}

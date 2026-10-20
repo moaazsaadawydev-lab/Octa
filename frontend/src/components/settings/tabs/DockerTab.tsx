@@ -102,6 +102,27 @@ export const DockerTab: React.FC<DockerTabProps> = ({
         </div>
       </SettingsRowCard>
 
+      {/* 3. Default "Running only" Filter State */}
+      <SettingsRowCard
+        icon={<Boxes className="w-4 h-4 text-emerald-500" />}
+        title="Default Container Filter"
+        description="Choose whether the 'Running only' filter is enabled by default when entering Docker"
+      >
+        <SelectDropdown
+          value={settings.docker_default_running_only ? 'running' : 'all'}
+          onChange={(val) =>
+            onUpdateSettings({
+              ...settings,
+              docker_default_running_only: val === 'running',
+            })
+          }
+          options={[
+            { value: 'all', label: 'All Containers (Off by default)' },
+            { value: 'running', label: 'Running Only (On by default)' },
+          ]}
+        />
+      </SettingsRowCard>
+
       {/* Helpful hint box */}
       <div className="p-3.5 rounded-xl bg-sky-50 dark:bg-[#0c1626]/60 border border-sky-200 dark:border-sky-900/50 text-xs text-sky-800 dark:text-sky-300 leading-relaxed space-y-1">
         <p className="font-semibold">Docker Provider Configuration:</p>
